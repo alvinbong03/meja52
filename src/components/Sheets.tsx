@@ -1,12 +1,12 @@
 import { useState, type FormEvent } from 'react';
 import { bySeat, handInProgress, LIMITS } from '../../shared/engine';
-import { ledger, netsInCents, settleUp } from '../../shared/settle';
 import { setSoundEnabled, soundEnabled } from '../lib/device';
-import { fmt, money, signed, signedMoney } from '../lib/format';
+import { fmt } from '../lib/format';
 import { useTable } from '../lib/table';
 import { Icon } from './Icon';
 import { Invite } from './Invite';
 import { Sheet } from './Sheet';
+import { Settlement } from './Settlement';
 
 export type SheetName = 'menu' | 'invite' | 'settings' | 'players' | 'settle' | null;
 
@@ -35,7 +35,7 @@ export function Sheets({ open, setOpen, onDisplay, onLeft }: Props) {
         <Players />
       </Sheet>
       <Sheet open={open === 'settle'} onClose={close} title="Settle up">
-        <Settle />
+        <Settlement />
       </Sheet>
     </>
   );
@@ -45,6 +45,7 @@ function Menu({ setOpen, onDisplay, onLeft }: { setOpen: (s: SheetName) => void;
   const { room, game, me, isHost, run, busy, v, away, serverNow } = useTable();
   const [sound, setSound] = useState(soundEnabled);
   const [confirmLeave, setConfirmLeave] = useState(false);
+  const [confirmEnd, setConfirmEnd] = useState(false);
   const inHand = !!me?.inHand && handInProgress(game);
   const hostAway =
     !isHost && ((!!room.hostId && away(room.hostId)) || (!!room.hostTakeoverAt && serverNow >= room.hostTakeoverAt));
@@ -88,6 +89,38 @@ function Menu({ setOpen, onDisplay, onLeft }: { setOpen: (s: SheetName) => void;
         <ul className="menu-group">
           {isHost && item('Game settings', () => setOpen('settings'))}
           {isHost && item('Players and stacks', () => setOpen('players'))}
+          {isHost && game.handNo > 0 &&
+            (room.endingAfterHand ? (
+              <li className="confirm-row end-game-row">
+                <span>Game ends after this hand.</span>
+                <button
+                  className="btn btn-quiet btn-sm"
+                  disabled={busy}
+                  onClick={() => run({ type: 'cancelEndGame', v })}
+                >
+                  Keep playing
+                </button>
+              </li>
+            ) : confirmEnd ? (
+              <li className="confirm-row end-game-row">
+                <span>{handInProgress(game) ? 'Finish this hand, then settle?' : 'Freeze balances and settle?'}</span>
+                <button className="btn btn-quiet btn-sm" onClick={() => setConfirmEnd(false)}>Cancel</button>
+                <button
+                  className="btn btn-danger btn-sm"
+                  disabled={busy}
+                  onClick={async () => {
+                    if (await run({ type: 'endGame', v })) setOpen(null);
+                  }}
+                >
+                  {handInProgress(game) ? 'End after hand' : 'End game'}
+                </button>
+              </li>
+            ) : (
+              item(handInProgress(game) ? 'End after this hand' : 'End game', () => setConfirmEnd(true), {
+                danger: true,
+                note: handInProgress(game) ? 'Finish this hand, then settle' : 'Freeze balances and settle',
+              })
+            ))}
           {hostAway && item('Take over hosting', () => run({ type: 'takeHost' }))}
         </ul>
       )}
@@ -321,68 +354,6 @@ function Players() {
         </div>
         <span className="hint">Anyone at the table can act for them.</span>
       </form>
-    </div>
-  );
-}
-
-function Settle() {
-  const { game, nameOf } = useTable();
-  const rows = ledger(game);
-  const price = game.settings.buyInPrice;
-  const cents = netsInCents(rows, price, game.settings.startingStack);
-  const useCash = price > 0;
-  const transfers = settleUp(rows.map((r) => ({ id: r.id, net: useCash ? (cents.get(r.id) ?? 0) : r.net })));
-  const name = (id: string) => rows.find((r) => r.id === id)?.name ?? nameOf(id);
-
-  if (rows.length === 0) return <p className="muted">Nobody has played yet.</p>;
-
-  return (
-    <div className="settle">
-      <table className="ledger">
-        <thead>
-          <tr>
-            <th scope="col">Player</th>
-            <th scope="col" className="num">
-              In
-            </th>
-            <th scope="col" className="num">
-              Now
-            </th>
-            <th scope="col" className="num">
-              Net
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => (
-            <tr key={r.id} data-sign={Math.sign(r.net)}>
-              <th scope="row">
-                {r.name}
-                {r.departed && <span className="tag">left</span>}
-              </th>
-              <td className="num">{fmt(r.buyIn)}</td>
-              <td className="num">{fmt(r.stack)}</td>
-              <td className="num net">{useCash ? signedMoney(cents.get(r.id) ?? 0) : signed(r.net)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
-      <h3 className="settle-title">{transfers.length ? 'To square up' : 'Everyone is even. Suspicious.'}</h3>
-      {transfers.length > 0 && (
-        <ul className="transfers">
-          {transfers.map((t, i) => (
-            <li key={i}>
-              <span>
-                <strong>{name(t.from)}</strong> pays <strong>{name(t.to)}</strong>
-              </span>
-              <span className="num">{useCash ? money(t.amount) : `${fmt(t.amount)} chips`}</span>
-            </li>
-          ))}
-        </ul>
-      )}
-      {!useCash && <p className="hint">Set a cash price per buy-in in game settings to see money amounts.</p>}
-      {handInProgress(game) && <p className="hint">Chips in the current pot are counted for whoever put them in.</p>}
     </div>
   );
 }

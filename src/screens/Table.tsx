@@ -8,11 +8,12 @@ import { Lobby } from '../components/Lobby';
 import { Seats } from '../components/Seats';
 import { Sheets, type SheetName } from '../components/Sheets';
 import { Stage } from '../components/Stage';
+import { Settlement } from '../components/Settlement';
 import { turnAlert, unlockAudio, useWakeLock } from '../lib/device-features';
 import { useTable } from '../lib/table';
 
 export function Table({ onDisplay, onLeft }: { onDisplay: () => void; onLeft: () => void }) {
-  const { game, you, conn, isHost } = useTable();
+  const { room, game, you, conn, isHost } = useTable();
   const [sheet, setSheet] = useState<SheetName>(null);
   const myTurn = !!you.legal;
   const wasMyTurn = useRef(false);
@@ -27,6 +28,24 @@ export function Table({ onDisplay, onLeft }: { onDisplay: () => void; onLeft: ()
 
   useEffect(() => () => void (document.title = 'MEJA52'), []);
 
+  if (room.endedAt) {
+    return (
+      <div className="table-shell final-settlement-shell" data-host={isHost || undefined} onPointerDown={unlockAudio}>
+        <main className="final-settlement">
+          <header className="final-settlement-head">
+            <span className="eyebrow">Room {room.code}</span>
+            <h1>Final settlement</h1>
+            <p>The game has ended. Balances are frozen.</p>
+          </header>
+          <section className="final-settlement-card" aria-label="Final balances">
+            <Settlement />
+          </section>
+          <button className="btn btn-primary btn-xl btn-block" onClick={onLeft}>Back to home</button>
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="table-shell" data-turn={myTurn || undefined} data-host={isHost || undefined} data-phase={game.phase} onPointerDown={unlockAudio}>
       <Header onInvite={() => setSheet('invite')} onMenu={() => setSheet('menu')} />
@@ -36,6 +55,12 @@ export function Table({ onDisplay, onLeft }: { onDisplay: () => void; onLeft: ()
         </div>
       )}
       <Claims />
+      {room.endingAfterHand && (
+        <div className="final-hand-notice" role="status">
+          <strong>Final hand</strong>
+          <span>The host will open settlement after the payout.</span>
+        </div>
+      )}
       <BetRail />
       <main className="table-main">
         {game.phase === 'lobby' ? (

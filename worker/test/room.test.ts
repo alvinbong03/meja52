@@ -200,6 +200,39 @@ describe('joining', () => {
 });
 
 describe('playing a hand', () => {
+  it('lets only the host end immediately between hands or queue the end of a live hand', async () => {
+    const { clients } = await table(['Ana', 'Ben']);
+    const [ana, ben] = clients;
+
+    await ana.ok({ type: 'start', v: ana.state.v });
+    expect(await ben.request({ type: 'endGame', v: ben.state.v })).toMatchObject({ code: 'FORBIDDEN' });
+
+    await ana.ok({ type: 'endGame', v: ana.state.v });
+    let s = await ben.settle();
+    expect(s.room).toMatchObject({ endingAfterHand: true, endedAt: null });
+
+    await ana.ok({ type: 'cancelEndGame', v: ana.state.v });
+    s = await ben.settle();
+    expect(s.room).toMatchObject({ endingAfterHand: false, endedAt: null });
+
+    await ana.ok({ type: 'endGame', v: ana.state.v });
+    await ana.ok({ type: 'act', v: ana.state.v, kind: 'fold' });
+    s = await ben.settle();
+    expect(s.room.endingAfterHand).toBe(false);
+    expect(s.room.endedAt).toEqual(expect.any(Number));
+    expect(s.room.game.phase).toBe('done');
+    expect(await ana.request({ type: 'next', v: s.v })).toMatchObject({ code: 'PHASE' });
+    expect(await ana.request({ type: 'rebuy' })).toMatchObject({ code: 'PHASE' });
+
+    const { clients: secondTable } = await table(['Cam', 'Dee']);
+    const [cam] = secondTable;
+    await cam.ok({ type: 'start', v: cam.state.v });
+    await cam.ok({ type: 'act', v: cam.state.v, kind: 'fold' });
+    await cam.ok({ type: 'endGame', v: cam.state.v });
+    expect(cam.state.room.endingAfterHand).toBe(false);
+    expect(cam.state.room.endedAt).toEqual(expect.any(Number));
+  });
+
   it('runs a full hand with turn enforcement, stale protection and awards', async () => {
     const { clients, idOf } = await table(['Ana', 'Ben', 'Cat']);
     const [ana, ben, cat] = clients;

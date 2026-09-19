@@ -20,6 +20,8 @@ describe('parseClientMessage', () => {
       type: 'transferController',
       playerId: 'abcdef0123456789',
     });
+    expect(parse({ type: 'endGame', v: 7 })).toEqual({ type: 'endGame', v: 7 });
+    expect(parse({ type: 'cancelEndGame', v: 8 })).toEqual({ type: 'cancelEndGame', v: 8 });
     expect(
       parse({
         type: 'award',

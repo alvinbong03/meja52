@@ -1117,6 +1117,24 @@ body:has(.table-shell[data-turn]) {
   text-align: center;
 }
 
+.final-hand-notice {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 8px;
+  padding: 7px var(--gutter);
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--brand-ivory) 8%, transparent);
+  color: var(--ink-2);
+  font-size: 0.8125rem;
+  text-align: center;
+}
+
+.final-hand-notice strong {
+  color: var(--ink);
+  font-weight: 650;
+}
+
 .claim {
   display: flex;
   flex-wrap: wrap;
@@ -2310,6 +2328,16 @@ button.chip-stack:active:not(:disabled) .poker-chip {
   flex: 1;
 }
 
+.end-game-row {
+  flex-wrap: wrap;
+  padding: 9px 0;
+}
+
+.end-game-row span {
+  min-width: 12rem;
+  font-size: 0.9375rem;
+}
+
 .players {
   display: grid;
   gap: 18px;
@@ -2424,6 +2452,49 @@ button.chip-stack:active:not(:disabled) .poker-chip {
 
 .transfers strong {
   font-weight: 620;
+}
+
+.table-shell.final-settlement-shell {
+  display: block;
+  min-height: 100dvh;
+  height: auto;
+  max-width: none;
+  overflow-y: auto;
+}
+
+.final-settlement {
+  display: grid;
+  gap: 24px;
+  width: min(100%, 680px);
+  min-height: 100dvh;
+  margin: 0 auto;
+  padding: max(40px, calc(var(--safe-top) + 24px)) var(--gutter) max(28px, calc(var(--safe-bottom) + 20px));
+  align-content: start;
+}
+
+.final-settlement-head {
+  display: grid;
+  gap: 6px;
+}
+
+.final-settlement-head h1 {
+  font-size: clamp(2rem, 9vw, 3.25rem);
+  letter-spacing: -0.045em;
+}
+
+.final-settlement-head p {
+  color: var(--ink-2);
+}
+
+.final-settlement-card {
+  padding: clamp(18px, 5vw, 28px);
+  border: 1px solid var(--private-line);
+  border-radius: var(--r-lg);
+  background: var(--private-surface);
+}
+
+.final-settlement > .btn {
+  margin-top: auto;
 }
 
 /* ---------- toasts ---------- */
@@ -2660,7 +2731,8 @@ body:has(.display) {
 
   .topbar,
   .offline,
-  .claim {
+  .claim,
+  .final-hand-notice {
     grid-column: 1 / -1;
   }
 

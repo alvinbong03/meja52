@@ -84,6 +84,8 @@ interface Stored {
   claims: Claim[];
   turnStartedAt: number | null;
   turnId: string | null;
+  endingAfterHand?: boolean;
+  endedAt?: number | null;
 }
 
 interface Attachment {
@@ -164,6 +166,8 @@ export class Room extends DurableObject<Env> {
         claims: [],
         turnStartedAt: null,
         turnId: null,
+        endingAfterHand: false,
+        endedAt: null,
       };
       this.undo = [];
       this.persist();
@@ -313,6 +317,10 @@ export class Room extends DurableObject<Env> {
       return id;
     };
 
+    if (s.endedAt && !['claim', 'cancelClaim', 'resolveClaim'].includes(msg.type)) {
+      deny('PHASE', 'The game has ended');
+    }
+
     switch (msg.type) {
       case 'join': {
         if (me) deny('INVALID', 'Already seated');
@@ -422,6 +430,34 @@ export class Room extends DurableObject<Env> {
         checkV(msg.v);
         if (s.game.phase !== 'done') deny('PHASE', 'The hand is not over');
         this.mutate('Deal the next hand', (g) => startHand(g));
+        return;
+      }
+      case 'endGame': {
+        const host = requireHost();
+        checkV(msg.v);
+        if (s.game.phase === 'lobby') deny('PHASE', 'Start a game before ending it');
+        if (s.endingAfterHand) deny('INVALID', 'The game is already ending after this hand');
+        if (s.game.phase === 'betting' || s.game.phase === 'showdown') {
+          s.endingAfterHand = true;
+          s.v += 1;
+          this.log('table', `${host.name} will end the game after this hand`);
+        } else {
+          s.endedAt = Date.now();
+          this.undo = [];
+          this.log('table', `${host.name} ended the game`);
+          s.v += 1;
+        }
+        this.commit();
+        return;
+      }
+      case 'cancelEndGame': {
+        const host = requireHost();
+        checkV(msg.v);
+        if (!s.endingAfterHand) deny('INVALID', 'The game is not scheduled to end');
+        s.endingAfterHand = false;
+        s.v += 1;
+        this.log('table', `${host.name} kept the game running`);
+        this.commit();
         return;
       }
       case 'act': {
@@ -558,7 +594,17 @@ export class Room extends DurableObject<Env> {
     s.game = after;
     s.v += 1;
     this.logTransition(before, after, label, kind);
+    this.finishIfScheduled(after);
     this.commit();
+  }
+
+  private finishIfScheduled(game: Game) {
+    const s = this.s as Stored;
+    if (!s.endingAfterHand || game.phase !== 'done') return;
+    s.endingAfterHand = false;
+    s.endedAt = Date.now();
+    this.undo = [];
+    this.log('table', 'The game ended after the final hand');
   }
 
   private logTransition(before: Game, after: Game, label: string, kind: LogKind) {
@@ -651,6 +697,7 @@ export class Room extends DurableObject<Env> {
     s.v += 1;
     this.log('table', how === 'left' ? `${target.name} left` : `${target.name} was removed`);
     this.logTransition(before, after, '', 'hand');
+    this.finishIfScheduled(after);
     this.commit();
   }
 
@@ -813,6 +860,8 @@ export class Room extends DurableObject<Env> {
       log: s.log.slice(-LOG_SEND),
       undoLabel: this.undo.at(-1)?.label ?? null,
       turnStartedAt: s.turnStartedAt,
+      endingAfterHand: s.endingAfterHand ?? false,
+      endedAt: s.endedAt ?? null,
     };
   }
 

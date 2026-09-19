@@ -38,6 +38,8 @@ export type ClientMessage =
   | { type: 'award'; v: number; winners: Record<string, string[]> }
   | { type: 'next'; v: number }
   | { type: 'undo'; v: number }
+  | { type: 'endGame'; v: number }
+  | { type: 'cancelEndGame'; v: number }
   | { type: 'sit'; out: boolean; playerId?: string }
   | { type: 'rebuy'; playerId?: string }
   | { type: 'leave' }
@@ -88,6 +90,8 @@ export interface RoomView {
   log: LogEntry[];
   undoLabel: string | null;
   turnStartedAt: number | null;
+  endingAfterHand: boolean;
+  endedAt: number | null;
 }
 
 export interface YouView {
@@ -149,6 +153,8 @@ export function parseClientMessage(raw: string): Envelope | null {
     case 'start':
     case 'next':
     case 'undo':
+    case 'endGame':
+    case 'cancelEndGame':
       return isNum(v) ? out({ type: m.type, v }) : null;
     case 'act': {
       if (!isNum(v) || typeof m.kind !== 'string' || !KINDS.includes(m.kind) || !optId(m.playerId)) return null;

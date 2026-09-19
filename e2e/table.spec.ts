@@ -106,6 +106,31 @@ test('three players play a hand from deal to payout', async ({ browser }) => {
   for (const p of [ana, ben, cat]) expect((p as Page & { errors: string[] }).errors).toEqual([]);
 });
 
+test('the host ends after the current hand and everyone receives frozen settlement', async ({ browser }) => {
+  const ana = await seat(browser, 'Ana');
+  const ben = await seat(browser, 'Ben', codeOf(ana));
+
+  await ana.getByRole('button', { name: 'Deal the first hand' }).click();
+  await expect(yourTurn(ana)).toBeVisible();
+
+  await ben.getByRole('button', { name: 'Menu' }).click();
+  await expect(ben.getByRole('button', { name: /End (after this hand|game)/ })).toHaveCount(0);
+  await ben.keyboard.press('Escape');
+
+  await ana.getByRole('button', { name: 'Menu' }).click();
+  await ana.getByRole('button', { name: 'End after this hand' }).click();
+  await ana.getByRole('button', { name: 'End after hand' }).click();
+  await expect(ben.getByText('Final hand', { exact: true })).toBeVisible();
+
+  await ana.getByRole('button', { name: 'Fold' }).click();
+  for (const page of [ana, ben]) {
+    await expect(page.getByRole('heading', { name: 'Final settlement' })).toBeVisible();
+    await expect(page.getByText('Balances are frozen.')).toBeVisible();
+    await expect(page.getByRole('button', { name: /Deal next hand/ })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Back to home' })).toBeVisible();
+  }
+});
+
 test('short stack all in creates a side pot that pays the right people', async ({ browser }) => {
   const ana = await seat(browser, 'Ana');
   const code = codeOf(ana);
