@@ -1,6 +1,7 @@
 {
   "approved": true,
   "approvedBy": "owner",
+  "approvedCorrection": "On mobile, chips and table edge share an exact centre point; the player-limit footer is anchored to the bottom of the page.",
   "surface": "MEJA52 home page — desktop and mobile",
   "revision": "Removed creator signature and reduced the footer to the player limit; replaced the hero with product-led anywhere/anytime positioning",
   "headline": "Poker chips. Any table. Any time.",

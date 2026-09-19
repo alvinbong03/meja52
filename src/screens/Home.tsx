@@ -14,10 +14,12 @@ export function Home({ navigate }: { navigate: (to: string) => void }) {
       </section>
       <div className="home-card home-card-back" aria-hidden="true"><span>K<small>♠</small></span><b>♠</b></div>
       <div className="home-card home-card-front" aria-hidden="true"><span>A<small>♥</small></span><b>♥</b></div>
-      <div className="home-chips" aria-hidden="true">
-        {Array.from({ length: 7 }, (_, index) => <i key={index} />)}
+      <div className="home-table-scene" aria-hidden="true">
+        <div className="home-chips">
+          {Array.from({ length: 7 }, (_, index) => <i key={index} />)}
+        </div>
+        <div className="home-table-edge" />
       </div>
-      <div className="home-table-edge" aria-hidden="true" />
       <footer className="premium-home-foot"><span>Up to 15 players</span></footer>
     </main>
   );
