@@ -165,6 +165,33 @@ test('a player requests a rebuy and the host edits and approves it', async ({ br
   await expect(ben.getByRole('button', { name: 'Request rebuy' })).toBeVisible();
 });
 
+test('a player takes a break and chooses how to return after missing blinds', async ({ browser }) => {
+  const ana = await seat(browser, 'Ana');
+  const ben = await seat(browser, 'Ben', codeOf(ana));
+  const cat = await seat(browser, 'Cat', codeOf(ana));
+
+  await ana.getByRole('button', { name: 'Deal the first hand' }).click();
+  await ben.getByRole('button', { name: 'Menu' }).click();
+  await ben.getByRole('button', { name: 'Take a break' }).click();
+  await expect(ben.getByText('Your seat and RM995 stay reserved.')).toBeVisible();
+  await ben.getByRole('button', { name: 'Take break after hand' }).click();
+
+  await actWhoeverIsUp([ana, ben, cat], /Fold/);
+  await actWhoeverIsUp([ana, ben, cat], /Fold/);
+  await ana.getByRole('button', { name: /Deal next hand/ }).click();
+  await actWhoeverIsUp([ana, cat], /Fold/);
+  await ana.getByRole('button', { name: /Deal next hand/ }).click();
+
+  await ben.getByRole('button', { name: 'Menu' }).click();
+  await ben.getByRole('button', { name: 'On break' }).click();
+  await expect(ben.getByRole('heading', { name: 'Welcome back' })).toBeVisible();
+  await expect(ben.getByText('You missed the small and big blind.')).toBeVisible();
+  await ben.getByRole('radio', { name: /Wait for big blind/ }).click();
+  await ben.getByRole('button', { name: 'Return to table' }).click();
+  await ben.getByRole('button', { name: 'Menu' }).click();
+  await expect(ben.getByRole('button', { name: 'Waiting for big blind' })).toBeVisible();
+});
+
 test('short stack all in creates a side pot that pays the right people', async ({ browser }) => {
   const ana = await seat(browser, 'Ana');
   const code = codeOf(ana);

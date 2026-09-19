@@ -4,11 +4,14 @@ import {
   addBuyIn,
   addPlayer,
   award,
+  bySeat,
   createGame,
+  eligibleForHand,
   findPlayer,
   handInProgress,
   legalActions,
   removePlayer,
+  returnWithPost,
   RuleError,
   setSeatOrder,
   setSittingOut,
@@ -27,6 +30,7 @@ import {
   PING,
   PONG,
   type ClaimView,
+  type BreakView,
   type Envelope,
   type ErrorCode,
   type LogEntry,
@@ -70,6 +74,7 @@ interface Snapshot {
   label: string;
   game: Game;
   rebuyRequests?: RebuyRequest[];
+  breaks?: BreakView[];
 }
 
 interface Stored {
@@ -88,6 +93,7 @@ interface Stored {
   logSeq: number;
   claims: Claim[];
   rebuyRequests?: RebuyRequest[];
+  breaks?: BreakView[];
   turnStartedAt: number | null;
   turnId: string | null;
   endingAfterHand?: boolean;
@@ -171,6 +177,7 @@ export class Room extends DurableObject<Env> {
         logSeq: 0,
         claims: [],
         rebuyRequests: [],
+        breaks: [],
         turnStartedAt: null,
         turnId: null,
         endingAfterHand: false,
@@ -429,14 +436,14 @@ export class Room extends DurableObject<Env> {
         requireHost();
         checkV(msg.v);
         if (s.game.phase !== 'lobby') deny('PHASE', 'The game already started');
-        this.mutate('Start the game', (g) => startHand(g));
+        this.mutate('Start the game', (g) => this.startPreparedHand(g));
         return;
       }
       case 'next': {
         requireController();
         checkV(msg.v);
         if (s.game.phase !== 'done') deny('PHASE', 'The hand is not over');
-        this.mutate('Deal the next hand', (g) => startHand(g));
+        this.mutate('Deal the next hand', (g) => this.startPreparedHand(g));
         return;
       }
       case 'endGame': {
@@ -494,14 +501,57 @@ export class Room extends DurableObject<Env> {
         const snap = this.undo.pop() ?? deny('INVALID', 'Nothing to undo');
         s.game = this.reconcile(snap.game);
         if (snap.rebuyRequests) s.rebuyRequests = structuredClone(snap.rebuyRequests);
+        if (snap.breaks) s.breaks = structuredClone(snap.breaks);
         s.v += 1;
         this.log('undo', `${m.name} undid: ${snap.label}`);
         this.commit();
         return;
       }
-      case 'sit': {
+      case 'takeBreak': {
         const id = requireControl(msg.playerId);
-        this.mutate(`${nameOf(id)} ${msg.out ? 'sits out' : 'sits back in'}`, (g) => setSittingOut(g, id, msg.out), 'table');
+        if ((s.breaks ?? []).some((item) => item.playerId === id)) deny('INVALID', 'That break is already scheduled');
+        const player = findPlayer(s.game, id) ?? deny('INVALID', 'Unknown player');
+        const scheduled = handInProgress(s.game) && player.inHand;
+        s.game = setSittingOut(s.game, id, true);
+        (s.breaks ??= []).push({
+          playerId: id,
+          status: scheduled ? 'scheduled' : 'away',
+          missedBlinds: false,
+          startedAt: Date.now(),
+        });
+        s.v += 1;
+        this.log('table', `${nameOf(id)} ${scheduled ? 'will take a break after this hand' : 'is on a break'}`);
+        this.commit();
+        return;
+      }
+      case 'returnFromBreak': {
+        const id = requireControl(msg.playerId);
+        const record = (s.breaks ?? []).find((item) => item.playerId === id) ?? deny('INVALID', 'That player is not on a break');
+        if (record.status === 'scheduled') {
+          s.game = setSittingOut(s.game, id, false);
+          s.breaks = (s.breaks ?? []).filter((item) => item.playerId !== id);
+          s.v += 1;
+          this.log('table', `${nameOf(id)} cancelled the break`);
+          this.commit();
+          return;
+        }
+        if (record.missedBlinds && msg.mode === 'now') deny('INVALID', 'Choose how to handle the missed blinds');
+        if (msg.mode === 'wait') {
+          record.status = 'waiting';
+          s.v += 1;
+          this.log('table', `${nameOf(id)} will return on the big blind`);
+          this.commit();
+          return;
+        }
+        s.game = record.missedBlinds
+          ? returnWithPost(s.game, id, s.game.settings.sb, s.game.settings.bb)
+          : setSittingOut(s.game, id, false);
+        s.breaks = (s.breaks ?? []).filter((item) => item.playerId !== id);
+        s.v += 1;
+        this.log('table', record.missedBlinds
+          ? `${nameOf(id)} will post ${fmt(s.game.settings.sb + s.game.settings.bb)} and return`
+          : `${nameOf(id)} is back`);
+        this.commit();
         return;
       }
       case 'requestRebuy': {
@@ -644,12 +694,20 @@ export class Room extends DurableObject<Env> {
   private mutate(label: string, fn: (g: Game) => Game, kind: LogKind = 'hand') {
     const s = this.s as Stored;
     const before = s.game;
+    const rebuyRequestsBefore = structuredClone(s.rebuyRequests ?? []);
+    const breaksBefore = structuredClone(s.breaks ?? []);
     const after = fn(before);
-    this.undo.push({ label, game: before, rebuyRequests: structuredClone(s.rebuyRequests ?? []) });
+    this.undo.push({
+      label,
+      game: before,
+      rebuyRequests: rebuyRequestsBefore,
+      breaks: breaksBefore,
+    });
     if (this.undo.length > UNDO_DEPTH) this.undo.shift();
     s.game = after;
     s.v += 1;
     this.logTransition(before, after, label, kind);
+    this.updateBreaks(before, after);
     this.applyApprovedRebuys();
     this.finishIfScheduled(after);
     this.commit();
@@ -681,6 +739,40 @@ export class Room extends DurableObject<Env> {
   private playerName(id: string) {
     const s = this.s as Stored;
     return s.members.find((m) => m.id === id)?.name ?? findPlayer(s.game, id)?.name ?? 'Someone';
+  }
+
+  private startPreparedHand(game: Game) {
+    const s = this.s as Stored;
+    let prepared = game;
+    if (game.lastBbSeat !== null) {
+      const seats = bySeat(game);
+      const rotated = [...seats.filter((p) => p.seat > game.lastBbSeat!), ...seats.filter((p) => p.seat <= game.lastBbSeat!)];
+      const next = rotated.find((p) => eligibleForHand(p) || (s.breaks ?? []).some((b) => b.playerId === p.id && b.status === 'waiting'));
+      const waiting = next && (s.breaks ?? []).find((b) => b.playerId === next.id && b.status === 'waiting');
+      if (waiting && next) {
+        prepared = setSittingOut(prepared, next.id, false);
+        s.breaks = (s.breaks ?? []).filter((b) => b.playerId !== next.id);
+        this.log('table', `${next.name} returned on the big blind`);
+      }
+    }
+    return startHand(prepared);
+  }
+
+  private updateBreaks(before: Game, after: Game) {
+    const s = this.s as Stored;
+    if (after.phase === 'done' && before.phase !== 'done') {
+      for (const record of s.breaks ?? []) if (record.status === 'scheduled') record.status = 'away';
+    }
+    if (after.handNo === before.handNo || before.lastBbSeat === null || after.bbId === null) return;
+    const bb = findPlayer(after, after.bbId);
+    if (!bb) return;
+    const seats = bySeat(after);
+    const passed = [...seats.filter((p) => p.seat > before.lastBbSeat!), ...seats.filter((p) => p.seat <= before.lastBbSeat!)];
+    for (const player of passed) {
+      if (player.id === bb.id) break;
+      const record = (s.breaks ?? []).find((item) => item.playerId === player.id && item.status === 'away');
+      if (record) record.missedBlinds = true;
+    }
   }
 
   private logTransition(before: Game, after: Game, label: string, kind: LogKind) {
@@ -752,6 +844,7 @@ export class Room extends DurableObject<Env> {
     s.members = s.members.filter((m) => m.id !== target.id);
     s.claims = s.claims.filter((c) => c.playerId !== target.id);
     s.rebuyRequests = (s.rebuyRequests ?? []).filter((r) => r.playerId !== target.id);
+    s.breaks = (s.breaks ?? []).filter((r) => r.playerId !== target.id);
     if (s.hostId === target.id) {
       s.hostId = (s.members.find((m) => !m.manual && !this.isAway(m)) ?? s.members.find((m) => !m.manual))?.id ?? null;
     }
@@ -768,7 +861,12 @@ export class Room extends DurableObject<Env> {
         ws.close(4002, 'Removed by host');
       }
     }
-    this.undo.push({ label: `${target.name} ${how}`, game: before, rebuyRequests: structuredClone(s.rebuyRequests ?? []) });
+    this.undo.push({
+      label: `${target.name} ${how}`,
+      game: before,
+      rebuyRequests: structuredClone(s.rebuyRequests ?? []),
+      breaks: structuredClone(s.breaks ?? []),
+    });
     if (this.undo.length > UNDO_DEPTH) this.undo.shift();
     s.game = after;
     s.v += 1;
@@ -935,6 +1033,7 @@ export class Room extends DurableObject<Env> {
       game: s.game,
       claims: s.claims.map(({ id, playerId, at }) => ({ id, playerId, at })),
       rebuyRequests: s.rebuyRequests ?? [],
+      breaks: s.breaks ?? [],
       log: s.log.slice(-LOG_SEND),
       undoLabel: this.undo.at(-1)?.label ?? null,
       turnStartedAt: s.turnStartedAt,
@@ -951,6 +1050,7 @@ export class Room extends DurableObject<Env> {
     const privateRoom: RoomView = {
       ...room,
       rebuyRequests: room.rebuyRequests.filter((r) => isHost || r.playerId === id),
+      breaks: room.breaks.filter((record) => isHost || record.playerId === id),
     };
     return {
       type: 'state',

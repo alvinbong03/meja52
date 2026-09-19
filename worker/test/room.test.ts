@@ -200,6 +200,62 @@ describe('joining', () => {
 });
 
 describe('playing a hand', () => {
+  it('schedules breaks, records missed blinds and supports both return choices', async () => {
+    const { clients, idOf } = await table(['Ana', 'Ben', 'Cat']);
+    const [ana] = clients;
+    const foldCurrent = async () => {
+      await Promise.all(clients.map((client) => client.settle()));
+      const actor = clients.find((client) => client.state.you.legal);
+      if (!actor) throw new Error('expected a player to act');
+      await actor.ok({ type: 'act', v: actor.state.v, kind: 'fold' });
+    };
+
+    await ana.ok({ type: 'start', v: ana.state.v });
+    await ana.ok({ type: 'takeBreak' });
+    expect(ana.state.room.breaks[0]).toMatchObject({ playerId: idOf(ana), status: 'scheduled', missedBlinds: false });
+    await foldCurrent();
+    await foldCurrent();
+    let state = await ana.settle();
+    expect(state.room.game.phase).toBe('done');
+    expect(state.room.breaks[0]).toMatchObject({ status: 'away', missedBlinds: false });
+    expect(state.room.game.players.find((p) => p.id === idOf(ana))?.sittingOut).toBe(true);
+
+    await ana.ok({ type: 'next', v: ana.state.v });
+    state = await ana.settle();
+    expect(state.room.breaks[0]).toMatchObject({ status: 'away', missedBlinds: true });
+    await ana.ok({ type: 'returnFromBreak', mode: 'post' });
+    expect(ana.state.room.breaks).toHaveLength(0);
+    await foldCurrent();
+    await ana.ok({ type: 'next', v: ana.state.v });
+    state = await ana.settle();
+    const returned = state.room.game.players.find((p) => p.id === idOf(ana));
+    expect(returned?.inHand).toBe(true);
+    expect(returned?.committed).toBeGreaterThanOrEqual(15);
+
+    const second = await table(['Dee', 'Eli', 'Fay']);
+    const [dee] = second.clients;
+    await dee.ok({ type: 'start', v: dee.state.v });
+    await dee.ok({ type: 'takeBreak' });
+    for (let i = 0; i < 2; i++) {
+      await Promise.all(second.clients.map((client) => client.settle()));
+      const actor = second.clients.find((client) => client.state.you.legal)!;
+      await actor.ok({ type: 'act', v: actor.state.v, kind: 'fold' });
+    }
+    await dee.ok({ type: 'next', v: dee.state.v });
+    expect((await dee.settle()).room.breaks[0].missedBlinds).toBe(true);
+    await dee.ok({ type: 'returnFromBreak', mode: 'wait' });
+    expect(dee.state.room.breaks[0].status).toBe('waiting');
+    for (let hand = 0; hand < 2; hand++) {
+      await Promise.all(second.clients.map((client) => client.settle()));
+      const actor = second.clients.find((client) => client.state.you.legal)!;
+      await actor.ok({ type: 'act', v: actor.state.v, kind: 'fold' });
+      await dee.ok({ type: 'next', v: dee.state.v });
+    }
+    const returnedOnBlind = await dee.settle();
+    expect(returnedOnBlind.room.breaks).toHaveLength(0);
+    expect(returnedOnBlind.room.game.bbId).toBe(second.idOf(dee));
+  });
+
   it('keeps rebuy requests private and applies host-approved amounts between hands', async () => {
     const { clients, idOf } = await table(['Ana', 'Ben', 'Cat']);
     const [ana, ben, cat] = clients;

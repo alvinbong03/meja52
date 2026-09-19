@@ -10,6 +10,7 @@ import {
   potTotal,
   rebuy,
   addBuyIn,
+  returnWithPost,
   removePlayer,
   RuleError,
   setSeatOrder,
@@ -361,6 +362,18 @@ describe('table changes', () => {
     expect(after.buyIn).toBe(before.buyIn + 125);
     expectRule(() => addBuyIn(g, 'p0', 0), 'INVALID');
     expectRule(() => addBuyIn(g, 'p0', LIMITS.maxStack), 'INVALID');
+  });
+
+  it('posts missed blinds as dead and live chips on the returning hand', () => {
+    let g = table([1000, 1000, 1000]);
+    g = setSittingOut(g, 'p0', true);
+    g = startHand(g);
+    g = fold(g, g.toActId!);
+    g = returnWithPost(g, 'p0', 5, 10);
+    g = startHand(g);
+    expect(p(g, 'p0').committed).toBeGreaterThanOrEqual(15);
+    expect(p(g, 'p0').bet).toBeGreaterThanOrEqual(10);
+    expect(chipsInPlay(g)).toBe(3000);
   });
 
   it('leaving on your own turn folds you and the hand moves on', () => {

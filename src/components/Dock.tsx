@@ -70,7 +70,7 @@ function MyStatus({ onRebuy }: { onRebuy: () => void }) {
   if (!me) return null;
   const inHand = me.inHand && (game.phase === 'betting' || game.phase === 'showdown');
   let note: string;
-  if (!inHand) note = me.stack === 0 ? 'Busted' : me.sittingOut ? 'Sitting out' : 'In from the next hand';
+  if (!inHand) note = me.stack === 0 ? 'Busted' : me.sittingOut ? 'On break' : 'In from the next hand';
   else if (me.folded) note = 'Folded';
   else if (me.allIn) note = 'All in';
   else note = me.committed > 0 ? `${fmt(me.committed)} in this hand` : 'In the hand';

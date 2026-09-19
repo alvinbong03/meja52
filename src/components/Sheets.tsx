@@ -9,7 +9,7 @@ import { Invite } from './Invite';
 import { Sheet } from './Sheet';
 import { Settlement } from './Settlement';
 
-export type SheetName = 'menu' | 'invite' | 'settings' | 'players' | 'settle' | 'rebuy' | 'rebuyRequests' | null;
+export type SheetName = 'menu' | 'invite' | 'settings' | 'players' | 'settle' | 'rebuy' | 'rebuyRequests' | 'break' | null;
 
 interface Props {
   open: SheetName;
@@ -19,7 +19,8 @@ interface Props {
 }
 
 export function Sheets({ open, setOpen, onDisplay, onLeft }: Props) {
-  const { room } = useTable();
+  const { room, me } = useTable();
+  const breakRecord = me ? room.breaks.find((record) => record.playerId === me.id) : undefined;
   const close = () => setOpen(null);
   return (
     <>
@@ -44,6 +45,9 @@ export function Sheets({ open, setOpen, onDisplay, onLeft }: Props) {
       <Sheet open={open === 'rebuyRequests'} onClose={close} title="Rebuy requests">
         <RebuyRequests />
       </Sheet>
+      <Sheet open={open === 'break'} onClose={close} title={breakRecord ? (breakRecord.status === 'scheduled' ? 'Break scheduled' : 'Welcome back') : 'Take a break'}>
+        <BreakFlow onDone={close} />
+      </Sheet>
     </>
   );
 }
@@ -58,6 +62,7 @@ function Menu({ setOpen, onDisplay, onLeft }: { setOpen: (s: SheetName) => void;
     !isHost && ((!!room.hostId && away(room.hostId)) || (!!room.hostTakeoverAt && serverNow >= room.hostTakeoverAt));
   const myRebuy = me ? room.rebuyRequests.find((request) => request.playerId === me.id) : undefined;
   const pendingRebuys = room.rebuyRequests.filter((request) => request.status === 'pending');
+  const myBreak = me ? room.breaks.find((record) => record.playerId === me.id) : undefined;
 
   const item = (label: string, onClick: () => void, opts: { note?: string; danger?: boolean; disabled?: boolean } = {}) => (
     <li>
@@ -79,9 +84,11 @@ function Menu({ setOpen, onDisplay, onLeft }: { setOpen: (s: SheetName) => void;
 
       {me && (
         <ul className="menu-group">
-          {item(me.sittingOut ? 'Sit back in' : 'Sit out', () => run({ type: 'sit', out: !me.sittingOut }), {
-            note: inHand ? 'From the next hand' : undefined,
-          })}
+          {item(
+            myBreak?.status === 'scheduled' ? 'Break scheduled' : myBreak?.status === 'waiting' ? 'Waiting for big blind' : myBreak ? 'On break' : 'Take a break',
+            () => setOpen('break'),
+            { note: myBreak?.missedBlinds ? 'Choose how to return' : myBreak ? 'Your seat stays reserved' : inHand ? 'Starts after this hand' : 'Reserve your seat and chips' },
+          )}
           {item(myRebuy ? 'Rebuy request' : 'Request rebuy', () => setOpen('rebuy'), {
             note: myRebuy ? (myRebuy.status === 'approved' ? 'Approved · after this hand' : 'Waiting for host') : 'Ask the host to add chips',
           })}
@@ -160,6 +167,88 @@ function Menu({ setOpen, onDisplay, onLeft }: { setOpen: (s: SheetName) => void;
           )}
         </ul>
       )}
+    </div>
+  );
+}
+
+function BreakFlow({ onDone }: { onDone: () => void }) {
+  const { room, game, me, run, busy } = useTable();
+  const [returnMode, setReturnMode] = useState<'post' | 'wait'>('post');
+  if (!me) return null;
+  const record = room.breaks.find((item) => item.playerId === me.id);
+  const inHand = me.inHand && handInProgress(game);
+  const post = game.settings.sb + game.settings.bb;
+
+  if (!record) {
+    return (
+      <div className="break-flow">
+        <p className="sheet-lead">Your seat and {chipLabel(room.currency, me.stack)} stay reserved.</p>
+        <div className="break-detail">
+          <strong>{inHand ? 'Starts after this hand' : 'Starts now'}</strong>
+          <span>You won’t receive cards while away.</span>
+        </div>
+        <button className="btn btn-primary btn-xl btn-block" disabled={busy} onClick={async () => {
+          if (await run({ type: 'takeBreak' })) onDone();
+        }}>
+          {inHand ? 'Take break after hand' : 'Take a break'}
+        </button>
+      </div>
+    );
+  }
+
+  if (record.status === 'scheduled') {
+    return (
+      <div className="break-flow">
+        <p className="sheet-lead">Your break starts when this hand ends.</p>
+        <div className="break-detail"><strong>Seat reserved</strong><span>You still finish this hand normally.</span></div>
+        <button className="btn btn-quiet btn-xl btn-block" disabled={busy} onClick={async () => {
+          if (await run({ type: 'returnFromBreak', mode: 'now' })) onDone();
+        }}>Cancel break</button>
+      </div>
+    );
+  }
+
+  if (record.status === 'waiting') {
+    return (
+      <div className="break-flow">
+        <p className="sheet-lead">You’ll return automatically when the big blind reaches your seat.</p>
+        <button className="btn btn-primary btn-xl btn-block" disabled={busy} onClick={async () => {
+          if (await run({ type: 'returnFromBreak', mode: 'post' })) onDone();
+        }}>Post {chipLabel(room.currency, post)} and return sooner</button>
+        <button className="btn btn-quiet btn-lg btn-block" onClick={onDone}>Stay on break</button>
+      </div>
+    );
+  }
+
+  if (!record.missedBlinds) {
+    return (
+      <div className="break-flow">
+        <p className="sheet-lead">No blinds were missed. You can rejoin the next hand.</p>
+        <button className="btn btn-primary btn-xl btn-block" disabled={busy} onClick={async () => {
+          if (await run({ type: 'returnFromBreak', mode: 'now' })) onDone();
+        }}>I’m back</button>
+        <button className="btn btn-quiet btn-lg btn-block" onClick={onDone}>Stay on break</button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="break-flow">
+      <p className="sheet-lead">You missed the small and big blind.</p>
+      <div className="return-choices" role="radiogroup" aria-label="Return option">
+        <button className="return-choice" role="radio" aria-checked={returnMode === 'post'} onClick={() => setReturnMode('post')}>
+          <span className="choice-dot" aria-hidden="true" />
+          <span><strong>Post {chipLabel(room.currency, post)} and return</strong><small>{chipLabel(room.currency, game.settings.bb)} live · {chipLabel(room.currency, game.settings.sb)} dead</small></span>
+        </button>
+        <button className="return-choice" role="radio" aria-checked={returnMode === 'wait'} onClick={() => setReturnMode('wait')}>
+          <span className="choice-dot" aria-hidden="true" />
+          <span><strong>Wait for big blind</strong><small>Return automatically without an extra post.</small></span>
+        </button>
+      </div>
+      <button className="btn btn-primary btn-xl btn-block" disabled={busy} onClick={async () => {
+        if (await run({ type: 'returnFromBreak', mode: returnMode })) onDone();
+      }}>Return to table</button>
+      <button className="btn btn-quiet btn-lg btn-block" onClick={onDone}>Stay on break</button>
     </div>
   );
 }
@@ -374,6 +463,7 @@ function Players() {
         {bySeat(game).map((p) => {
           const m = member(p.id);
           const locked = hand && p.inHand;
+          const breakRecord = room.breaks.find((record) => record.playerId === p.id);
           return (
             <li key={p.id} className="player-row">
               <div className="player-line">
@@ -423,8 +513,12 @@ function Players() {
                   >
                     Set stack
                   </button>
-                  <button className="btn btn-quiet btn-sm" disabled={busy} onClick={() => run({ type: 'sit', out: !p.sittingOut, playerId: p.id })}>
-                    {p.sittingOut ? 'Sit in' : 'Sit out'}
+                  <button
+                    className="btn btn-quiet btn-sm"
+                    disabled={busy || !!breakRecord}
+                    onClick={() => run({ type: 'takeBreak', playerId: p.id })}
+                  >
+                    {breakRecord ? 'On break' : 'Put on break'}
                   </button>
                   {m && !m.manual && room.hostId !== p.id && (
                     <button className="btn btn-quiet btn-sm" disabled={busy} onClick={() => run({ type: 'transferHost', playerId: p.id })}>

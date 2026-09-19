@@ -40,7 +40,8 @@ export type ClientMessage =
   | { type: 'undo'; v: number }
   | { type: 'endGame'; v: number }
   | { type: 'cancelEndGame'; v: number }
-  | { type: 'sit'; out: boolean; playerId?: string }
+  | { type: 'takeBreak'; playerId?: string }
+  | { type: 'returnFromBreak'; mode: 'now' | 'post' | 'wait'; playerId?: string }
   | { type: 'requestRebuy'; amount: number }
   | { type: 'cancelRebuy'; requestId: string }
   | { type: 'resolveRebuy'; v: number; requestId: string; allow: boolean; amount?: number }
@@ -78,6 +79,13 @@ export interface RebuyRequestView {
   requestedAt: number;
 }
 
+export interface BreakView {
+  playerId: string;
+  status: 'scheduled' | 'away' | 'waiting';
+  missedBlinds: boolean;
+  startedAt: number;
+}
+
 export type LogKind = 'action' | 'hand' | 'win' | 'undo' | 'table';
 
 export interface LogEntry {
@@ -98,6 +106,7 @@ export interface RoomView {
   game: Game;
   claims: ClaimView[];
   rebuyRequests: RebuyRequestView[];
+  breaks: BreakView[];
   log: LogEntry[];
   undoLabel: string | null;
   turnStartedAt: number | null;
@@ -187,9 +196,15 @@ export function parseClientMessage(raw: string): Envelope | null {
       }
       return out({ type: 'award', v, winners });
     }
-    case 'sit':
-      return typeof m.out === 'boolean' && optId(m.playerId)
-        ? out(m.playerId === undefined ? { type: 'sit', out: m.out } : { type: 'sit', out: m.out, playerId: m.playerId as string })
+    case 'takeBreak':
+      return optId(m.playerId)
+        ? out(m.playerId === undefined ? { type: 'takeBreak' } : { type: 'takeBreak', playerId: m.playerId as string })
+        : null;
+    case 'returnFromBreak':
+      return ['now', 'post', 'wait'].includes(String(m.mode)) && optId(m.playerId)
+        ? out(m.playerId === undefined
+            ? { type: 'returnFromBreak', mode: m.mode as 'now' | 'post' | 'wait' }
+            : { type: 'returnFromBreak', mode: m.mode as 'now' | 'post' | 'wait', playerId: m.playerId as string })
         : null;
     case 'requestRebuy':
       return isNum(m.amount) ? out({ type: 'requestRebuy', amount: m.amount }) : null;

@@ -83,7 +83,7 @@ Implement the approved waiting, active-turn, preselection, staged-call, raise bu
 
 Implement player/host controls, rebuy requests, breaks, return/missed blinds, late arrival, leaving, host transfer and disconnect recovery.
 
-**Implemented in pass 2:** a player can request any valid whole-unit rebuy, cancel it before review, and privately track its state. The host can review, edit, approve or reject it. Approval between hands applies immediately; approval during a hand is queued until the hand ends, remains correct through undo, enters the buy-in ledger and is hidden from unrelated players and shared displays. Breaks, missed blinds, governed leaving and late-arrival timing remain pending.
+**Implemented in pass 2:** a player can request any valid whole-unit rebuy, cancel it before review, and privately track its state. The host can review, edit, approve or reject it. Approval between hands applies immediately; approval during a hand is queued until the hand ends, remains correct through undo, enters the buy-in ledger and is hidden from unrelated players and shared displays. Cash-game breaks now reserve the seat and stack, start at the hand boundary, track a passed blind position, and let the player either post the missed small blind as dead money plus a live big blind or wait to return naturally on the big blind. Governed leaving and late-arrival timing remain pending.
 
 ### Slice 4 — physical hand control and corrections
 

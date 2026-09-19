@@ -27,6 +27,8 @@ describe('parseClientMessage', () => {
       type: 'cancelRebuy',
       requestId: 'abcdef0123456789',
     });
+    expect(parse({ type: 'takeBreak' })).toEqual({ type: 'takeBreak' });
+    expect(parse({ type: 'returnFromBreak', mode: 'post' })).toEqual({ type: 'returnFromBreak', mode: 'post' });
     expect(parse({ type: 'resolveRebuy', v: 9, requestId: 'abcdef0123456789', allow: true, amount: 125 })).toEqual({
       type: 'resolveRebuy',
       v: 9,

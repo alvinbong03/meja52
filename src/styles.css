@@ -2407,6 +2407,71 @@ button.chip-stack:active:not(:disabled) .poker-chip {
   text-align: center;
 }
 
+.break-flow {
+  display: grid;
+  gap: 16px;
+}
+
+.break-detail {
+  display: grid;
+  gap: 4px;
+  padding: 16px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.break-detail strong {
+  font-weight: 600;
+}
+
+.break-detail span {
+  color: var(--ink-2);
+  font-size: 0.875rem;
+}
+
+.return-choices {
+  display: grid;
+  border-top: 1px solid var(--line);
+}
+
+.return-choice {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  min-height: 76px;
+  padding: 12px 4px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+  text-align: left;
+}
+
+.return-choice > span:last-child {
+  display: grid;
+  gap: 3px;
+}
+
+.return-choice strong {
+  font-weight: 580;
+}
+
+.return-choice small {
+  color: var(--ink-2);
+}
+
+.choice-dot {
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+}
+
+.return-choice[aria-checked='true'] .choice-dot {
+  border: 7px solid var(--ink);
+  background: var(--bg);
+}
+
 .players {
   display: grid;
   gap: 18px;

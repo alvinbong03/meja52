@@ -30,6 +30,9 @@ export interface Player {
   actedLevel: number;
   sittingOut: boolean;
   leaving: boolean;
+  /** Optional missed-blind post added at the start of the next hand. */
+  entryDead: number;
+  entryLive: number;
 }
 
 export interface Pot {
@@ -233,6 +236,8 @@ export function addPlayer(g0: Game, id: string, name: string): Game {
     actedLevel: 0,
     sittingOut: false,
     leaving: false,
+    entryDead: 0,
+    entryLive: 0,
   });
   return g;
 }
@@ -341,6 +346,20 @@ export function setSittingOut(g0: Game, id: string, out: boolean): Game {
   return g;
 }
 
+export function returnWithPost(g0: Game, id: string, dead: number, live: number): Game {
+  if (!isInt(dead, 0, LIMITS.maxBlind) || !isInt(live, 0, LIMITS.maxBlind) || dead + live < 1) {
+    fail('INVALID', 'Missed blind post is out of range');
+  }
+  const g = clone(g0);
+  const p = must(g, id);
+  if (p.inHand && handInProgress(g)) fail('PHASE', 'Return after this hand');
+  if (p.stack < dead + live) fail('INVALID', 'Not enough chips to post missed blinds');
+  p.sittingOut = false;
+  p.entryDead = dead;
+  p.entryLive = live;
+  return g;
+}
+
 // ---------- hand flow ----------
 
 function post(p: Player, amount: number): number {
@@ -398,9 +417,22 @@ export function startHand(g0: Game): Game {
   g.lastBbSeat = bbP.seat;
   const sbPaid = post(sbP, g.settings.sb);
   const bbPaid = post(bbP, g.settings.bb);
+  for (const p of g.players) {
+    const dead = p.entryDead ?? 0;
+    const live = p.entryLive ?? 0;
+    if (dead > 0) {
+      const paid = Math.min(dead, p.stack);
+      p.stack -= paid;
+      p.committed += paid;
+      if (p.stack === 0) p.allIn = true;
+    }
+    if (live > 0) post(p, live);
+    p.entryDead = 0;
+    p.entryLive = 0;
+  }
   g.lastAction = { id: bbP.id, kind: 'bb', amount: bbPaid, allIn: bbP.allIn };
   void sbPaid;
-  g.currentBet = g.settings.bb;
+  g.currentBet = Math.max(g.settings.bb, ...g.players.map((p) => p.bet));
   g.minRaise = g.settings.bb;
   g.toActId = null;
   advance(g, bbP.seat);

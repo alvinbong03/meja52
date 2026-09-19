@@ -11,10 +11,10 @@ export function seatStatus(p: Player, phase: string, away: boolean, manual: bool
   if (inHand && p.allIn) return 'all in';
   if (!inHand && (phase === 'betting' || phase === 'showdown')) {
     if (p.stack === 0) return 'busted';
-    return p.sittingOut ? 'sitting out' : 'next hand';
+    return p.sittingOut ? 'on break' : 'next hand';
   }
   if (p.stack === 0 && phase !== 'lobby') return 'busted';
-  if (p.sittingOut) return 'sitting out';
+  if (p.sittingOut) return 'on break';
   if (manual) return 'no phone';
   if (away) return 'away';
   return null;
