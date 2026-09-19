@@ -22,6 +22,18 @@ describe('parseClientMessage', () => {
     });
     expect(parse({ type: 'endGame', v: 7 })).toEqual({ type: 'endGame', v: 7 });
     expect(parse({ type: 'cancelEndGame', v: 8 })).toEqual({ type: 'cancelEndGame', v: 8 });
+    expect(parse({ type: 'requestRebuy', amount: 100 })).toEqual({ type: 'requestRebuy', amount: 100 });
+    expect(parse({ type: 'cancelRebuy', requestId: 'abcdef0123456789' })).toEqual({
+      type: 'cancelRebuy',
+      requestId: 'abcdef0123456789',
+    });
+    expect(parse({ type: 'resolveRebuy', v: 9, requestId: 'abcdef0123456789', allow: true, amount: 125 })).toEqual({
+      type: 'resolveRebuy',
+      v: 9,
+      requestId: 'abcdef0123456789',
+      allow: true,
+      amount: 125,
+    });
     expect(
       parse({
         type: 'award',
@@ -42,6 +54,8 @@ describe('parseClientMessage', () => {
       { type: 'act', v: -1, kind: 'check' },
       { type: 'act', v: 1, kind: 'raise', amount: 1.5 },
       { type: 'act', v: 1, kind: 'check', playerId: '<script>' },
+      { type: 'resolveRebuy', v: 1, requestId: 'abcdef0123456789', allow: true },
+      { type: 'resolveRebuy', v: 1, requestId: 'abcdef0123456789', allow: false, amount: '100' },
       { type: 'award', v: 1, winners: { x: ['abcdef01'] } },
       { type: 'award', v: 1, winners: [] },
       { type: 'settings', v: 1, settings: { sb: '5', bb: 10, startingStack: 1000, buyInPrice: 0 } },

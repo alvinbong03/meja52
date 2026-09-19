@@ -73,7 +73,7 @@ export function Table({ onDisplay, onLeft }: { onDisplay: () => void; onLeft: ()
         )}
       </main>
       <aside className="dock-wrap" aria-label="Your actions">
-        <Dock />
+        <Dock onRebuy={() => setSheet('rebuy')} />
         <button className="table-controls-handle" onClick={() => setSheet('menu')}>
           <Icon name="up" size={16} />
           Table controls

@@ -19,16 +19,16 @@ import { Num } from './Num';
 
 const ACT_FOR_AFTER_MS = 15_000;
 
-export function Dock() {
+export function Dock({ onRebuy }: { onRebuy: () => void }) {
   const shaking = useShake();
   return (
     <div className="dock-shake" data-shake={shaking || undefined}>
-      <DockBody />
+      <DockBody onRebuy={onRebuy} />
     </div>
   );
 }
 
-function DockBody() {
+function DockBody({ onRebuy }: { onRebuy: () => void }) {
   const { game, you, me, room, serverNow, away, member } = useTable();
   const [actingFor, setActingFor] = useState<string | null>(null);
 
@@ -37,7 +37,7 @@ function DockBody() {
 
   if (game.phase === 'lobby') return <LobbyDock />;
   if (game.phase === 'showdown') return <AwardPanel />;
-  if (game.phase === 'done') return <ResultsPanel />;
+  if (game.phase === 'done') return <ResultsPanel onRebuy={onRebuy} />;
 
   if (you.legal && me) return <ActionPanel legal={you.legal} player={me} />;
 
@@ -55,7 +55,7 @@ function DockBody() {
 
   return (
     <div className="dock">
-      <MyStatus />
+      <MyStatus onRebuy={onRebuy} />
       {canActFor && actor && (
         <button className="btn btn-quiet btn-lg btn-block" onClick={() => setActingFor(actor.id)}>
           Act for {actor.name}
@@ -65,8 +65,8 @@ function DockBody() {
   );
 }
 
-function MyStatus() {
-  const { game, me, room, run, busy } = useTable();
+function MyStatus({ onRebuy }: { onRebuy: () => void }) {
+  const { game, me, room } = useTable();
   if (!me) return null;
   const inHand = me.inHand && (game.phase === 'betting' || game.phase === 'showdown');
   let note: string;
@@ -85,8 +85,8 @@ function MyStatus() {
         <div className="my-note">
           <span>{note}</span>
           {canRebuy && (
-            <button className="btn btn-quiet btn-sm" disabled={busy} onClick={() => run({ type: 'rebuy' })}>
-              Rebuy {fmt(game.settings.startingStack)}
+            <button className="btn btn-quiet btn-sm" onClick={onRebuy}>
+              Request rebuy
             </button>
           )}
         </div>
@@ -440,7 +440,7 @@ function chopNote(cut: { id: string; amount: number }[], nameOf: (id: string) =>
 
 // ---------------- hand over ----------------
 
-function ResultsPanel() {
+function ResultsPanel({ onRebuy }: { onRebuy: () => void }) {
   const { game, run, busy, v, room, me, isHost, isController, nameOf } = useTable();
   const ready = game.players.filter(eligibleForHand).length >= 2;
   const iAmOut = me && me.stack === 0;
@@ -460,8 +460,8 @@ function ResultsPanel() {
   return (
     <div className="dock dock-done">
       {iAmOut && (
-        <button className="btn btn-quiet btn-lg btn-block" disabled={busy} onClick={() => run({ type: 'rebuy' })}>
-          Rebuy for {fmt(game.settings.startingStack)}
+        <button className="btn btn-quiet btn-lg btn-block" disabled={busy} onClick={onRebuy}>
+          Request rebuy
         </button>
       )}
       <div className="done-actions">

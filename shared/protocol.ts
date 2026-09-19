@@ -41,7 +41,9 @@ export type ClientMessage =
   | { type: 'endGame'; v: number }
   | { type: 'cancelEndGame'; v: number }
   | { type: 'sit'; out: boolean; playerId?: string }
-  | { type: 'rebuy'; playerId?: string }
+  | { type: 'requestRebuy'; amount: number }
+  | { type: 'cancelRebuy'; requestId: string }
+  | { type: 'resolveRebuy'; v: number; requestId: string; allow: boolean; amount?: number }
   | { type: 'leave' }
   | { type: 'settings'; v: number; settings: Settings }
   | { type: 'setStack'; v: number; playerId: string; stack: number }
@@ -68,6 +70,14 @@ export interface ClaimView {
   at: number;
 }
 
+export interface RebuyRequestView {
+  id: string;
+  playerId: string;
+  amount: number;
+  status: 'pending' | 'approved';
+  requestedAt: number;
+}
+
 export type LogKind = 'action' | 'hand' | 'win' | 'undo' | 'table';
 
 export interface LogEntry {
@@ -87,6 +97,7 @@ export interface RoomView {
   members: MemberView[];
   game: Game;
   claims: ClaimView[];
+  rebuyRequests: RebuyRequestView[];
   log: LogEntry[];
   undoLabel: string | null;
   turnStartedAt: number | null;
@@ -180,9 +191,20 @@ export function parseClientMessage(raw: string): Envelope | null {
       return typeof m.out === 'boolean' && optId(m.playerId)
         ? out(m.playerId === undefined ? { type: 'sit', out: m.out } : { type: 'sit', out: m.out, playerId: m.playerId as string })
         : null;
-    case 'rebuy':
-      return optId(m.playerId)
-        ? out(m.playerId === undefined ? { type: 'rebuy' } : { type: 'rebuy', playerId: m.playerId as string })
+    case 'requestRebuy':
+      return isNum(m.amount) ? out({ type: 'requestRebuy', amount: m.amount }) : null;
+    case 'cancelRebuy':
+      return isId(m.requestId) ? out({ type: 'cancelRebuy', requestId: m.requestId }) : null;
+    case 'resolveRebuy':
+      return isNum(v) && isId(m.requestId) && typeof m.allow === 'boolean' &&
+        (m.amount === undefined || isNum(m.amount)) && (!m.allow || m.amount !== undefined)
+        ? out({
+            type: 'resolveRebuy',
+            v,
+            requestId: m.requestId,
+            allow: m.allow,
+            ...(m.amount === undefined ? {} : { amount: m.amount as number }),
+          })
         : null;
     case 'settings': {
       const s = m.settings;

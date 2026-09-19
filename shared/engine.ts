@@ -323,6 +323,18 @@ export function rebuy(g0: Game, id: string): Game {
   return g;
 }
 
+/** Adds a host-approved cash-game buy-in without changing the player's existing stack. */
+export function addBuyIn(g0: Game, id: string, amount: number): Game {
+  if (!isInt(amount, 1, LIMITS.maxStack)) fail('INVALID', 'Rebuy amount is out of range');
+  const p0 = must(g0, id);
+  if (p0.stack + amount > LIMITS.maxStack) fail('INVALID', 'Rebuy would exceed the maximum stack');
+  const g = clone(g0);
+  const p = must(g, id);
+  p.stack += amount;
+  p.buyIn += amount;
+  return g;
+}
+
 export function setSittingOut(g0: Game, id: string, out: boolean): Game {
   const g = clone(g0);
   must(g, id).sittingOut = out;

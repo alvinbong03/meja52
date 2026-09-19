@@ -138,6 +138,33 @@ test('the host ends after the current hand and everyone receives frozen settleme
   }
 });
 
+test('a player requests a rebuy and the host edits and approves it', async ({ browser }) => {
+  const ana = await seat(browser, 'Ana');
+  const ben = await seat(browser, 'Ben', codeOf(ana));
+
+  await ben.getByRole('button', { name: 'Menu' }).click();
+  await ben.getByRole('button', { name: 'Request rebuy' }).click();
+  await ben.getByLabel('Amount').fill('125');
+  await expect(ben.getByText('New balance after approval')).toContainText('RM1,125');
+  await ben.getByRole('button', { name: 'Send request' }).click();
+
+  await ana.getByRole('button', { name: 'Menu' }).click();
+  await expect(ana.getByRole('button', { name: 'Rebuy requests' })).toContainText('1 pending');
+  await ana.getByRole('button', { name: 'Rebuy requests' }).click();
+  await expect(ana.getByText('Ben requested RM125.')).toBeVisible();
+  await ana.getByLabel('Edit amount').fill('150');
+  await ana.getByRole('button', { name: 'Approve RM150' }).click();
+  await expect(ana.getByText('No rebuy requests are waiting.')).toBeVisible();
+  await ana.keyboard.press('Escape');
+
+  await ana.getByRole('button', { name: 'Manage' }).click();
+  await expect(ana.locator('.player-row').filter({ hasText: 'Ben' })).toContainText('1,150');
+  await ana.keyboard.press('Escape');
+
+  await ben.getByRole('button', { name: 'Menu' }).click();
+  await expect(ben.getByRole('button', { name: 'Request rebuy' })).toBeVisible();
+});
+
 test('short stack all in creates a side pot that pays the right people', async ({ browser }) => {
   const ana = await seat(browser, 'Ana');
   const code = codeOf(ana);
@@ -178,8 +205,12 @@ test('short stack all in creates a side pot that pays the right people', async (
   await expect(stackOf(ana, 'Ben')).toHaveText('300');
   await expect(stackOf(ana, 'Cat')).toHaveText('1,800');
   await expect(stackOf(ana, 'Ana')).toHaveText('0');
-  await expect(ana.getByRole('button', { name: 'Rebuy for 1,000' })).toBeVisible();
-  await ana.getByRole('button', { name: 'Rebuy for 1,000' }).click();
+  await ana.getByRole('button', { name: 'Request rebuy' }).click();
+  await ana.getByLabel('Amount').fill('1000');
+  await ana.getByRole('button', { name: 'Send request' }).click();
+  await ana.getByRole('button', { name: 'Menu' }).click();
+  await ana.getByRole('button', { name: 'Rebuy requests' }).click();
+  await ana.getByRole('button', { name: 'Approve RM1,000' }).click();
   await expect(stackOf(ben, 'Ana')).toHaveText('1,000');
 });
 

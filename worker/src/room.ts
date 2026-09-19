@@ -1,12 +1,13 @@
 import { DurableObject } from 'cloudflare:workers';
 import {
   act,
+  addBuyIn,
   addPlayer,
   award,
   createGame,
   findPlayer,
+  handInProgress,
   legalActions,
-  rebuy,
   removePlayer,
   RuleError,
   setSeatOrder,
@@ -32,6 +33,7 @@ import {
   type LogKind,
   type MemberView,
   type RoomView,
+  type RebuyRequestView,
   type ServerMessage,
   type CurrencyCode,
 } from '../../shared/protocol';
@@ -62,9 +64,12 @@ interface Claim extends ClaimView {
   connId: string;
 }
 
+interface RebuyRequest extends RebuyRequestView {}
+
 interface Snapshot {
   label: string;
   game: Game;
+  rebuyRequests?: RebuyRequest[];
 }
 
 interface Stored {
@@ -82,6 +87,7 @@ interface Stored {
   log: LogEntry[];
   logSeq: number;
   claims: Claim[];
+  rebuyRequests?: RebuyRequest[];
   turnStartedAt: number | null;
   turnId: string | null;
   endingAfterHand?: boolean;
@@ -164,6 +170,7 @@ export class Room extends DurableObject<Env> {
         log: [],
         logSeq: 0,
         claims: [],
+        rebuyRequests: [],
         turnStartedAt: null,
         turnId: null,
         endingAfterHand: false,
@@ -486,6 +493,7 @@ export class Room extends DurableObject<Env> {
         checkV(msg.v);
         const snap = this.undo.pop() ?? deny('INVALID', 'Nothing to undo');
         s.game = this.reconcile(snap.game);
+        if (snap.rebuyRequests) s.rebuyRequests = structuredClone(snap.rebuyRequests);
         s.v += 1;
         this.log('undo', `${m.name} undid: ${snap.label}`);
         this.commit();
@@ -496,13 +504,58 @@ export class Room extends DurableObject<Env> {
         this.mutate(`${nameOf(id)} ${msg.out ? 'sits out' : 'sits back in'}`, (g) => setSittingOut(g, id, msg.out), 'table');
         return;
       }
-      case 'rebuy': {
-        const id = requireControl(msg.playerId);
-        this.mutate(
-          `${nameOf(id)} rebuys for ${fmt(s.game.settings.startingStack)}`,
-          (g) => rebuy(g, id),
-          'table',
-        );
+      case 'requestRebuy': {
+        const m = requireMember();
+        if (s.endingAfterHand) deny('PHASE', 'This is the final hand');
+        const requests = (s.rebuyRequests ??= []);
+        if (requests.some((r) => r.playerId === m.id)) deny('INVALID', 'You already have a rebuy request');
+        addBuyIn(s.game, m.id, msg.amount);
+        requests.push({
+          id: randomId(),
+          playerId: m.id,
+          amount: msg.amount,
+          status: 'pending',
+          requestedAt: Date.now(),
+        });
+        s.v += 1;
+        this.commit();
+        return;
+      }
+      case 'cancelRebuy': {
+        const m = requireMember();
+        const requests = (s.rebuyRequests ??= []);
+        const request = requests.find((r) => r.id === msg.requestId) ?? deny('INVALID', 'Request already handled');
+        if (request.playerId !== m.id) deny('FORBIDDEN', 'That is not your request');
+        if (request.status !== 'pending') deny('INVALID', 'The host already approved this rebuy');
+        s.rebuyRequests = requests.filter((r) => r.id !== request.id);
+        s.v += 1;
+        this.commit();
+        return;
+      }
+      case 'resolveRebuy': {
+        const host = requireHost();
+        checkV(msg.v);
+        const requests = (s.rebuyRequests ??= []);
+        const request = requests.find((r) => r.id === msg.requestId) ?? deny('INVALID', 'Request already handled');
+        if (request.status !== 'pending') deny('INVALID', 'Request already approved');
+        if (!msg.allow) {
+          s.rebuyRequests = requests.filter((r) => r.id !== request.id);
+          s.v += 1;
+          this.commit();
+          return;
+        }
+        if (s.endingAfterHand) deny('PHASE', 'This is the final hand');
+        const amount = msg.amount as number;
+        addBuyIn(s.game, request.playerId, amount);
+        request.amount = amount;
+        request.status = 'approved';
+        s.v += 1;
+        if (handInProgress(s.game)) {
+          this.log('table', `${host.name} approved ${nameOf(request.playerId)}'s rebuy of ${fmt(amount)} for after this hand`);
+        } else {
+          this.applyApprovedRebuys();
+        }
+        this.commit();
         return;
       }
       case 'leave': {
@@ -532,6 +585,9 @@ export class Room extends DurableObject<Env> {
       case 'setStack': {
         requireHost();
         checkV(msg.v);
+        if ((s.rebuyRequests ?? []).some((request) => request.playerId === msg.playerId && request.status === 'approved')) {
+          deny('PHASE', 'Apply or undo the approved rebuy before changing this stack');
+        }
         this.mutate(
           `${nameOf(msg.playerId)} set to ${fmt(msg.stack)}`,
           (g) => setStack(g, msg.playerId, msg.stack),
@@ -589,11 +645,12 @@ export class Room extends DurableObject<Env> {
     const s = this.s as Stored;
     const before = s.game;
     const after = fn(before);
-    this.undo.push({ label, game: before });
+    this.undo.push({ label, game: before, rebuyRequests: structuredClone(s.rebuyRequests ?? []) });
     if (this.undo.length > UNDO_DEPTH) this.undo.shift();
     s.game = after;
     s.v += 1;
     this.logTransition(before, after, label, kind);
+    this.applyApprovedRebuys();
     this.finishIfScheduled(after);
     this.commit();
   }
@@ -605,6 +662,25 @@ export class Room extends DurableObject<Env> {
     s.endedAt = Date.now();
     this.undo = [];
     this.log('table', 'The game ended after the final hand');
+  }
+
+  private applyApprovedRebuys() {
+    const s = this.s as Stored;
+    if (handInProgress(s.game)) return;
+    const approved = (s.rebuyRequests ?? []).filter((r) => r.status === 'approved');
+    for (const request of approved) {
+      s.game = addBuyIn(s.game, request.playerId, request.amount);
+      this.log('table', `${this.playerName(request.playerId)} added ${fmt(request.amount)} chips`);
+    }
+    if (approved.length > 0) {
+      const ids = new Set(approved.map((r) => r.id));
+      s.rebuyRequests = (s.rebuyRequests ?? []).filter((r) => !ids.has(r.id));
+    }
+  }
+
+  private playerName(id: string) {
+    const s = this.s as Stored;
+    return s.members.find((m) => m.id === id)?.name ?? findPlayer(s.game, id)?.name ?? 'Someone';
   }
 
   private logTransition(before: Game, after: Game, label: string, kind: LogKind) {
@@ -675,6 +751,7 @@ export class Room extends DurableObject<Env> {
     const after = findPlayer(before, target.id) ? removePlayer(before, target.id) : before;
     s.members = s.members.filter((m) => m.id !== target.id);
     s.claims = s.claims.filter((c) => c.playerId !== target.id);
+    s.rebuyRequests = (s.rebuyRequests ?? []).filter((r) => r.playerId !== target.id);
     if (s.hostId === target.id) {
       s.hostId = (s.members.find((m) => !m.manual && !this.isAway(m)) ?? s.members.find((m) => !m.manual))?.id ?? null;
     }
@@ -691,7 +768,7 @@ export class Room extends DurableObject<Env> {
         ws.close(4002, 'Removed by host');
       }
     }
-    this.undo.push({ label: `${target.name} ${how}`, game: before });
+    this.undo.push({ label: `${target.name} ${how}`, game: before, rebuyRequests: structuredClone(s.rebuyRequests ?? []) });
     if (this.undo.length > UNDO_DEPTH) this.undo.shift();
     s.game = after;
     s.v += 1;
@@ -857,6 +934,7 @@ export class Room extends DurableObject<Env> {
       members,
       game: s.game,
       claims: s.claims.map(({ id, playerId, at }) => ({ id, playerId, at })),
+      rebuyRequests: s.rebuyRequests ?? [],
       log: s.log.slice(-LOG_SEND),
       undoLabel: this.undo.at(-1)?.label ?? null,
       turnStartedAt: s.turnStartedAt,
@@ -869,14 +947,19 @@ export class Room extends DurableObject<Env> {
     const s = this.s as Stored;
     const att = ws.deserializeAttachment() as Attachment;
     const id = att.memberId;
+    const isHost = !!id && s.hostId === id;
+    const privateRoom: RoomView = {
+      ...room,
+      rebuyRequests: room.rebuyRequests.filter((r) => isHost || r.playerId === id),
+    };
     return {
       type: 'state',
       v: s.v,
       serverNow: Date.now(),
-      room,
+      room: privateRoom,
       you: {
         id,
-        isHost: !!id && s.hostId === id,
+        isHost,
         isController: !!id && (s.controllerId ?? s.hostId) === id,
         claimId: s.claims.find((c) => c.connId === att.connId)?.id ?? null,
         legal: id ? legalActions(s.game, id) : null,

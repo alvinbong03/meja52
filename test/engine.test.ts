@@ -6,8 +6,10 @@ import {
   chipsInPlay,
   findPlayer,
   legalActions,
+  LIMITS,
   potTotal,
   rebuy,
+  addBuyIn,
   removePlayer,
   RuleError,
   setSeatOrder,
@@ -350,6 +352,17 @@ describe('pots and showdown', () => {
 });
 
 describe('table changes', () => {
+  it('adds an arbitrary approved buy-in while preserving the settlement total', () => {
+    let g = table([1000, 1000]);
+    const before = findPlayer(g, 'p0')!;
+    g = addBuyIn(g, 'p0', 125);
+    const after = findPlayer(g, 'p0')!;
+    expect(after.stack).toBe(before.stack + 125);
+    expect(after.buyIn).toBe(before.buyIn + 125);
+    expectRule(() => addBuyIn(g, 'p0', 0), 'INVALID');
+    expectRule(() => addBuyIn(g, 'p0', LIMITS.maxStack), 'INVALID');
+  });
+
   it('leaving on your own turn folds you and the hand moves on', () => {
     let g = startHand(table([1000, 1000, 1000]));
     g = removePlayer(g, 'p0');

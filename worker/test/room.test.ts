@@ -200,6 +200,76 @@ describe('joining', () => {
 });
 
 describe('playing a hand', () => {
+  it('keeps rebuy requests private and applies host-approved amounts between hands', async () => {
+    const { clients, idOf } = await table(['Ana', 'Ben', 'Cat']);
+    const [ana, ben, cat] = clients;
+
+    await ana.ok({ type: 'start', v: ana.state.v });
+    await ben.ok({ type: 'requestRebuy', amount: 125 });
+    let hostState = await ana.settle();
+    let playerState = await ben.settle();
+    const otherState = await cat.settle();
+    expect(hostState.room.rebuyRequests).toHaveLength(1);
+    expect(playerState.room.rebuyRequests).toHaveLength(1);
+    expect(otherState.room.rebuyRequests).toHaveLength(0);
+    expect(await ben.request({ type: 'requestRebuy', amount: 50 })).toMatchObject({ code: 'INVALID' });
+    expect(await cat.request({
+      type: 'resolveRebuy',
+      v: cat.state.v,
+      requestId: hostState.room.rebuyRequests[0].id,
+      allow: true,
+      amount: 150,
+    })).toMatchObject({ code: 'FORBIDDEN' });
+
+    await ana.ok({
+      type: 'resolveRebuy',
+      v: ana.state.v,
+      requestId: hostState.room.rebuyRequests[0].id,
+      allow: true,
+      amount: 150,
+    });
+    hostState = await ana.settle();
+    expect(hostState.room.rebuyRequests[0]).toMatchObject({ playerId: idOf(ben), amount: 150, status: 'approved' });
+    expect(hostState.room.game.players.find((p) => p.id === idOf(ben))?.stack).toBe(995);
+
+    await ana.ok({ type: 'act', v: ana.state.v, kind: 'fold' });
+    await ben.ok({ type: 'act', v: ben.state.v, kind: 'fold' });
+    playerState = await ben.settle();
+    expect(playerState.room.rebuyRequests).toHaveLength(0);
+    expect(playerState.room.game.players.find((p) => p.id === idOf(ben))).toMatchObject({ stack: 1145, buyIn: 1150 });
+    expect(playerState.room.log.some((l) => l.text.includes('Ben') && l.text.includes('150'))).toBe(true);
+
+    await ana.ok({ type: 'undo', v: ana.state.v });
+    hostState = await ana.settle();
+    expect(hostState.room.rebuyRequests[0]).toMatchObject({ playerId: idOf(ben), amount: 150, status: 'approved' });
+    expect(hostState.room.game.players.find((p) => p.id === idOf(ben))).toMatchObject({ stack: 995, buyIn: 1000 });
+    await ben.ok({ type: 'act', v: ben.state.v, kind: 'fold' });
+    playerState = await ben.settle();
+    expect(playerState.room.rebuyRequests).toHaveLength(0);
+    expect(playerState.room.game.players.find((p) => p.id === idOf(ben))).toMatchObject({ stack: 1145, buyIn: 1150 });
+  });
+
+  it('lets a player cancel and the host edit or reject a rebuy request', async () => {
+    const { clients, idOf } = await table(['Ana', 'Ben']);
+    const [ana, ben] = clients;
+    await ben.ok({ type: 'requestRebuy', amount: 100 });
+    let request = ben.state.room.rebuyRequests[0];
+    await ben.ok({ type: 'cancelRebuy', requestId: request.id });
+    expect(ben.state.room.rebuyRequests).toHaveLength(0);
+
+    await ben.ok({ type: 'requestRebuy', amount: 100 });
+    request = (await ana.settle()).room.rebuyRequests[0];
+    await ana.ok({ type: 'resolveRebuy', v: ana.state.v, requestId: request.id, allow: false });
+    expect((await ben.settle()).room.rebuyRequests).toHaveLength(0);
+
+    await ben.ok({ type: 'requestRebuy', amount: 100 });
+    request = (await ana.settle()).room.rebuyRequests[0];
+    await ana.ok({ type: 'resolveRebuy', v: ana.state.v, requestId: request.id, allow: true, amount: 175 });
+    const player = ana.state.room.game.players.find((p) => p.id === idOf(ben));
+    expect(player).toMatchObject({ stack: 1175, buyIn: 1175 });
+    expect(ana.state.room.rebuyRequests).toHaveLength(0);
+  });
+
   it('lets only the host end immediately between hands or queue the end of a live hand', async () => {
     const { clients } = await table(['Ana', 'Ben']);
     const [ana, ben] = clients;
@@ -222,7 +292,7 @@ describe('playing a hand', () => {
     expect(s.room.endedAt).toEqual(expect.any(Number));
     expect(s.room.game.phase).toBe('done');
     expect(await ana.request({ type: 'next', v: s.v })).toMatchObject({ code: 'PHASE' });
-    expect(await ana.request({ type: 'rebuy' })).toMatchObject({ code: 'PHASE' });
+    expect(await ana.request({ type: 'requestRebuy', amount: 100 })).toMatchObject({ code: 'PHASE' });
 
     const { clients: secondTable } = await table(['Cam', 'Dee']);
     const [cam] = secondTable;

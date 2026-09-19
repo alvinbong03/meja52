@@ -62,7 +62,7 @@ The inherited project is functional and well tested. It is a useful foundation, 
 1. **Implemented in pass 1:** raise engine, protocol, Worker and current UI capacity boundaries to 15, with engine and full-room regression coverage. Dedicated load and real-device coverage remain required.
 2. **Implemented in pass 1:** bind initial hosting to the creator's existing private device capability without adding approval to code/link joining. The capability is salted per room, never returned in public state and retired after the creator takes a seat.
 3. **Implemented in pass 1:** add an independently transferable Table Controller, default it to the host, and enforce Host-only undo versus Controller-only physical awards and next-hand dealing. The current inherited UI exposes the role using existing controls; the approved visual treatment remains Slice 1 work.
-4. Extend server state for currency, denomination policy, pending rebuys, attendance requests and durable audit events.
+4. **Partially implemented in pass 2:** currency and private pending-rebuy state are live. Denomination policy, attendance requests and the broader durable audit model remain pending.
 5. Resolve the Cloudflare development dependency advisories through a tested compatible upgrade, never `npm audit fix --force`.
 
 ### Slice 1 — create, invite, join and seat
@@ -82,6 +82,8 @@ Implement the approved waiting, active-turn, preselection, staged-call, raise bu
 ### Slice 3 — table continuity
 
 Implement player/host controls, rebuy requests, breaks, return/missed blinds, late arrival, leaving, host transfer and disconnect recovery.
+
+**Implemented in pass 2:** a player can request any valid whole-unit rebuy, cancel it before review, and privately track its state. The host can review, edit, approve or reject it. Approval between hands applies immediately; approval during a hand is queued until the hand ends, remains correct through undo, enters the buy-in ledger and is hidden from unrelated players and shared displays. Breaks, missed blinds, governed leaving and late-arrival timing remain pending.
 
 ### Slice 4 — physical hand control and corrections
 

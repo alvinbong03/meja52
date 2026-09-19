@@ -2345,6 +2345,68 @@ button.chip-stack:active:not(:disabled) .poker-chip {
   margin-left: auto;
 }
 
+.rebuy-flow,
+.rebuy-requests,
+.rebuy-review {
+  display: grid;
+  gap: 16px;
+}
+
+.rebuy-requests {
+  gap: 28px;
+}
+
+.rebuy-review + .rebuy-review {
+  padding-top: 28px;
+  border-top: 1px solid var(--line);
+}
+
+.sheet-lead {
+  color: var(--ink-2);
+  font-size: 1rem;
+}
+
+.sheet-lead strong {
+  color: var(--ink);
+  font-weight: 620;
+}
+
+.rebuy-after {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  color: var(--ink-2);
+}
+
+.rebuy-after strong {
+  color: var(--ink);
+}
+
+.rebuy-flow .review-list,
+.rebuy-review .review-list {
+  margin: 0;
+  border-top-color: var(--line);
+}
+
+.rebuy-flow .review-list > div,
+.rebuy-review .review-list > div {
+  border-bottom-color: var(--line);
+}
+
+.rebuy-flow .review-list dd,
+.rebuy-review .review-list dd {
+  color: var(--ink);
+  font-size: 0.9375rem;
+  font-weight: 580;
+}
+
+.centre {
+  text-align: center;
+}
+
 .players {
   display: grid;
   gap: 18px;

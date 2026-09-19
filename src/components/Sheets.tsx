@@ -2,13 +2,14 @@ import { useState, type FormEvent } from 'react';
 import { bySeat, handInProgress, LIMITS } from '../../shared/engine';
 import { setSoundEnabled, soundEnabled } from '../lib/device';
 import { fmt } from '../lib/format';
+import { chipLabel } from '../lib/chips';
 import { useTable } from '../lib/table';
 import { Icon } from './Icon';
 import { Invite } from './Invite';
 import { Sheet } from './Sheet';
 import { Settlement } from './Settlement';
 
-export type SheetName = 'menu' | 'invite' | 'settings' | 'players' | 'settle' | null;
+export type SheetName = 'menu' | 'invite' | 'settings' | 'players' | 'settle' | 'rebuy' | 'rebuyRequests' | null;
 
 interface Props {
   open: SheetName;
@@ -37,6 +38,12 @@ export function Sheets({ open, setOpen, onDisplay, onLeft }: Props) {
       <Sheet open={open === 'settle'} onClose={close} title="Settle up">
         <Settlement />
       </Sheet>
+      <Sheet open={open === 'rebuy'} onClose={close} title="Request rebuy">
+        <RebuyForm onDone={close} />
+      </Sheet>
+      <Sheet open={open === 'rebuyRequests'} onClose={close} title="Rebuy requests">
+        <RebuyRequests />
+      </Sheet>
     </>
   );
 }
@@ -49,6 +56,8 @@ function Menu({ setOpen, onDisplay, onLeft }: { setOpen: (s: SheetName) => void;
   const inHand = !!me?.inHand && handInProgress(game);
   const hostAway =
     !isHost && ((!!room.hostId && away(room.hostId)) || (!!room.hostTakeoverAt && serverNow >= room.hostTakeoverAt));
+  const myRebuy = me ? room.rebuyRequests.find((request) => request.playerId === me.id) : undefined;
+  const pendingRebuys = room.rebuyRequests.filter((request) => request.status === 'pending');
 
   const item = (label: string, onClick: () => void, opts: { note?: string; danger?: boolean; disabled?: boolean } = {}) => (
     <li>
@@ -73,11 +82,9 @@ function Menu({ setOpen, onDisplay, onLeft }: { setOpen: (s: SheetName) => void;
           {item(me.sittingOut ? 'Sit back in' : 'Sit out', () => run({ type: 'sit', out: !me.sittingOut }), {
             note: inHand ? 'From the next hand' : undefined,
           })}
-          {me.stack === 0 &&
-            item(`Rebuy ${fmt(game.settings.startingStack)}`, () => run({ type: 'rebuy' }), {
-              disabled: inHand,
-              note: inHand ? 'After this hand' : undefined,
-            })}
+          {item(myRebuy ? 'Rebuy request' : 'Request rebuy', () => setOpen('rebuy'), {
+            note: myRebuy ? (myRebuy.status === 'approved' ? 'Approved · after this hand' : 'Waiting for host') : 'Ask the host to add chips',
+          })}
           {item('Sound on your turn', () => {
             setSoundEnabled(!sound);
             setSound(!sound);
@@ -89,6 +96,9 @@ function Menu({ setOpen, onDisplay, onLeft }: { setOpen: (s: SheetName) => void;
         <ul className="menu-group">
           {isHost && item('Game settings', () => setOpen('settings'))}
           {isHost && item('Players and stacks', () => setOpen('players'))}
+          {isHost && item('Rebuy requests', () => setOpen('rebuyRequests'), {
+            note: pendingRebuys.length === 0 ? 'None pending' : `${pendingRebuys.length} pending`,
+          })}
           {isHost && game.handNo > 0 &&
             (room.endingAfterHand ? (
               <li className="confirm-row end-game-row">
@@ -154,6 +164,107 @@ function Menu({ setOpen, onDisplay, onLeft }: { setOpen: (s: SheetName) => void;
   );
 }
 
+function RebuyForm({ onDone }: { onDone: () => void }) {
+  const { room, game, me, run, busy } = useTable();
+  const request = me ? room.rebuyRequests.find((item) => item.playerId === me.id) : undefined;
+  const [amount, setAmount] = useState(String(game.settings.startingStack));
+  if (!me) return null;
+
+  if (request) {
+    return (
+      <div className="rebuy-flow">
+        <p className="sheet-lead">
+          {request.status === 'approved' ? 'Approved by the host.' : 'Waiting for the host to review your request.'}
+        </p>
+        <dl className="review-list">
+          <div><dt>Current balance</dt><dd className="num">{chipLabel(room.currency, me.stack)}</dd></div>
+          <div><dt>Requested</dt><dd className="num">{chipLabel(room.currency, request.amount)}</dd></div>
+          <div><dt>Balance after approval</dt><dd className="num">{chipLabel(room.currency, me.stack + request.amount)}</dd></div>
+        </dl>
+        {request.status === 'pending' ? (
+          <button
+            className="btn btn-quiet btn-xl btn-block"
+            disabled={busy}
+            onClick={async () => {
+              if (await run({ type: 'cancelRebuy', requestId: request.id })) onDone();
+            }}
+          >
+            Cancel request
+          </button>
+        ) : (
+          <p className="hint">The chips will be added after the current hand.</p>
+        )}
+      </div>
+    );
+  }
+
+  const value = Number(amount);
+  const error = !Number.isSafeInteger(value) || value < 1 || value + me.stack > LIMITS.maxStack
+    ? 'Enter a whole amount that keeps your balance within the table limit'
+    : null;
+
+  return (
+    <form
+      className="rebuy-flow"
+      onSubmit={async (event) => {
+        event.preventDefault();
+        if (!error && await run({ type: 'requestRebuy', amount: value })) onDone();
+      }}
+    >
+      <p className="sheet-lead">Added between hands after host approval.</p>
+      <NumberField id="rebuy-amount" label="Amount" value={amount} onChange={setAmount} />
+      <p className="rebuy-after">New balance after approval <strong className="num">{chipLabel(room.currency, me.stack + (error ? 0 : value))}</strong></p>
+      {error && <p className="form-error" role="alert">{error}</p>}
+      <button className="btn btn-primary btn-xl btn-block" disabled={!!error || busy}>Send request</button>
+      <p className="hint centre">No money is transferred by this website.</p>
+    </form>
+  );
+}
+
+function RebuyRequests() {
+  const { room } = useTable();
+  const pending = room.rebuyRequests.filter((request) => request.status === 'pending');
+  if (pending.length === 0) return <p className="muted">No rebuy requests are waiting.</p>;
+  return <div className="rebuy-requests">{pending.map((request) => <RebuyReview key={request.id} requestId={request.id} />)}</div>;
+}
+
+function RebuyReview({ requestId }: { requestId: string }) {
+  const { room, game, run, busy, v, nameOf } = useTable();
+  const request = room.rebuyRequests.find((item) => item.id === requestId);
+  const player = request ? game.players.find((item) => item.id === request.playerId) : undefined;
+  const [amount, setAmount] = useState(String(request?.amount ?? ''));
+  if (!request || !player) return null;
+  const value = Number(amount);
+  const error = !Number.isSafeInteger(value) || value < 1 || value + player.stack > LIMITS.maxStack;
+
+  return (
+    <section className="rebuy-review" aria-label={`${nameOf(player.id)} rebuy request`}>
+      <p className="sheet-lead"><strong>{nameOf(player.id)}</strong> requested {chipLabel(room.currency, request.amount)}.</p>
+      <dl className="review-list">
+        <div><dt>Current balance</dt><dd className="num">{chipLabel(room.currency, player.stack)}</dd></div>
+        <div><dt>Requested</dt><dd className="num">{chipLabel(room.currency, request.amount)}</dd></div>
+        <div><dt>Balance after approval</dt><dd className="num">{chipLabel(room.currency, player.stack + (error ? 0 : value))}</dd></div>
+      </dl>
+      <NumberField id={`rebuy-${request.id}`} label="Edit amount" value={amount} onChange={setAmount} />
+      <button
+        className="btn btn-primary btn-xl btn-block"
+        disabled={error || busy}
+        onClick={() => run({ type: 'resolveRebuy', v, requestId: request.id, allow: true, amount: value })}
+      >
+        Approve {error ? '' : chipLabel(room.currency, value)}
+      </button>
+      <button
+        className="btn btn-quiet btn-lg btn-block"
+        disabled={busy}
+        onClick={() => run({ type: 'resolveRebuy', v, requestId: request.id, allow: false })}
+      >
+        Reject
+      </button>
+      {handInProgress(game) && <p className="hint centre">Applies after this hand.</p>}
+    </section>
+  );
+}
+
 function SettingsForm({ onDone }: { onDone: () => void }) {
   const { game, run, busy, v } = useTable();
   const current = game.pendingSettings ?? game.settings;
@@ -195,7 +306,7 @@ function SettingsForm({ onDone }: { onDone: () => void }) {
         <NumberField id="sb" label="Small blind" value={sb} onChange={setSb} />
         <NumberField id="bb" label="Big blind" value={bb} onChange={setBb} />
       </div>
-      <NumberField id="stack" label="Starting stack" value={stack} onChange={setStack} hint="Also the rebuy amount" />
+      <NumberField id="stack" label="Starting stack" value={stack} onChange={setStack} hint="New players begin with this amount" />
       <NumberField
         id="price"
         label="Cash per buy-in"
