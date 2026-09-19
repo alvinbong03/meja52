@@ -28,6 +28,12 @@ export function Table({ onDisplay, onLeft }: { onDisplay: () => void; onLeft: ()
 
   useEffect(() => () => void (document.title = 'MEJA52'), []);
 
+  useEffect(() => {
+    if (you.id && !game.players.some((player) => player.id === you.id) && game.departed.some((player) => player.id === you.id)) {
+      onLeft();
+    }
+  }, [game.departed, game.players, onLeft, you.id]);
+
   if (room.endedAt) {
     return (
       <div className="table-shell final-settlement-shell" data-host={isHost || undefined} onPointerDown={unlockAudio}>

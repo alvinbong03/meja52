@@ -2407,9 +2407,28 @@ button.chip-stack:active:not(:disabled) .poker-chip {
   text-align: center;
 }
 
-.break-flow {
+.break-flow,
+.leave-flow {
   display: grid;
   gap: 16px;
+}
+
+.leave-review {
+  margin: 0;
+}
+
+.leave-review dd {
+  color: var(--ink);
+  font-size: 0.9375rem;
+  font-weight: 580;
+  font-variant-numeric: tabular-nums;
+}
+
+.leave-foot {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 0.875rem;
+  text-align: center;
 }
 
 .break-detail {

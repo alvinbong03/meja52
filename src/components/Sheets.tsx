@@ -9,7 +9,7 @@ import { Invite } from './Invite';
 import { Sheet } from './Sheet';
 import { Settlement } from './Settlement';
 
-export type SheetName = 'menu' | 'invite' | 'settings' | 'players' | 'settle' | 'rebuy' | 'rebuyRequests' | 'break' | null;
+export type SheetName = 'menu' | 'invite' | 'settings' | 'players' | 'settle' | 'rebuy' | 'rebuyRequests' | 'break' | 'leave' | null;
 
 interface Props {
   open: SheetName;
@@ -25,7 +25,7 @@ export function Sheets({ open, setOpen, onDisplay, onLeft }: Props) {
   return (
     <>
       <Sheet open={open === 'menu'} onClose={close} title="Table">
-        <Menu setOpen={setOpen} onDisplay={onDisplay} onLeft={onLeft} />
+        <Menu setOpen={setOpen} onDisplay={onDisplay} />
       </Sheet>
       <Sheet open={open === 'invite'} onClose={close} title="Invite players">
         <Invite code={room.code} qrSize={220} />
@@ -48,14 +48,16 @@ export function Sheets({ open, setOpen, onDisplay, onLeft }: Props) {
       <Sheet open={open === 'break'} onClose={close} title={breakRecord ? (breakRecord.status === 'scheduled' ? 'Break scheduled' : 'Welcome back') : 'Take a break'}>
         <BreakFlow onDone={close} />
       </Sheet>
+      <Sheet open={open === 'leave'} onClose={close} title="Leave the game">
+        <LeaveFlow onDone={close} onLeft={onLeft} onTransfer={() => setOpen('players')} />
+      </Sheet>
     </>
   );
 }
 
-function Menu({ setOpen, onDisplay, onLeft }: { setOpen: (s: SheetName) => void; onDisplay: () => void; onLeft: () => void }) {
+function Menu({ setOpen, onDisplay }: { setOpen: (s: SheetName) => void; onDisplay: () => void }) {
   const { room, game, me, isHost, run, busy, v, away, serverNow } = useTable();
   const [sound, setSound] = useState(soundEnabled);
-  const [confirmLeave, setConfirmLeave] = useState(false);
   const [confirmEnd, setConfirmEnd] = useState(false);
   const inHand = !!me?.inHand && handInProgress(game);
   const hostAway =
@@ -63,6 +65,7 @@ function Menu({ setOpen, onDisplay, onLeft }: { setOpen: (s: SheetName) => void;
   const myRebuy = me ? room.rebuyRequests.find((request) => request.playerId === me.id) : undefined;
   const pendingRebuys = room.rebuyRequests.filter((request) => request.status === 'pending');
   const myBreak = me ? room.breaks.find((record) => record.playerId === me.id) : undefined;
+  const myLeave = me ? room.leaveRequests.find((request) => request.playerId === me.id) : undefined;
 
   const item = (label: string, onClick: () => void, opts: { note?: string; danger?: boolean; disabled?: boolean } = {}) => (
     <li>
@@ -146,27 +149,80 @@ function Menu({ setOpen, onDisplay, onLeft }: { setOpen: (s: SheetName) => void;
 
       {me && (
         <ul className="menu-group">
-          {confirmLeave ? (
-            <li className="confirm-row">
-              <span>{inHand ? 'You will fold this hand.' : 'Leave the table?'}</span>
-              <button className="btn btn-quiet btn-sm" onClick={() => setConfirmLeave(false)}>
-                Stay
-              </button>
-              <button
-                className="btn btn-danger btn-sm"
-                disabled={busy}
-                onClick={async () => {
-                  if (await run({ type: 'leave' })) onLeft();
-                }}
-              >
-                Leave
-              </button>
-            </li>
-          ) : (
-            item('Leave table', () => setConfirmLeave(true), { danger: true })
-          )}
+          {item(myLeave ? 'Leaving after this hand' : 'Leave game', () => setOpen('leave'), {
+            danger: !myLeave,
+            note: myLeave ? 'Tap to review or cancel' : 'Your result stays in settlement',
+          })}
         </ul>
       )}
+    </div>
+  );
+}
+
+function LeaveFlow({ onDone, onLeft, onTransfer }: { onDone: () => void; onLeft: () => void; onTransfer: () => void }) {
+  const { room, game, me, isHost, run, busy } = useTable();
+  const [mode, setMode] = useState<'afterHand' | 'now'>('afterHand');
+  if (!me) return null;
+  const request = room.leaveRequests.find((item) => item.playerId === me.id);
+  const live = me.inHand && handInProgress(game);
+  const result = me.stack - me.buyIn;
+  const resultLabel = result > 0
+    ? `+${chipLabel(room.currency, result)}`
+    : result < 0
+      ? `−${chipLabel(room.currency, -result)}`
+      : chipLabel(room.currency, 0);
+
+  if (isHost) {
+    return (
+      <div className="leave-flow">
+        <p className="sheet-lead">A table always needs a host. Transfer hosting to another player before you leave.</p>
+        <button className="btn btn-primary btn-xl btn-block" onClick={onTransfer}>Choose a new host</button>
+        <button className="btn btn-quiet btn-lg btn-block" onClick={onDone}>Stay in game</button>
+      </div>
+    );
+  }
+
+  if (request) {
+    return (
+      <div className="leave-flow">
+        <p className="sheet-lead">You’ll finish this hand normally, then leave with your final stack.</p>
+        <div className="break-detail"><strong>Departure scheduled</strong><span>Your result remains in final settlement.</span></div>
+        <button className="btn btn-primary btn-xl btn-block" disabled={busy} onClick={async () => {
+          if (await run({ type: 'cancelLeave' })) onDone();
+        }}>Stay in the game</button>
+        <button className="btn btn-quiet btn-lg btn-block" onClick={onDone}>Close</button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="leave-flow">
+      <p className="sheet-lead">Review what will be carried into final settlement.</p>
+      <dl className="review-list leave-review">
+        <div><dt>Current stack</dt><dd>{chipLabel(room.currency, me.stack)}</dd></div>
+        <div><dt>Total entries</dt><dd>{chipLabel(room.currency, me.buyIn)}</dd></div>
+        <div><dt>Provisional result</dt><dd>{resultLabel}</dd></div>
+      </dl>
+      {live && (
+        <div className="return-choices" role="radiogroup" aria-label="When to leave">
+          <button className="return-choice" role="radio" aria-checked={mode === 'afterHand'} onClick={() => setMode('afterHand')}>
+            <span className="choice-dot" aria-hidden="true" />
+            <span><strong>Leave after this hand</strong><small>Finish the current hand normally.</small></span>
+          </button>
+          <button className="return-choice" role="radio" aria-checked={mode === 'now'} onClick={() => setMode('now')}>
+            <span className="choice-dot" aria-hidden="true" />
+            <span><strong>Leave now</strong><small>Fold at the next legal moment.</small></span>
+          </button>
+        </div>
+      )}
+      <button className="btn btn-danger btn-xl btn-block" disabled={busy} onClick={async () => {
+        const chosen = live ? mode : 'now';
+        if (!(await run({ type: 'requestLeave', mode: chosen }))) return;
+        if (chosen === 'now') onLeft();
+        else onDone();
+      }}>Request to leave</button>
+      <button className="btn btn-quiet btn-lg btn-block" onClick={onDone}>Cancel</button>
+      <p className="leave-foot">Your {chipLabel(room.currency, me.stack)} remains in final settlement.</p>
     </div>
   );
 }

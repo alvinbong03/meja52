@@ -192,6 +192,46 @@ test('a player takes a break and chooses how to return after missing blinds', as
   await expect(ben.getByRole('button', { name: 'Waiting for big blind' })).toBeVisible();
 });
 
+test('a player reviews, schedules and cancels leaving before departing after the hand', async ({ browser }) => {
+  const ana = await seat(browser, 'Ana', undefined, { viewport: { width: 390, height: 844 } });
+  const ben = await seat(browser, 'Ben', codeOf(ana), { viewport: { width: 390, height: 844 } });
+
+  await ana.getByRole('button', { name: 'Menu' }).click();
+  await ana.getByRole('button', { name: 'Leave game' }).click();
+  await expect(ana.getByText('Transfer hosting to another player before you leave.')).toBeVisible();
+  await expect(ana.getByRole('button', { name: 'Choose a new host' })).toBeVisible();
+  await ana.keyboard.press('Escape');
+
+  await ana.getByRole('button', { name: 'Deal the first hand' }).click();
+  await ben.getByRole('button', { name: 'Menu' }).click();
+  await ben.getByRole('button', { name: 'Leave game' }).click();
+  await expect(ben.getByRole('heading', { name: 'Leave the game' })).toBeVisible();
+  await expect(ben.getByText('Current stack').locator('..')).toContainText('RM990');
+  await expect(ben.getByRole('radio', { name: /Leave after this hand/ })).toHaveAttribute('aria-checked', 'true');
+  await expect(ben.getByRole('radio', { name: /Leave now/ })).toBeVisible();
+
+  await ben.getByRole('button', { name: 'Request to leave' }).click();
+  await ben.getByRole('button', { name: 'Menu' }).click();
+  await expect(ben.getByRole('button', { name: 'Leaving after this hand' })).toBeVisible();
+  await ben.getByRole('button', { name: 'Leaving after this hand' }).click();
+  await ben.getByRole('button', { name: 'Stay in the game' }).click();
+
+  await ben.getByRole('button', { name: 'Menu' }).click();
+  await ben.getByRole('button', { name: 'Leave game' }).click();
+  await ben.getByRole('button', { name: 'Request to leave' }).click();
+  await expect(ana.getByRole('listitem').filter({ hasText: 'Ben' })).toContainText('leaving after hand');
+
+  await ana.getByRole('button', { name: 'Fold' }).click();
+  await expect(ben).toHaveURL('/');
+  await expect(ben.getByRole('heading', { name: /Poker chips/ })).toBeVisible();
+  await ana.getByRole('button', { name: 'Menu' }).click();
+  await ana.getByRole('button', { name: 'Settle up' }).click();
+  const transfer = ana.getByRole('heading', { name: 'To square up' }).locator('..').getByRole('listitem');
+  await expect(transfer).toContainText('Ana');
+  await expect(transfer).toContainText('pays');
+  await expect(transfer).toContainText('Ben');
+});
+
 test('short stack all in creates a side pot that pays the right people', async ({ browser }) => {
   const ana = await seat(browser, 'Ana');
   const code = codeOf(ana);

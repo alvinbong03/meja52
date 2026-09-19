@@ -45,7 +45,8 @@ export type ClientMessage =
   | { type: 'requestRebuy'; amount: number }
   | { type: 'cancelRebuy'; requestId: string }
   | { type: 'resolveRebuy'; v: number; requestId: string; allow: boolean; amount?: number }
-  | { type: 'leave' }
+  | { type: 'requestLeave'; mode: 'afterHand' | 'now' }
+  | { type: 'cancelLeave' }
   | { type: 'settings'; v: number; settings: Settings }
   | { type: 'setStack'; v: number; playerId: string; stack: number }
   | { type: 'seatOrder'; v: number; ids: string[] }
@@ -86,6 +87,12 @@ export interface BreakView {
   startedAt: number;
 }
 
+export interface LeaveRequestView {
+  playerId: string;
+  mode: 'afterHand' | 'now';
+  requestedAt: number;
+}
+
 export type LogKind = 'action' | 'hand' | 'win' | 'undo' | 'table';
 
 export interface LogEntry {
@@ -107,6 +114,7 @@ export interface RoomView {
   claims: ClaimView[];
   rebuyRequests: RebuyRequestView[];
   breaks: BreakView[];
+  leaveRequests: LeaveRequestView[];
   log: LogEntry[];
   undoLabel: string | null;
   turnStartedAt: number | null;
@@ -163,9 +171,13 @@ export function parseClientMessage(raw: string): Envelope | null {
     case 'claim':
       return isId(m.playerId) ? out({ type: 'claim', playerId: m.playerId }) : null;
     case 'cancelClaim':
-    case 'leave':
+    case 'cancelLeave':
     case 'takeHost':
       return out({ type: m.type });
+    case 'requestLeave':
+      return ['afterHand', 'now'].includes(String(m.mode))
+        ? out({ type: 'requestLeave', mode: m.mode as 'afterHand' | 'now' })
+        : null;
     case 'resolveClaim':
       return isId(m.claimId) && typeof m.allow === 'boolean'
         ? out({ type: 'resolveClaim', claimId: m.claimId, allow: m.allow })

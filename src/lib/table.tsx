@@ -66,7 +66,7 @@ export function TableProvider({ conn, children }: { conn: RoomConnection; childr
       serverNow,
       member,
       away: (id) => isAway(member(id), serverNow),
-      nameOf: (id) => member(id)?.name ?? findPlayer(room.game, id)?.name ?? 'Someone',
+      nameOf: (id) => member(id)?.name ?? findPlayer(room.game, id)?.name ?? room.game.departed.find((player) => player.id === id)?.name ?? 'Someone',
       run,
       busy: inflight > 0,
     };

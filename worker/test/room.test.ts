@@ -591,14 +591,83 @@ describe('seats and devices', () => {
     expect(s.room.members.map((m) => m.name)).toEqual(['Ana', 'Ben']);
   });
 
-  it('when the host leaves, hosting passes to someone still here', async () => {
+  it('requires a host transfer before leaving', async () => {
     const { clients, idOf } = await table(['Ana', 'Ben']);
     const [ana, ben] = clients;
-    await ana.ok({ type: 'leave' });
+    expect(await ana.request({ type: 'requestLeave', mode: 'now' })).toMatchObject({
+      code: 'FORBIDDEN',
+      message: 'Transfer hosting before leaving',
+    });
+    await ana.ok({ type: 'transferHost', playerId: idOf(ben) });
+    await ana.ok({ type: 'requestLeave', mode: 'now' });
     const s = await ben.settle();
     expect(s.room.hostId).toBe(idOf(ben));
     expect(s.you.isHost).toBe(true);
-    expect(s.you.isController).toBe(true);
+    expect(s.room.members.map((member) => member.name)).toEqual(['Ben']);
+    expect(s.room.game.players.map((player) => player.name)).toEqual(['Ben']);
+  });
+
+  it('lets a player finish the hand before leaving and keeps their result in settlement', async () => {
+    const { clients, idOf } = await table(['Ana', 'Ben']);
+    const [ana, ben] = clients;
+    await ana.ok({ type: 'start', v: ana.state.v });
+    await ben.ok({ type: 'requestLeave', mode: 'afterHand' });
+
+    let s = await ana.settle();
+    expect(s.room.leaveRequests).toEqual([
+      expect.objectContaining({ playerId: idOf(ben), mode: 'afterHand' }),
+    ]);
+    expect(s.room.game.players.find((player) => player.id === idOf(ben))).toMatchObject({ folded: false, leaving: false });
+
+    await ana.ok({ type: 'act', v: ana.state.v, kind: 'fold' });
+    s = await ana.settle();
+    expect(s.room.game.players.map((player) => player.name)).toEqual(['Ana']);
+    expect(s.room.members.map((member) => member.name)).toEqual(['Ana']);
+    expect(s.room.leaveRequests).toHaveLength(0);
+    expect(s.room.game.departed).toEqual([
+      expect.objectContaining({ id: idOf(ben), name: 'Ben', buyIn: 1000, cashOut: 1005 }),
+    ]);
+    expect(s.room.log.some((entry) => entry.text === 'Ben left with 1,005 chips')).toBe(true);
+  });
+
+  it('queues leave now until the player can legally fold', async () => {
+    const { clients, idOf } = await table(['Ana', 'Ben', 'Cat']);
+    const [ana, ben, cat] = clients;
+    await ana.ok({ type: 'start', v: ana.state.v });
+    await ben.ok({ type: 'requestLeave', mode: 'now' });
+
+    let s = await cat.settle();
+    expect(s.room.game.toActId).toBe(idOf(ana));
+    expect(s.room.game.players.find((player) => player.id === idOf(ben))).toMatchObject({ folded: false });
+    expect(s.room.leaveRequests).toEqual([expect.objectContaining({ playerId: idOf(ben), mode: 'now' })]);
+
+    await ana.ok({ type: 'act', v: ana.state.v, kind: 'fold' });
+    s = await cat.settle();
+    expect(s.room.game.players.map((player) => player.name)).toEqual(['Ana', 'Cat']);
+    expect(s.room.game.departed).toEqual([expect.objectContaining({ id: idOf(ben), name: 'Ben' })]);
+    expect(s.room.log.some((entry) => entry.text === 'Ben folds and leaves')).toBe(true);
+  });
+
+  it('allows a scheduled departure to be cancelled or undone with the hand result', async () => {
+    const { clients, idOf } = await table(['Ana', 'Ben']);
+    const [ana, ben] = clients;
+    await ana.ok({ type: 'start', v: ana.state.v });
+    await ben.ok({ type: 'requestLeave', mode: 'afterHand' });
+    await ben.ok({ type: 'cancelLeave' });
+    expect((await ana.settle()).room.leaveRequests).toHaveLength(0);
+
+    await ben.ok({ type: 'requestLeave', mode: 'afterHand' });
+    await ana.ok({ type: 'act', v: ana.state.v, kind: 'fold' });
+    expect((await ana.settle()).room.game.players.map((player) => player.name)).toEqual(['Ana']);
+
+    await ana.ok({ type: 'undo', v: ana.state.v });
+    const s = await ben.settle();
+    expect(s.room.members.map((member) => member.name)).toEqual(['Ana', 'Ben']);
+    expect(s.room.game.players.map((player) => player.name)).toEqual(['Ana', 'Ben']);
+    expect(s.room.game.toActId).toBe(idOf(ana));
+    expect(s.room.leaveRequests).toEqual([
+      expect.objectContaining({ playerId: idOf(ben), mode: 'afterHand' }),
+    ]);
   });
 
   it('host can be taken over only when the host is away', async () => {

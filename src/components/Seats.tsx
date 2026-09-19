@@ -4,8 +4,9 @@ import { fmt } from '../lib/format';
 import { useTable } from '../lib/table';
 import { Num } from './Num';
 
-export function seatStatus(p: Player, phase: string, away: boolean, manual: boolean): string | null {
+export function seatStatus(p: Player, phase: string, away: boolean, manual: boolean, leaving?: 'afterHand' | 'now'): string | null {
   const inHand = (phase === 'betting' || phase === 'showdown') && p.inHand;
+  if (leaving) return leaving === 'afterHand' ? 'leaving after hand' : 'leaving now';
   if (p.leaving) return 'left';
   if (inHand && p.folded) return 'folded';
   if (inHand && p.allIn) return 'all in';
@@ -21,7 +22,7 @@ export function seatStatus(p: Player, phase: string, away: boolean, manual: bool
 }
 
 export function Seats() {
-  const { game, you, member, away } = useTable();
+  const { room, game, you, member, away } = useTable();
   const hand = game.phase === 'betting' || game.phase === 'showdown';
   const listRef = useRef<HTMLUListElement>(null);
   const [glide, setGlide] = useState<{ top: number; height: number; slide: boolean } | null>(null);
@@ -57,7 +58,13 @@ export function Seats() {
         style={glide ? { transform: `translateY(${glide.top}px)`, height: glide.height } : undefined}
       />
       {seats.map((p) => {
-        const status = seatStatus(p, game.phase, away(p.id), !!member(p.id)?.manual);
+        const status = seatStatus(
+          p,
+          game.phase,
+          away(p.id),
+          !!member(p.id)?.manual,
+          room.leaveRequests.find((request) => request.playerId === p.id)?.mode,
+        );
         const acting = game.toActId === p.id;
         const blind = hand ? (game.sbId === p.id ? 'SB' : game.bbId === p.id ? 'BB' : null) : null;
         const won = game.phase === 'done' ? game.results.filter((r) => r.id === p.id).reduce((s, r) => s + r.amount, 0) : 0;

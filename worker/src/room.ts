@@ -35,6 +35,7 @@ import {
   type ErrorCode,
   type LogEntry,
   type LogKind,
+  type LeaveRequestView,
   type MemberView,
   type RoomView,
   type RebuyRequestView,
@@ -73,8 +74,12 @@ interface RebuyRequest extends RebuyRequestView {}
 interface Snapshot {
   label: string;
   game: Game;
+  members?: Member[];
+  restoreMemberIds?: string[];
+  controllerId?: string | null;
   rebuyRequests?: RebuyRequest[];
   breaks?: BreakView[];
+  leaveRequests?: LeaveRequestView[];
 }
 
 interface Stored {
@@ -94,6 +99,7 @@ interface Stored {
   claims: Claim[];
   rebuyRequests?: RebuyRequest[];
   breaks?: BreakView[];
+  leaveRequests?: LeaveRequestView[];
   turnStartedAt: number | null;
   turnId: string | null;
   endingAfterHand?: boolean;
@@ -178,6 +184,7 @@ export class Room extends DurableObject<Env> {
         claims: [],
         rebuyRequests: [],
         breaks: [],
+        leaveRequests: [],
         turnStartedAt: null,
         turnId: null,
         endingAfterHand: false,
@@ -499,6 +506,15 @@ export class Room extends DurableObject<Env> {
         const m = requireHost();
         checkV(msg.v);
         const snap = this.undo.pop() ?? deny('INVALID', 'Nothing to undo');
+        if (snap.members && snap.restoreMemberIds?.length) {
+          const restoredIds = new Set(snap.restoreMemberIds);
+          const restored = snap.members.filter(
+            (member) => restoredIds.has(member.id) && !s.members.some((current) => current.id === member.id),
+          );
+          s.members.push(...structuredClone(restored));
+          if (restored.length > 0 && snap.controllerId !== undefined) s.controllerId = snap.controllerId;
+        }
+        if (snap.leaveRequests) s.leaveRequests = structuredClone(snap.leaveRequests);
         s.game = this.reconcile(snap.game);
         if (snap.rebuyRequests) s.rebuyRequests = structuredClone(snap.rebuyRequests);
         if (snap.breaks) s.breaks = structuredClone(snap.breaks);
@@ -608,9 +624,55 @@ export class Room extends DurableObject<Env> {
         this.commit();
         return;
       }
-      case 'leave': {
+      case 'requestLeave': {
         const m = requireMember();
-        this.removeMember(m, 'left');
+        if (s.hostId === m.id) deny('FORBIDDEN', 'Transfer hosting before leaving');
+        if ((s.leaveRequests ?? []).some((request) => request.playerId === m.id)) {
+          deny('INVALID', 'Your leave request is already scheduled');
+        }
+        const player = findPlayer(s.game, m.id) ?? deny('INVALID', 'Unknown player');
+        const live = handInProgress(s.game) && player.inHand;
+        if (!live) {
+          this.removeMember(m, 'left');
+          return;
+        }
+        const before = s.game;
+        const membersBefore = structuredClone(s.members);
+        const controllerBefore = s.controllerId;
+        const rebuyRequestsBefore = structuredClone(s.rebuyRequests ?? []);
+        const breaksBefore = structuredClone(s.breaks ?? []);
+        const leaveRequestsBefore = structuredClone(s.leaveRequests ?? []);
+        s.rebuyRequests = (s.rebuyRequests ?? []).filter((request) => request.playerId !== m.id);
+        s.breaks = (s.breaks ?? []).filter((record) => record.playerId !== m.id);
+        (s.leaveRequests ??= []).push({ playerId: m.id, mode: msg.mode, requestedAt: Date.now() });
+        if (s.controllerId === m.id) s.controllerId = s.hostId;
+        this.undo.push({
+          label: msg.mode === 'now' ? `${m.name} leaves now` : `${m.name} leaves after this hand`,
+          game: before,
+          members: membersBefore,
+          restoreMemberIds: [m.id],
+          controllerId: controllerBefore,
+          rebuyRequests: rebuyRequestsBefore,
+          breaks: breaksBefore,
+          leaveRequests: leaveRequestsBefore,
+        });
+        if (this.undo.length > UNDO_DEPTH) this.undo.shift();
+        this.log('table', msg.mode === 'now' ? `${m.name} will fold when action reaches them` : `${m.name} will leave after this hand`);
+        this.applyImmediateLeaves();
+        this.finishScheduledLeaves(before, s.game);
+        s.v += 1;
+        this.commit();
+        return;
+      }
+      case 'cancelLeave': {
+        const m = requireMember();
+        const request = (s.leaveRequests ?? []).find((item) => item.playerId === m.id) ??
+          deny('INVALID', 'No leave request to cancel');
+        if (request.mode !== 'afterHand') deny('INVALID', 'That departure cannot be cancelled');
+        s.leaveRequests = (s.leaveRequests ?? []).filter((item) => item.playerId !== m.id);
+        s.v += 1;
+        this.log('table', `${m.name} is staying in the game`);
+        this.commit();
         return;
       }
       case 'kick': {
@@ -696,21 +758,63 @@ export class Room extends DurableObject<Env> {
     const before = s.game;
     const rebuyRequestsBefore = structuredClone(s.rebuyRequests ?? []);
     const breaksBefore = structuredClone(s.breaks ?? []);
+    const leaveRequestsBefore = structuredClone(s.leaveRequests ?? []);
+    const membersBefore = structuredClone(s.members);
+    const controllerBefore = s.controllerId;
     const after = fn(before);
     this.undo.push({
       label,
       game: before,
+      members: membersBefore,
+      restoreMemberIds: leaveRequestsBefore.map((request) => request.playerId),
+      controllerId: controllerBefore,
       rebuyRequests: rebuyRequestsBefore,
       breaks: breaksBefore,
+      leaveRequests: leaveRequestsBefore,
     });
     if (this.undo.length > UNDO_DEPTH) this.undo.shift();
     s.game = after;
     s.v += 1;
     this.logTransition(before, after, label, kind);
     this.updateBreaks(before, after);
+    this.applyImmediateLeaves();
+    this.finishScheduledLeaves(before, s.game);
     this.applyApprovedRebuys();
-    this.finishIfScheduled(after);
+    this.finishIfScheduled(s.game);
     this.commit();
+  }
+
+  private applyImmediateLeaves() {
+    const s = this.s as Stored;
+    while (s.game.phase === 'betting' && s.game.toActId) {
+      const request = (s.leaveRequests ?? []).find(
+        (item) => item.mode === 'now' && item.playerId === s.game.toActId,
+      );
+      if (!request) break;
+      const before = s.game;
+      const name = this.playerName(request.playerId);
+      s.game = act(s.game, request.playerId, { kind: 'fold' });
+      this.logTransition(before, s.game, `${name} folds and leaves`, 'action');
+    }
+    if (s.game.phase !== 'showdown') return;
+    for (const request of (s.leaveRequests ?? []).filter((item) => item.mode === 'now')) {
+      if (findPlayer(s.game, request.playerId)) s.game = removePlayer(s.game, request.playerId);
+    }
+  }
+
+  private finishScheduledLeaves(before: Game, after: Game) {
+    const s = this.s as Stored;
+    if (after.phase !== 'done' || before.phase === 'done') return;
+    const scheduled = [...(s.leaveRequests ?? [])];
+    for (const request of scheduled) {
+      const member = s.members.find((item) => item.id === request.playerId);
+      const player = findPlayer(s.game, request.playerId) ?? s.game.departed.find((item) => item.id === request.playerId);
+      if (!member || !player) continue;
+      if (findPlayer(s.game, request.playerId)) s.game = removePlayer(s.game, request.playerId);
+      this.detachMember(member, false);
+      this.log('table', `${member.name} left with ${fmt('stack' in player ? player.stack : player.cashOut)} chips`);
+    }
+    if (scheduled.length > 0) s.leaveRequests = [];
   }
 
   private finishIfScheduled(game: Game) {
@@ -840,32 +944,27 @@ export class Room extends DurableObject<Env> {
   private removeMember(target: Member, how: 'left' | 'kicked') {
     const s = this.s as Stored;
     const before = s.game;
+    const membersBefore = structuredClone(s.members);
+    const controllerBefore = s.controllerId;
+    const rebuyRequestsBefore = structuredClone(s.rebuyRequests ?? []);
+    const breaksBefore = structuredClone(s.breaks ?? []);
+    const leaveRequestsBefore = structuredClone(s.leaveRequests ?? []);
     const after = findPlayer(before, target.id) ? removePlayer(before, target.id) : before;
-    s.members = s.members.filter((m) => m.id !== target.id);
-    s.claims = s.claims.filter((c) => c.playerId !== target.id);
-    s.rebuyRequests = (s.rebuyRequests ?? []).filter((r) => r.playerId !== target.id);
-    s.breaks = (s.breaks ?? []).filter((r) => r.playerId !== target.id);
+    this.detachMember(target, how === 'kicked');
     if (s.hostId === target.id) {
       s.hostId = (s.members.find((m) => !m.manual && !this.isAway(m)) ?? s.members.find((m) => !m.manual))?.id ?? null;
     }
     if (s.controllerId === target.id) {
       s.controllerId = s.hostId ?? s.members.find((m) => !m.manual)?.id ?? null;
     }
-    for (const ws of this.ctx.getWebSockets()) {
-      const oa = ws.deserializeAttachment() as Attachment;
-      if (oa.memberId !== target.id) continue;
-      oa.memberId = null;
-      ws.serializeAttachment(oa);
-      if (how === 'kicked') {
-        this.send(ws, { type: 'closed', reason: 'kicked' });
-        ws.close(4002, 'Removed by host');
-      }
-    }
     this.undo.push({
       label: `${target.name} ${how}`,
       game: before,
-      rebuyRequests: structuredClone(s.rebuyRequests ?? []),
-      breaks: structuredClone(s.breaks ?? []),
+      members: membersBefore,
+      controllerId: controllerBefore,
+      rebuyRequests: rebuyRequestsBefore,
+      breaks: breaksBefore,
+      leaveRequests: leaveRequestsBefore,
     });
     if (this.undo.length > UNDO_DEPTH) this.undo.shift();
     s.game = after;
@@ -874,6 +973,25 @@ export class Room extends DurableObject<Env> {
     this.logTransition(before, after, '', 'hand');
     this.finishIfScheduled(after);
     this.commit();
+  }
+
+  private detachMember(target: Member, closeSocket: boolean) {
+    const s = this.s as Stored;
+    s.members = s.members.filter((m) => m.id !== target.id);
+    s.claims = s.claims.filter((c) => c.playerId !== target.id);
+    s.rebuyRequests = (s.rebuyRequests ?? []).filter((r) => r.playerId !== target.id);
+    s.breaks = (s.breaks ?? []).filter((r) => r.playerId !== target.id);
+    s.leaveRequests = (s.leaveRequests ?? []).filter((r) => r.playerId !== target.id);
+    if (s.controllerId === target.id) s.controllerId = s.hostId;
+    if (!closeSocket) return;
+    for (const ws of this.ctx.getWebSockets()) {
+      const oa = ws.deserializeAttachment() as Attachment;
+      if (oa.memberId !== target.id) continue;
+      oa.memberId = null;
+      ws.serializeAttachment(oa);
+      this.send(ws, { type: 'closed', reason: 'kicked' });
+      ws.close(4002, 'Removed by host');
+    }
   }
 
   private applyClaim(target: Member, tokenHash: string) {
@@ -1034,6 +1152,7 @@ export class Room extends DurableObject<Env> {
       claims: s.claims.map(({ id, playerId, at }) => ({ id, playerId, at })),
       rebuyRequests: s.rebuyRequests ?? [],
       breaks: s.breaks ?? [],
+      leaveRequests: s.leaveRequests ?? [],
       log: s.log.slice(-LOG_SEND),
       undoLabel: this.undo.at(-1)?.label ?? null,
       turnStartedAt: s.turnStartedAt,
