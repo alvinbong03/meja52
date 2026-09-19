@@ -1,5 +1,6 @@
 {
-  "approved": false,
+  "approved": true,
+  "approvedBy": "owner",
   "generatedWith": "built-in image_gen",
   "prompt": "Preserve premium Table Edge v2.1 except for the active screen's staged-wager controls. Because two RM5 chips are already staged, remove Fold, Call RM10, Raise, and the duplicate Clear beside the chips. Replace the rail with non-interactive status Calling RM10, one quiet Clear action, and one compact primary Place RM10 button. Calling RM10 must read as status rather than a button; Place RM10 is the sole commit action. Preserve both screens, top information, betting line, staged chips, rack, Table controls, premium graphite/ivory direction, and absence of room settings."
 }

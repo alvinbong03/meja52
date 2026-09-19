@@ -12,7 +12,7 @@ Every comp uses the owner-approved **Precision Card Room** system and must be ju
 - **Bang & Olufsen:** premium restraint and honest material craft, with depth concentrated on chips.
 - **Linear:** calm information density, predictable actions and secondary chrome that recedes.
 
-The established warm mineral active/setup surface, deep graphite waiting surface, claret host identity, restrained oxblood state accent, graphite primary action, hairline structure and tactile chip language remain unchanged.
+The established Batik Ivory active/setup surface, Batik Indigo waiting surface, Host Claret identity, restrained Hibiscus state accent, indigo primary action, hairline structure and tactile chip language remain unchanged.
 
 ## Approval checklist
 

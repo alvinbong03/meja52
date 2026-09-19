@@ -55,12 +55,14 @@ await shot(ben, '06-waiting');
 
 await ana.getByRole('button', { name: 'Raise' }).click();
 await shot(ana, '07-raise');
-await ana.getByRole('button', { name: 'Pot', exact: true }).click();
-await ana.getByRole('button', { name: /Raise to/ }).click();
+await ana.getByRole('button', { name: /Pot/ }).click();
+await ana.getByRole('button', { name: /Place/ }).click();
 await ben.getByText('Your turn').waitFor();
 await ben.getByRole('button', { name: /^Call/ }).click();
+await ben.getByRole('button', { name: /^Place/ }).click();
 await cat.getByText('Your turn').waitFor();
 await cat.getByRole('button', { name: /^Call/ }).click();
+await cat.getByRole('button', { name: /^Place/ }).click();
 await ana.getByText('Deal the flop').first().waitFor();
 await shot(ana, '08-flop-waiting');
 

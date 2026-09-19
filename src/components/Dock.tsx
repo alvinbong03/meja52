@@ -13,6 +13,7 @@ import {
 import { fmt } from '../lib/format';
 import { useTable } from '../lib/table';
 import { useShake } from '../lib/motion';
+import { ChipRack, StagedChips } from './ChipRack';
 import { Icon } from './Icon';
 import { Num } from './Num';
 
@@ -65,7 +66,7 @@ function DockBody() {
 }
 
 function MyStatus() {
-  const { game, me, run, busy } = useTable();
+  const { game, me, room, run, busy } = useTable();
   if (!me) return null;
   const inHand = me.inHand && (game.phase === 'betting' || game.phase === 'showdown');
   let note: string;
@@ -76,18 +77,21 @@ function MyStatus() {
   const canRebuy = me.stack === 0 && !inHand;
   return (
     <div className="my-status">
-      <div>
-        <span className="label">Your stack</span>
-        <Num value={me.stack} className="my-stack" />
+      <div className="my-status-line">
+        <div>
+          <span className="label">Your balance</span>
+          <Num value={me.stack} className="my-stack" />
+        </div>
+        <div className="my-note">
+          <span>{note}</span>
+          {canRebuy && (
+            <button className="btn btn-quiet btn-sm" disabled={busy} onClick={() => run({ type: 'rebuy' })}>
+              Rebuy {fmt(game.settings.startingStack)}
+            </button>
+          )}
+        </div>
       </div>
-      <div className="my-note">
-        <span>{note}</span>
-        {canRebuy && (
-          <button className="btn btn-quiet btn-sm" disabled={busy} onClick={() => run({ type: 'rebuy' })}>
-            Rebuy {fmt(game.settings.startingStack)}
-          </button>
-        )}
-      </div>
+      <ChipRack amount={me.stack} currency={room.currency} />
     </div>
   );
 }
@@ -102,15 +106,19 @@ interface ActionProps {
 }
 
 function ActionPanel({ legal, player, actingFor, onCancel }: ActionProps) {
-  const { game, run, busy, v } = useTable();
+  const { game, room, run, busy, v } = useTable();
   const [raising, setRaising] = useState(false);
+  const [staged, setStaged] = useState(0);
   const pot = potTotal(game);
   const openLabel = game.currentBet === 0 ? 'Bet' : 'Raise';
 
   const act = (kind: ActionKind, amount?: number) =>
     run({ type: 'act', v, kind, ...(amount !== undefined ? { amount } : {}), ...(actingFor ? { playerId: player.id } : {}) });
 
-  useEffect(() => setRaising(false), [v]);
+  useEffect(() => {
+    setRaising(false);
+    setStaged(0);
+  }, [v]);
 
   useEffect(() => {
     if (raising) return;
@@ -135,12 +143,33 @@ function ActionPanel({ legal, player, actingFor, onCancel }: ActionProps) {
         currentBet={game.currentBet}
         bb={game.settings.bb}
         label={openLabel}
+        player={player}
+        currency={room.currency}
         busy={busy}
         onBack={() => setRaising(false)}
         onConfirm={(amount) => act('raise', amount)}
       />
     );
   }
+
+  const raiseTo = player.bet + staged;
+  const stagesCall = staged > 0 && staged === legal.callAmount;
+  const stagesRaise = staged > 0 && legal.canRaise && raiseTo > game.currentBet && (raiseTo >= legal.minRaiseTo || raiseTo === legal.maxRaiseTo);
+  const stagedValid = stagesCall || stagesRaise;
+  const stagedAllIn = staged === player.stack;
+  const stagedStatus = stagesCall
+    ? stagedAllIn ? `All in ${fmt(staged)}` : `Calling ${fmt(staged)}`
+    : stagesRaise
+      ? stagedAllIn ? `All in to ${fmt(raiseTo)}` : `${openLabel === 'Bet' ? 'Betting' : 'Raising'} to ${fmt(raiseTo)}`
+      : raiseTo > game.currentBet
+        ? `Minimum ${fmt(legal.minRaiseTo)}`
+        : `${fmt(Math.max(0, legal.callAmount - staged))} more to call`;
+
+  const addChip = (value: number) => setStaged((amount) => Math.min(player.stack, amount + value));
+  const place = () => {
+    if (stagesCall) void act('call');
+    else if (stagesRaise) void act('raise', raiseTo);
+  };
 
   const callText = legal.callIsAllIn ? `All in ${fmt(legal.callAmount)}` : `Call ${fmt(legal.callAmount)}`;
   const buttons = [
@@ -153,25 +182,39 @@ function ActionPanel({ legal, player, actingFor, onCancel }: ActionProps) {
 
   return (
     <div className="dock dock-turn" data-acting-for={actingFor || undefined}>
-      <div className="turn-head">
+      <div className="turn-overview">
         <div>
           <span className="turn-title">{actingFor ? `Acting for ${player.name}` : 'Your turn'}</span>
-          <span className="turn-sub">Stack {fmt(player.stack)}</span>
+          <span className="turn-sub">{legal.toCall > 0 ? `${fmt(legal.callAmount)} to call` : 'Check is available'}</span>
         </div>
+        <span className="turn-metric"><small>Pot</small><Num value={pot} /></span>
+        <span className="turn-metric"><small>Balance</small><Num value={player.stack} /></span>
         {actingFor && (
           <button className="icon-btn" onClick={onCancel} aria-label="Stop acting for this player">
             <Icon name="close" />
           </button>
         )}
       </div>
-      <div className="turn-buttons" data-count={buttons.length}>
-        {buttons.map((b) => (
-          <button key={b.key} className={`btn btn-turn ${b.cls}`} onClick={b.onClick} disabled={busy}>
-            {b.label}
-            <kbd className="kbd">{b.hint}</kbd>
+      {staged > 0 && <StagedChips amount={staged} currency={room.currency} />}
+      {staged > 0 ? (
+        <div className="staged-actions">
+          <button className="staged-clear" onClick={() => setStaged(0)}>Clear</button>
+          <span className="staged-status"><i aria-hidden="true" />{stagedStatus}</span>
+          <button className="btn btn-turn btn-turn-main staged-place" onClick={place} disabled={!stagedValid || busy}>
+            {stagedValid ? `Place ${fmt(staged)}` : 'Add chips'}
           </button>
-        ))}
-      </div>
+        </div>
+      ) : (
+        <div className="turn-buttons" data-count={buttons.length}>
+          {buttons.map((b) => (
+            <button key={b.key} className={`btn btn-turn ${b.cls}`} onClick={b.key === 'call' ? () => setStaged(legal.callAmount) : b.onClick} disabled={busy}>
+              {b.label}
+              <kbd className="kbd">{b.hint}</kbd>
+            </button>
+          ))}
+        </div>
+      )}
+      <ChipRack amount={player.stack - staged} currency={room.currency} onChip={addChip} />
     </div>
   );
 }
@@ -182,16 +225,19 @@ interface RaiseProps {
   currentBet: number;
   bb: number;
   label: string;
+  player: Player;
+  currency: string;
   busy: boolean;
   onBack: () => void;
   onConfirm: (amount: number) => void;
 }
 
-function RaisePanel({ legal, pot, currentBet, bb, label, busy, onBack, onConfirm }: RaiseProps) {
+function RaisePanel({ legal, pot, currentBet, bb, label, player, currency, busy, onBack, onConfirm }: RaiseProps) {
   const min = legal.minRaiseTo;
   const max = legal.maxRaiseTo;
-  const [amount, setAmount] = useState(min);
-  const [text, setText] = useState(String(min));
+  const [amount, setAmount] = useState<number | null>(null);
+  const [custom, setCustom] = useState(false);
+  const [text, setText] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
   const clamp = (n: number) => Math.max(min, Math.min(max, Math.round(n)));
@@ -214,10 +260,9 @@ function RaisePanel({ legal, pot, currentBet, bb, label, busy, onBack, onConfirm
     ];
   }, [pot, legal.toCall, currentBet, min, max]);
 
-  const typed = Number(text);
-  const valid = Number.isSafeInteger(typed) && typed <= max && (typed >= min || typed === max);
-  const final = valid ? typed : amount;
-  const allIn = final === max;
+  const valid = amount !== null && Number.isSafeInteger(amount) && amount <= max && (amount >= min || amount === max);
+  const final = amount ?? min;
+  const allIn = amount === max;
   const confirm = () => {
     if (valid && !busy) onConfirm(final);
   };
@@ -238,62 +283,45 @@ function RaisePanel({ legal, pot, currentBet, bb, label, busy, onBack, onConfirm
 
   return (
     <div className="dock dock-turn dock-raise">
-      <div className="raise-top">
-        <button className="icon-btn" onClick={onBack} aria-label="Back">
-          <Icon name="back" />
-        </button>
-        <label className="raise-amount">
-          <span className="turn-sub">{label === 'Bet' ? 'Bet' : 'Raise to'}</span>
-          <input
-            ref={inputRef}
-            className="raise-input num"
-            inputMode="numeric"
-            pattern="[0-9]*"
-            value={text}
-            aria-invalid={!valid}
-            onChange={(e) => {
-              const digits = e.target.value.replace(/\D/g, '').slice(0, 10);
-              setText(digits);
-              const n = Number(digits);
-              if (digits && n >= min && n <= max) setAmount(n);
-            }}
-            onBlur={() => set(Number(text) || min)}
-            onFocus={(e) => e.target.select()}
-          />
-        </label>
-        <div className="stepper">
-          <button className="icon-btn" onClick={() => set(final - bb)} disabled={final <= min} aria-label={`Minus ${bb}`}>
-            <Icon name="minus" />
-          </button>
-          <button className="icon-btn" onClick={() => set(final + bb)} disabled={final >= max} aria-label={`Plus ${bb}`}>
-            <Icon name="plus" />
-          </button>
-        </div>
+      <div className="turn-overview">
+        <div><span className="turn-title">Your turn</span><span className="turn-sub">Build your wager</span></div>
+        <span className="turn-metric"><small>Pot</small><Num value={pot} /></span>
+        <span className="turn-metric"><small>Balance</small><Num value={player.stack} /></span>
       </div>
-
-      <input
-        type="range"
-        className="slider"
-        min={min}
-        max={max}
-        step={1}
-        value={final}
-        onChange={(e) => set(Number(e.target.value))}
-        aria-label="Amount"
-        style={{ ['--fill' as string]: `${max === min ? 100 : ((final - min) / (max - min)) * 100}%` }}
-      />
-
-      <div className="presets">
+      <div className="raise-heading">
+        <span className="turn-title">{label === 'Bet' ? 'Bet' : 'Raise to'}</span>
+        <span className="turn-sub">{fmt(min)} minimum</span>
+      </div>
+      {amount !== null && <StagedChips amount={Math.max(0, amount - player.bet)} currency={currency} />}
+      <div className="raise-utility">
+        <button className="staged-clear" onClick={amount === null ? onBack : () => { setAmount(null); setText(''); setCustom(false); }}>{amount === null ? 'Back' : 'Clear'}</button>
+        <span>{amount === null ? 'Tap chips or choose a shortcut.' : `${label === 'Bet' ? 'Betting' : 'Raising'} to ${fmt(final)}`}</span>
+      </div>
+      {custom && (
+        <label className="raise-amount custom-amount">
+          <span className="turn-sub">Custom amount</span>
+          <input ref={inputRef} className="raise-input num" inputMode="numeric" pattern="[0-9]*" value={text} aria-invalid={text.length > 0 && !valid} autoFocus
+            onChange={(e) => { const digits = e.target.value.replace(/\D/g, '').slice(0, 10); setText(digits); const n = Number(digits); setAmount(digits ? Math.min(max, n) : null); }} />
+        </label>
+      )}
+      {amount !== null && (
+        <button className="btn btn-turn btn-turn-main staged-place" onClick={confirm} disabled={!valid || busy}>
+          {allIn ? `Place all in ${fmt(max)}` : `Place ${fmt(final)}`}
+        </button>
+      )}
+      <div className="presets raise-presets">
         {presets.map((p) => (
-          <button key={p.label} className="preset" data-on={final === p.value || undefined} onClick={() => set(p.value)}>
-            {p.label}
+          <button key={p.label} className="preset" data-on={(amount !== null && final === p.value) || undefined} onClick={() => set(p.value)}>
+            <span>{p.label}</span><strong>{fmt(p.value)}</strong>
           </button>
         ))}
+        <button className="preset" data-on={custom || undefined} onClick={() => { setCustom(true); setAmount(null); setText(''); }}><span>Custom</span><strong>Type amount</strong></button>
       </div>
-
-      <button className="btn btn-turn btn-turn-main btn-block" onClick={confirm} disabled={!valid || busy}>
-        {allIn ? `All in ${fmt(max)}` : `${label === 'Bet' ? 'Bet' : 'Raise to'} ${fmt(final)}`}
-      </button>
+      <ChipRack
+        amount={player.stack - (amount === null ? 0 : Math.max(0, amount - player.bet))}
+        currency={currency}
+        onChip={(value) => setAmount(Math.min(max, (amount ?? player.bet) + value))}
+      />
     </div>
   );
 }

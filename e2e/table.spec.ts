@@ -55,6 +55,11 @@ async function actWhoeverIsUp(pages: Page[], action: 'Check' | RegExp) {
   throw new Error('nobody had a turn');
 }
 
+async function stageAndPlace(page: Page, action: string | RegExp, amount: number) {
+  await page.getByRole('button', { name: action }).click();
+  await page.getByRole('button', { name: `Place ${amount}` }).click();
+}
+
 test('three players play a hand from deal to payout', async ({ browser }) => {
   const ana = await seat(browser, 'Ana');
   const code = codeOf(ana);
@@ -67,12 +72,12 @@ test('three players play a hand from deal to payout', async ({ browser }) => {
   await expect(yourTurn(ana)).toBeVisible();
   await expect(ben.getByText('Ana to act · 10 to call')).toBeVisible();
   await ana.getByRole('button', { name: 'Raise' }).click();
-  await ana.getByLabel('Amount').fill('60');
-  await ana.getByRole('textbox').fill('60');
-  await ana.getByRole('button', { name: 'Raise to 60' }).click();
+  await ana.getByRole('button', { name: /Custom/ }).click();
+  await ana.getByLabel('Custom amount').fill('60');
+  await ana.getByRole('button', { name: 'Place 60' }).click();
 
   await expect(yourTurn(ben)).toBeVisible();
-  await ben.getByRole('button', { name: 'Call 55' }).click();
+  await stageAndPlace(ben, 'Call 55', 55);
   await expect(yourTurn(cat)).toBeVisible();
   await cat.getByRole('button', { name: 'Fold' }).click();
 
@@ -118,13 +123,13 @@ test('short stack all in creates a side pot that pays the right people', async (
   await ana.getByRole('button', { name: 'Deal the first hand' }).click();
   await expect(yourTurn(ana)).toBeVisible();
   await ana.getByRole('button', { name: 'Raise' }).click();
-  await ana.getByRole('button', { name: 'All in', exact: true }).click();
-  await ana.getByRole('button', { name: 'All in 1,000' }).click();
+  await ana.getByRole('button', { name: /All in 1,000/ }).click();
+  await ana.getByRole('button', { name: 'Place all in 1,000' }).click();
 
   await expect(yourTurn(ben)).toBeVisible();
-  await ben.getByRole('button', { name: 'All in 95' }).click();
+  await stageAndPlace(ben, 'All in 95', 95);
   await expect(yourTurn(cat)).toBeVisible();
-  await cat.getByRole('button', { name: 'All in 990' }).click();
+  await stageAndPlace(cat, 'All in 990', 990);
 
   await expect(ana.getByText('Who won?')).toBeVisible();
   await expect(ana.locator('.stage-line')).toHaveText('All in. Run it out.');
@@ -154,9 +159,9 @@ test('two players with the same hand chop the pot', async ({ browser }) => {
 
   await ana.getByRole('button', { name: 'Deal the first hand' }).click();
   await expect(yourTurn(ana)).toBeVisible();
-  await ana.getByRole('button', { name: /Call/ }).click();
+  await stageAndPlace(ana, /Call/, 10);
   await expect(yourTurn(ben)).toBeVisible();
-  await ben.getByRole('button', { name: /Call/ }).click();
+  await stageAndPlace(ben, /Call/, 5);
   await expect(yourTurn(cat)).toBeVisible();
   await cat.getByRole('button', { name: 'Check' }).click();
   for (let i = 0; i < 9; i++) await actWhoeverIsUp([ana, ben, cat], 'Check');
@@ -195,9 +200,9 @@ test('anyone can act for a seat without a phone, and undo rolls it back', async 
 
   await ana.getByRole('button', { name: 'Deal the first hand' }).click();
   await expect(yourTurn(ana)).toBeVisible();
-  await ana.getByRole('button', { name: 'Call 10' }).click();
+  await stageAndPlace(ana, 'Call 10', 10);
   await expect(yourTurn(ben)).toBeVisible();
-  await ben.getByRole('button', { name: 'Call 5' }).click();
+  await stageAndPlace(ben, 'Call 5', 5);
 
   await expect(ana.getByRole('button', { name: 'Act for Gran' })).toBeVisible();
   await ben.getByRole('button', { name: 'Act for Gran' }).click();
@@ -245,7 +250,7 @@ test('recovers after losing the connection', async ({ browser }) => {
 
   await ben.context().setOffline(true);
   await ben.evaluate(() => window.dispatchEvent(new Event('offline')));
-  await ana.getByRole('button', { name: 'Call 5' }).click();
+  await stageAndPlace(ana, 'Call 5', 5);
   await ben.context().setOffline(false);
   await ben.evaluate(() => window.dispatchEvent(new Event('online')));
   await expect(yourTurn(ben)).toBeVisible({ timeout: 20_000 });
@@ -259,9 +264,9 @@ test('desktop keyboard shortcuts drive the action bar', async ({ browser }) => {
   await ana.getByRole('button', { name: 'Deal the first hand' }).click();
   await expect(yourTurn(ana)).toBeVisible();
   await ana.keyboard.press('r');
-  await expect(ana.getByRole('button', { name: 'Raise to 20' })).toBeVisible();
+  await expect(ana.getByText('Tap chips or choose a shortcut.')).toBeVisible();
   await ana.keyboard.press('ArrowUp');
-  await expect(ana.getByRole('button', { name: 'Raise to 30' })).toBeVisible();
+  await expect(ana.getByRole('button', { name: 'Place 30' })).toBeVisible();
   await ana.keyboard.press('Enter');
   await expect(yourTurn(ben)).toBeVisible();
   await ben.getByRole('button', { name: 'Fold' }).click();

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Claims } from '../components/Claims';
 import { Dock } from '../components/Dock';
 import { Header } from '../components/Header';
+import { Icon } from '../components/Icon';
 import { Lobby } from '../components/Lobby';
 import { Seats } from '../components/Seats';
 import { Sheets, type SheetName } from '../components/Sheets';
@@ -46,6 +47,10 @@ export function Table({ onDisplay, onLeft }: { onDisplay: () => void; onLeft: ()
       </main>
       <aside className="dock-wrap" aria-label="Your actions">
         <Dock />
+        <button className="table-controls-handle" onClick={() => setSheet('menu')}>
+          <Icon name="up" size={16} />
+          Table controls
+        </button>
       </aside>
       <Sheets open={sheet} setOpen={setSheet} onDisplay={onDisplay} onLeft={onLeft} />
     </div>

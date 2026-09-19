@@ -1,6 +1,6 @@
 # MEJA52 — Release 1 Implementation Gap Map
 
-Status: Foundation pass 1 implemented and verified locally; remaining foundation and visual slices are pending
+Status: Foundation pass 1, Slice 1 entry flow and Slice 2 tactile-betting pass 1 implemented and verified locally; remaining continuity and governance work is pending
 Working branch: `codex/meja52-release1`
 Upstream baseline: `7867414` (`origin/main` at audit time)
 
@@ -76,6 +76,8 @@ This slice establishes MEJA52's production tokens, typography, brand application
 ### Slice 2 — tactile table edge
 
 Implement the approved waiting, active-turn, preselection, staged-call, raise builder, custom amount, chip-change and portrait fallback comps.
+
+**Implemented in pass 1:** responsive portrait/landscape table-edge presentation, deterministic RM1/RM5/RM25/RM100 visual chip composition, tappable chip racks, two-stage Call → Place workflow, Clear, chip-first raise staging, approved shortcuts and secondary Custom amount entry. Manual persisted chip change and denomination settings remain pending.
 
 ### Slice 3 — table continuity
 
