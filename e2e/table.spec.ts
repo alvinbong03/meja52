@@ -284,7 +284,9 @@ test('live play keeps balances private and exposes current bets in phone landsca
   await ana.getByRole('button', { name: 'Deal the first hand' }).click();
   await expect(yourTurn(ana)).toBeVisible();
   await expect(ana.locator('.table-shell')).toHaveCSS('background-color', 'rgb(146, 49, 59)');
+  await expect(ana.locator('.dock-turn')).toHaveCSS('background-color', 'rgb(179, 58, 70)');
   await expect(ben.locator('.table-shell')).toHaveCSS('background-color', 'rgb(32, 53, 84)');
+  await expect(ben.locator('.dock')).toHaveCSS('background-color', 'rgb(44, 69, 100)');
   await expect(ana.locator('.seat-stack')).toHaveCount(0);
   await expect(ben.locator('.seat-stack')).toHaveCount(0);
   await expect(ana.locator('.private-hand-total')).toContainText('In this hand');

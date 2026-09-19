@@ -989,6 +989,8 @@ body:has(.notice) {
   --accent-soft: color-mix(in srgb, var(--brand-hibiscus) 30%, var(--brand-indigo));
   --accent-text: var(--brand-ivory);
   --on-accent: var(--brand-ivory);
+  --private-surface: var(--brand-denim);
+  --private-line: rgba(243, 238, 228, 0.18);
   display: flex;
   flex-direction: column;
   height: 100dvh;
@@ -1012,6 +1014,8 @@ body:has(.notice) {
   --accent-soft: color-mix(in srgb, var(--brand-ivory) 16%, var(--brand-hibiscus-ink));
   --accent-text: var(--brand-ivory);
   --on-accent: var(--brand-indigo);
+  --private-surface: var(--brand-hibiscus);
+  --private-line: rgba(243, 238, 228, 0.22);
 }
 
 body:has(.table-shell) {
@@ -1378,14 +1382,14 @@ body:has(.table-shell[data-turn]) {
   display: grid;
   gap: 14px;
   padding: 16px var(--gutter) calc(var(--safe-bottom) + 16px);
-  border-top: 1px solid var(--line);
-  background: var(--surface);
+  border-top: 1px solid var(--private-line);
+  background: var(--private-surface);
   animation: rise 240ms var(--ease-out);
 }
 
 .table-shell[data-turn] .dock-turn:not([data-acting-for]) {
-  border-top-color: var(--line);
-  background: var(--bg);
+  border-top-color: var(--private-line);
+  background: var(--private-surface);
   color: var(--ink);
   animation: drench 300ms var(--ease-out);
 }

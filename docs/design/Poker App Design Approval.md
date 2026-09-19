@@ -48,3 +48,4 @@ Any exception should name the item number and the preferred replacement.
 - All waiting roles use Batik Indigo. Only the active player's own screen uses Hibiscus Ink.
 - Chip faces retain their approved shape, depth and denomination colours, with solid centres so edge markings never obstruct values.
 - MEJA52 uses a deliberate house rule: any whole-unit amount above the current table bet is a legal raise and every such raise reopens action.
+- The private bottom control deck uses Denim Lift over Batik Indigo while waiting and Hibiscus Lacquer over Hibiscus Ink during the active turn. It remains one contiguous surface with a restrained ivory hairline; individual actions do not receive decorative coloured panels.
