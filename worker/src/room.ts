@@ -33,6 +33,7 @@ import {
   type MemberView,
   type RoomView,
   type ServerMessage,
+  type CurrencyCode,
 } from '../../shared/protocol';
 import type { Env } from './index';
 
@@ -50,6 +51,7 @@ const STREETS = ['Preflop', 'Flop', 'Turn', 'River'];
 interface Member {
   id: string;
   name: string;
+  avatar: string | null;
   tokenHash: string | null;
   manual: boolean;
   joinedAt: number;
@@ -73,6 +75,7 @@ interface Stored {
   controllerId?: string | null;
   /** One-time bootstrap capability. Cleared as soon as the creator takes a seat. */
   hostTokenHash?: string | null;
+  currency?: CurrencyCode;
   members: Member[];
   game: Game;
   v: number;
@@ -138,7 +141,12 @@ export class Room extends DurableObject<Env> {
 
     if (route === 'init' && request.method === 'POST') {
       if (this.s) return new Response('exists', { status: 409 });
-      const { code, creatorToken } = (await request.json()) as { code: string; creatorToken: string };
+      const { code, creatorToken, currency, settings } = (await request.json()) as {
+        code: string;
+        creatorToken: string;
+        currency?: CurrencyCode;
+        settings?: Settings;
+      };
       const now = Date.now();
       this.s = {
         code,
@@ -147,8 +155,9 @@ export class Room extends DurableObject<Env> {
         hostId: null,
         controllerId: null,
         hostTokenHash: await sha256(`${code}:${creatorToken}`),
+        currency: currency ?? 'USD',
         members: [],
-        game: createGame(DEFAULT_SETTINGS),
+        game: createGame(settings ?? DEFAULT_SETTINGS),
         v: 1,
         log: [],
         logSeq: 0,
@@ -313,7 +322,14 @@ export class Room extends DurableObject<Env> {
         if (s.hostTokenHash && !creatorJoining && s.members.length >= MAX_PLAYERS - 1) {
           deny('INVALID', 'The last seat is reserved for the room creator');
         }
-        const member: Member = { id: randomId(), name, tokenHash: att.tokenHash, manual: false, joinedAt: Date.now() };
+        const member: Member = {
+          id: randomId(),
+          name,
+          avatar: msg.avatar?.slice(0, 4) ?? null,
+          tokenHash: att.tokenHash,
+          manual: false,
+          joinedAt: Date.now(),
+        };
         s.game = addPlayer(s.game, member.id, name);
         s.members.push(member);
         if (s.hostTokenHash === undefined && !s.hostId) {
@@ -341,7 +357,7 @@ export class Room extends DurableObject<Env> {
         requireHost();
         const name = this.uniqueName(msg.name);
         if (s.members.length >= MAX_PLAYERS) deny('INVALID', 'Table is full');
-        const member: Member = { id: randomId(), name, tokenHash: null, manual: true, joinedAt: Date.now() };
+        const member: Member = { id: randomId(), name, avatar: null, tokenHash: null, manual: true, joinedAt: Date.now() };
         s.game = addPlayer(s.game, member.id, name);
         s.members.push(member);
         this.log('table', `${name} sat down without a phone`);
@@ -780,6 +796,7 @@ export class Room extends DurableObject<Env> {
     const members: MemberView[] = s.members.map((m) => ({
       id: m.id,
       name: m.name,
+      avatar: m.avatar ?? null,
       manual: m.manual,
       ...this.presence(m.id),
     }));
@@ -789,6 +806,7 @@ export class Room extends DurableObject<Env> {
       hostId: s.hostId,
       hostTakeoverAt: s.hostTokenHash && !this.creatorCapabilityPresent() ? s.createdAt + CREATOR_GRACE_MS : null,
       controllerId: s.controllerId ?? s.hostId,
+      currency: s.currency ?? 'USD',
       members,
       game: s.game,
       claims: s.claims.map(({ id, playerId, at }) => ({ id, playerId, at })),

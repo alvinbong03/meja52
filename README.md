@@ -149,4 +149,4 @@ React 19, Vite 8, TypeScript 5.9, Cloudflare Pages, Workers, Durable Objects (SQ
 
 ## Upstream and licence
 
-MEJA52 is built from the MIT-licensed Piss Poker project. The original copyright and licence notice remain in [LICENSE](LICENSE), and the original repository is retained as the `upstream` Git remote.
+MEJA52 is built from the MIT-licensed Piss Poker project. The original copyright and licence notice remain in [LICENSE](LICENSE). This repository has its own clean history and does not retain the source project as a Git remote.

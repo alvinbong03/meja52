@@ -3,4 +3,4 @@ Allow: /
 Disallow: /t/
 Disallow: /api/
 
-Sitemap: https://piss-poker.pages.dev/sitemap.xml
+Sitemap: https://meja52.pages.dev/sitemap.xml

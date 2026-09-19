@@ -1,4 +1,5 @@
-import { CODE_ALPHABET, CODE_LENGTH, isRoomCode } from '../../shared/protocol';
+import { LIMITS, validateSettings, type Settings } from '../../shared/engine';
+import { CURRENCIES, CODE_ALPHABET, CODE_LENGTH, isRoomCode, type CurrencyCode } from '../../shared/protocol';
 import { Room } from './room';
 
 export { Room };
@@ -39,7 +40,7 @@ export function originAllowed(origin: string | null, env: Env) {
   const hostname = host.split(':')[0];
   if (protocol === 'http:' && (hostname === 'localhost' || hostname === '127.0.0.1')) return true;
   if (protocol !== 'https:') return false;
-  if (hostname === 'piss-poker.pages.dev' || hostname.endsWith('.piss-poker.pages.dev')) return true;
+  if (hostname === 'meja52.pages.dev' || hostname.endsWith('.meja52.pages.dev')) return true;
   return (env.ALLOWED_ORIGINS ?? '')
     .split(',')
     .map((o) => o.trim())
@@ -60,9 +61,26 @@ export default {
     if (!originAllowed(request.headers.get('Origin'), env)) return json({ error: 'Forbidden' }, 403);
 
     if (parts[1] === 'rooms' && parts.length === 2 && request.method === 'POST') {
-      const body = (await request.json().catch(() => null)) as { token?: unknown } | null;
+      const body = (await request.json().catch(() => null)) as {
+        token?: unknown;
+        currency?: unknown;
+        settings?: unknown;
+      } | null;
       if (!body || typeof body.token !== 'string' || !/^[a-f0-9]{64}$/.test(body.token)) {
         return json({ error: 'A valid device token is required' }, 400);
+      }
+      let settings: Settings | undefined;
+      let currency: CurrencyCode | undefined;
+      if (body.settings !== undefined || body.currency !== undefined) {
+        if (typeof body.currency !== 'string' || !CURRENCIES.includes(body.currency as CurrencyCode)) {
+          return json({ error: 'Choose a supported currency' }, 400);
+        }
+        try {
+          settings = validateSettings(body.settings as Settings);
+        } catch {
+          return json({ error: `Stakes must be whole values within ${LIMITS.maxStack.toLocaleString('en-US')}` }, 400);
+        }
+        currency = body.currency as CurrencyCode;
       }
       const ip = request.headers.get('cf-connecting-ip') ?? 'local';
       if (env.CREATE_LIMITER) {
@@ -73,7 +91,7 @@ export default {
         const code = randomCode();
         const res = await stub(env, code).fetch('https://room/init', {
           method: 'POST',
-          body: JSON.stringify({ code, creatorToken: body.token }),
+          body: JSON.stringify({ code, creatorToken: body.token, currency, settings }),
         });
         if (res.status === 201) return json({ code }, 201);
       }

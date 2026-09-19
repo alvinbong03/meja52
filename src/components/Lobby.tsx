@@ -14,6 +14,7 @@ export function Lobby({ onSettings, onPlayers }: { onSettings: () => void; onPla
     void run({ type: 'seatOrder', v, ids });
   };
   const { sb, bb, startingStack, buyInPrice } = game.settings;
+  const cash = new Intl.NumberFormat('en-MY', { style: 'currency', currency: room.currency });
 
   return (
     <div className="lobby">
@@ -91,7 +92,7 @@ export function Lobby({ onSettings, onPlayers }: { onSettings: () => void; onPla
           </div>
           <div>
             <dt>Buy-in</dt>
-            <dd className="num">{buyInPrice > 0 ? `$${(buyInPrice / 100).toFixed(2)}` : 'Chips only'}</dd>
+            <dd className="num">{buyInPrice > 0 ? cash.format(buyInPrice / 100) : 'Chips only'}</dd>
           </div>
         </dl>
       </section>

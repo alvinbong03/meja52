@@ -21,7 +21,7 @@ export function Invite({ code, qrSize = 176 }: { code: string; qrSize?: number }
 
   const share = async () => {
     try {
-      await navigator.share({ title: `Piss Poker table ${code}`, text: `Join my poker table: ${code}`, url });
+      await navigator.share({ title: `MEJA52 room ${code}`, text: `Join my MEJA52 table: ${code}`, url });
     } catch {
       // dismissed
     }

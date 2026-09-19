@@ -17,11 +17,18 @@ async function seat(browser: Browser, name: string, code?: string, options: Para
     await page.goto(`/t/${code}`);
   } else {
     await page.goto('/');
-    await page.getByRole('button', { name: 'Start a table' }).click();
-    await page.waitForURL(/\/t\/[A-Z]{4}$/);
+    await page.getByRole('button', { name: 'Create a room' }).click();
+    await page.getByRole('button', { name: 'Continue' }).click();
+    await page.getByLabel('Starting balance').fill('1000');
+    await page.getByLabel('Small blind').fill('5');
+    await page.getByLabel('Big blind').fill('10');
+    await page.getByRole('button', { name: 'Continue' }).click();
+    await page.getByRole('button', { name: 'Create room' }).click();
+    await page.waitForURL(/\/invite\/[A-Z]{4}$/);
+    await page.getByRole('button', { name: 'Open lobby' }).click();
   }
   await page.getByLabel('Your name').fill(name);
-  await page.getByRole('button', { name: 'Join table' }).click();
+  await page.getByRole('button', { name: 'Join lobby' }).click();
   await expect(page.getByRole('button', { name: 'Menu' })).toBeVisible();
   return page;
 }
@@ -298,7 +305,15 @@ test('guests cannot take hosting while the unseated creator is connected or stil
   contexts.push(creatorContext);
   const creator = await creatorContext.newPage();
   await creator.goto('/');
-  await creator.getByRole('button', { name: 'Start a table' }).click();
+  await creator.getByRole('button', { name: 'Create a room' }).click();
+  await creator.getByRole('button', { name: 'Continue' }).click();
+  await creator.getByLabel('Starting balance').fill('1000');
+  await creator.getByLabel('Small blind').fill('5');
+  await creator.getByLabel('Big blind').fill('10');
+  await creator.getByRole('button', { name: 'Continue' }).click();
+  await creator.getByRole('button', { name: 'Create room' }).click();
+  await creator.waitForURL(/\/invite\/[A-Z]{4}$/);
+  await creator.getByRole('button', { name: 'Open lobby' }).click();
   await creator.waitForURL(/\/t\/[A-Z]{4}$/);
 
   const guest = await seat(browser, 'Guest', codeOf(creator));
@@ -314,9 +329,10 @@ test('guests cannot take hosting while the unseated creator is connected or stil
 
 test('unknown table codes and room pages explain themselves', async ({ page }) => {
   await page.goto('/');
-  await page.getByLabel('Have a code?').fill('zzzz');
-  await page.getByRole('button', { name: 'Join' }).click();
-  await expect(page.getByRole('alert')).toContainText('No table called ZZZZ');
+  await page.getByRole('button', { name: 'Join a table' }).click();
+  await page.getByLabel('Room code').fill('zzzz');
+  await page.getByRole('button', { name: 'Continue' }).click();
+  await expect(page.getByRole('alert')).toContainText('No room called ZZZZ');
   await page.goto('/t/QQQQ');
   await expect(page.getByText('No table called QQQQ')).toBeVisible();
 });

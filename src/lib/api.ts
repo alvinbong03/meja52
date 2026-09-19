@@ -1,14 +1,17 @@
+import type { RoomConfig } from '../../shared/protocol';
+import { deviceToken } from './device';
+
 export interface RoomInfo {
   code: string;
   phase: string;
   players: string[];
 }
 
-export async function createRoom(): Promise<string> {
+export async function createRoom(config?: RoomConfig): Promise<string> {
   const res = await fetch('/api/rooms', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ token: deviceToken() }),
+    body: JSON.stringify({ token: deviceToken(), ...config }),
   });
   const body = (await res.json().catch(() => ({}))) as { code?: string; error?: string };
   if (!res.ok || !body.code) throw new Error(body.error ?? 'Could not start a table. Try again.');
@@ -21,4 +24,3 @@ export async function roomInfo(code: string): Promise<RoomInfo | null> {
   if (!res.ok) throw new Error('Could not reach the table');
   return (await res.json()) as RoomInfo;
 }
-import { deviceToken } from './device';

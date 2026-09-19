@@ -1,13 +1,13 @@
 {
-  "name": "Piss Poker",
-  "short_name": "Piss Poker",
-  "description": "Chips on your phone, cards on the table.",
+  "name": "MEJA52",
+  "short_name": "MEJA52",
+  "description": "Your table, no chip case.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "any",
-  "background_color": "#0a0a0a",
-  "theme_color": "#f5db2b",
+  "background_color": "#1e2225",
+  "theme_color": "#1e2225",
   "icons": [
     { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
     { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" },

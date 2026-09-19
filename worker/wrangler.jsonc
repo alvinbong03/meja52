@@ -1,6 +1,6 @@
 {
   "$schema": "../node_modules/wrangler/config-schema.json",
-  "name": "piss-poker-api",
+  "name": "meja52-api",
   "main": "src/index.ts",
   "compatibility_date": "2026-08-20",
   "workers_dev": false,

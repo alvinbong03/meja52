@@ -9,6 +9,14 @@ export const PONG = 'pong';
 /** A socket silent (no ping) for longer than this counts as away. */
 export const AWAY_AFTER_MS = 30_000;
 
+export const CURRENCIES = ['MYR', 'SGD', 'USD', 'GBP', 'EUR'] as const;
+export type CurrencyCode = (typeof CURRENCIES)[number];
+
+export interface RoomConfig {
+  currency: CurrencyCode;
+  settings: Settings;
+}
+
 export const isRoomCode = (code: unknown): code is string =>
   typeof code === 'string' && new RegExp(`^[${CODE_ALPHABET}]{${CODE_LENGTH}}$`).test(code);
 
@@ -20,7 +28,7 @@ export const normalizeCode = (input: string) =>
 
 export type ClientMessage =
   | { type: 'hello'; token: string }
-  | { type: 'join'; name: string }
+  | { type: 'join'; name: string; avatar?: string }
   | { type: 'addSeat'; name: string }
   | { type: 'claim'; playerId: string }
   | { type: 'cancelClaim' }
@@ -46,6 +54,7 @@ export type Envelope = ClientMessage & { seq?: number };
 export interface MemberView {
   id: string;
   name: string;
+  avatar: string | null;
   manual: boolean;
   connections: number;
   lastSeen: number;
@@ -72,6 +81,7 @@ export interface RoomView {
   hostId: string | null;
   hostTakeoverAt: number | null;
   controllerId: string | null;
+  currency: CurrencyCode;
   members: MemberView[];
   game: Game;
   claims: ClaimView[];
@@ -121,8 +131,11 @@ export function parseClientMessage(raw: string): Envelope | null {
     case 'hello':
       return typeof m.token === 'string' && /^[a-f0-9]{64}$/.test(m.token) ? out({ type: 'hello', token: m.token }) : null;
     case 'join':
+      return isStr(m.name, 200) && (m.avatar === undefined || isStr(m.avatar, 4))
+        ? out(m.avatar === undefined ? { type: 'join', name: m.name } : { type: 'join', name: m.name, avatar: m.avatar })
+        : null;
     case 'addSeat':
-      return isStr(m.name, 200) ? out({ type: m.type, name: m.name }) : null;
+      return isStr(m.name, 200) ? out({ type: 'addSeat', name: m.name }) : null;
     case 'claim':
       return isId(m.playerId) ? out({ type: 'claim', playerId: m.playerId }) : null;
     case 'cancelClaim':

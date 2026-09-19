@@ -3,7 +3,7 @@ import type { ClientMessage, ServerMessage } from '../../shared/protocol';
 
 type StateMsg = Extract<ServerMessage, { type: 'state' }>;
 
-export const BASE = 'https://piss-poker.pages.dev';
+export const BASE = 'https://meja52.pages.dev';
 
 export async function api(path: string, init?: RequestInit) {
   return exports.default.fetch(`${BASE}${path}`, init);

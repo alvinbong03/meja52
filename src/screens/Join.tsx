@@ -16,7 +16,7 @@ export function Join({ onDisplay }: { onDisplay: () => void }) {
     const trimmed = name.trim();
     if (!trimmed) return;
     saveName(trimmed);
-    await run({ type: 'join', name: trimmed });
+    await run({ type: 'join', name: trimmed, avatar: Array.from(trimmed)[0]?.toUpperCase() });
   };
 
   const status =
@@ -53,7 +53,8 @@ export function Join({ onDisplay }: { onDisplay: () => void }) {
     <main className="join">
       <div className="join-card">
         <p className="join-code">{room.code}</p>
-        <h1 className="join-title">Take a seat</h1>
+        <p className="eyebrow">You found the table</p>
+        <h1 className="join-title">What should we call you?</h1>
         <p className="muted">{status}</p>
 
         <form className="stack-form" onSubmit={join}>
@@ -68,11 +69,11 @@ export function Join({ onDisplay }: { onDisplay: () => void }) {
             maxLength={24}
             autoComplete="nickname"
             enterKeyHint="go"
-            placeholder="What the table calls you"
+            placeholder="Your name at the table"
             autoFocus
           />
           <button className="btn btn-primary btn-xl" disabled={!name.trim() || busy || full}>
-            {full ? 'Table is full' : 'Join table'}
+            {full ? 'Table is full' : 'Join lobby'}
           </button>
         </form>
 

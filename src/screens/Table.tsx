@@ -20,10 +20,10 @@ export function Table({ onDisplay, onLeft }: { onDisplay: () => void; onLeft: ()
   useEffect(() => {
     if (myTurn && !wasMyTurn.current) turnAlert();
     wasMyTurn.current = myTurn;
-    document.title = myTurn ? 'Your turn · Piss Poker' : `${game.phase === 'lobby' ? 'Lobby' : `Hand ${game.handNo}`} · Piss Poker`;
+    document.title = myTurn ? 'Your turn · MEJA52' : `${game.phase === 'lobby' ? 'Lobby' : `Hand ${game.handNo}`} · MEJA52`;
   }, [myTurn, game.phase, game.handNo]);
 
-  useEffect(() => () => void (document.title = 'Piss Poker'), []);
+  useEffect(() => () => void (document.title = 'MEJA52'), []);
 
   return (
     <div className="table-shell" data-turn={myTurn || undefined} data-phase={game.phase} onPointerDown={unlockAudio}>

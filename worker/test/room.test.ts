@@ -26,6 +26,38 @@ describe('http api', () => {
     }
   });
 
+  it('creates a room with its chosen currency, stack and blinds', async () => {
+    const token = tokenFor(77);
+    const res = await api('/api/rooms', {
+      method: 'POST',
+      headers: { 'cf-connecting-ip': '203.0.113.77', 'content-type': 'application/json' },
+      body: JSON.stringify({
+        token,
+        currency: 'MYR',
+        settings: { sb: 1, bb: 2, startingStack: 250, buyInPrice: 25_000 },
+      }),
+    });
+    expect(res.status).toBe(201);
+    const { code } = (await res.json()) as { code: string };
+    const creator = await Client.connect(code, token);
+    expect(creator.state.room.currency).toBe('MYR');
+    expect(creator.state.room.game.settings).toEqual({ sb: 1, bb: 2, startingStack: 250, buyInPrice: 25_000 });
+  });
+
+  it('rejects unsupported currencies and invalid room settings', async () => {
+    for (const config of [
+      { currency: 'DOGE', settings: { sb: 1, bb: 2, startingStack: 250, buyInPrice: 25_000 } },
+      { currency: 'MYR', settings: { sb: 3, bb: 2, startingStack: 250, buyInPrice: 25_000 } },
+    ]) {
+      const res = await api('/api/rooms', {
+        method: 'POST',
+        headers: { 'cf-connecting-ip': `203.0.113.${Math.floor(Math.random() * 100) + 100}`, 'content-type': 'application/json' },
+        body: JSON.stringify({ token: tokenFor(78), ...config }),
+      });
+      expect(res.status).toBe(400);
+    }
+  });
+
   it('returns 404 for unknown or malformed rooms without creating them', async () => {
     expect((await api('/api/rooms/ZZZZ')).status).toBe(404);
     expect((await api('/api/rooms/zz1')).status).toBe(404);
@@ -41,11 +73,11 @@ describe('http api', () => {
     const res = await api(`/api/rooms/${code}/ws`, { headers: { Upgrade: 'websocket', Origin: 'https://evil.example' } });
     expect(res.status).toBe(403);
     expect((await api(`/api/rooms/${code}/ws`)).status).toBe(426);
-    expect(originAllowed('https://piss-poker.pages.dev', {} as never)).toBe(true);
-    expect(originAllowed('https://feat-x.piss-poker.pages.dev', {} as never)).toBe(true);
+    expect(originAllowed('https://meja52.pages.dev', {} as never)).toBe(true);
+    expect(originAllowed('https://feat-x.meja52.pages.dev', {} as never)).toBe(true);
     expect(originAllowed('http://localhost:5173', {} as never)).toBe(true);
-    expect(originAllowed('https://piss-poker.pages.dev.evil.com', {} as never)).toBe(false);
-    expect(originAllowed('http://piss-poker.pages.dev', {} as never)).toBe(false);
+    expect(originAllowed('https://meja52.pages.dev.evil.com', {} as never)).toBe(false);
+    expect(originAllowed('http://meja52.pages.dev', {} as never)).toBe(false);
   });
 
   it('rate limits table creation per address', async () => {
