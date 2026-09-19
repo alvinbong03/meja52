@@ -1,0 +1,22 @@
+{
+  "approved": true,
+  "approvedBy": "owner",
+  "surface": "MEJA52 home page — desktop and mobile",
+  "revision": "Removed creator signature and reduced the footer to the player limit; replaced the hero with product-led anywhere/anytime positioning",
+  "headline": "Poker chips. Any table. Any time.",
+  "direction": "Batik Indigo",
+  "palette": {
+    "canvas": "#203554",
+    "surface": "#2C4564",
+    "text": "#F3EEE4",
+    "secondaryText": "#BFC5CA",
+    "accent": "#BF573E"
+  },
+  "references": [
+    "Apple clarity and direct product language",
+    "Porsche concise confidence and proportion",
+    "Bang & Olufsen restraint",
+    "Linear receding secondary information"
+  ],
+  "notes": "Production implementation awaits owner approval."
+}

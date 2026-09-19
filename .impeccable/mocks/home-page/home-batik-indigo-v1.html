@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>MEJA52 — Batik Indigo home comp</title>
+  <style>
+    :root {
+      --indigo: #203554;
+      --indigo-raised: #2c4564;
+      --indigo-line: #627691;
+      --ivory: #f3eee4;
+      --ivory-muted: #bfc5ca;
+      --terracotta: #bf573e;
+      --ink: #13253e;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
+      color: var(--ivory);
+      background: #0d1726;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; }
+    body { min-height: 100vh; display: grid; place-items: center; padding: 42px; }
+    button { font: inherit; }
+    .board { display: flex; gap: 36px; align-items: flex-end; }
+    .screen {
+      position: relative;
+      isolation: isolate;
+      overflow: hidden;
+      background: var(--indigo);
+      box-shadow: 0 28px 80px rgba(0, 0, 0, .36);
+    }
+    .desktop { width: 1040px; height: 820px; padding: 42px 54px 32px; }
+    .mobile { width: 390px; height: 820px; padding: 28px 24px 24px; border-radius: 38px; }
+    .nav { position: relative; z-index: 3; display: flex; align-items: center; justify-content: space-between; }
+    .brand { font-size: 28px; font-weight: 760; letter-spacing: .08em; line-height: .9; }
+    .brand sup { position: relative; top: -.44em; margin-left: .08em; font-size: .42em; font-weight: 540; letter-spacing: 0; }
+    .strap { color: var(--ivory-muted); font-size: 13px; letter-spacing: .035em; }
+    .hero { position: relative; z-index: 3; display: flex; height: calc(100% - 120px); flex-direction: column; justify-content: center; width: min(600px, 62%); padding-bottom: 18px; }
+    h1 { max-width: 650px; margin: 0; font-size: 82px; line-height: .91; letter-spacing: -.038em; font-weight: 650; text-wrap: balance; }
+    .lede { max-width: 510px; margin: 30px 0 0; color: var(--ivory-muted); font-size: 19px; line-height: 1.52; }
+    .actions { display: flex; gap: 12px; width: 440px; margin-top: 38px; }
+    .actions button { flex: 1; min-height: 58px; border-radius: 8px; font-size: 15px; font-weight: 650; }
+    .primary { border: 1px solid var(--ivory); background: var(--ivory); color: var(--ink); }
+    .secondary { border: 1px solid rgba(243, 238, 228, .35); background: rgba(44, 69, 100, .42); color: var(--ivory); }
+    .footer { position: absolute; z-index: 3; right: 54px; bottom: 30px; left: 54px; display: flex; align-items: center; padding-top: 18px; border-top: 1px solid rgba(243, 238, 228, .15); color: #9eabba; font-size: 12px; letter-spacing: .035em; }
+    .facts { display: flex; gap: 27px; }
+    .table-line { position: absolute; z-index: 0; width: 760px; height: 410px; right: -285px; bottom: -150px; border: 38px solid rgba(243, 238, 228, .055); border-radius: 50%; transform: rotate(-8deg); }
+    .table-line::after { content: ""; position: absolute; inset: 28px; border: 1px solid rgba(243, 238, 228, .09); border-radius: inherit; }
+    .card-art { position: absolute; z-index: 1; right: 130px; top: 190px; width: 190px; height: 265px; border: 2px solid rgba(243, 238, 228, .13); border-radius: 17px; transform: rotate(12deg); }
+    .card-art.back { right: 238px; top: 213px; transform: rotate(-9deg); border-color: rgba(243, 238, 228, .09); }
+    .card-art .corner { position: absolute; top: 19px; left: 18px; color: rgba(243, 238, 228, .16); font-size: 31px; line-height: .8; text-align: center; }
+    .card-art .corner span { display: block; margin-top: 7px; color: rgba(191, 87, 62, .42); font-size: 22px; }
+    .card-art .suit { position: absolute; inset: 0; display: grid; place-items: center; color: rgba(191, 87, 62, .16); font-size: 76px; }
+    .chips { position: absolute; z-index: 2; right: 42px; bottom: 154px; width: 270px; height: 180px; opacity: .55; }
+    .chip { position: absolute; width: 116px; height: 42px; border: 2px solid rgba(243, 238, 228, .24); border-radius: 50%; background: var(--indigo-raised); box-shadow: inset 0 0 0 8px rgba(243, 238, 228, .035); }
+    .chip::after { content: ""; position: absolute; inset: 8px 19px; border: 1px dashed rgba(243, 238, 228, .22); border-radius: 50%; }
+    .chip:nth-child(1) { right: 25px; bottom: 0; }
+    .chip:nth-child(2) { right: 25px; bottom: 12px; }
+    .chip:nth-child(3) { right: 25px; bottom: 24px; }
+    .chip:nth-child(4) { right: 25px; bottom: 36px; border-color: rgba(191, 87, 62, .52); }
+    .chip:nth-child(5) { left: 18px; bottom: 6px; }
+    .chip:nth-child(6) { left: 18px; bottom: 18px; }
+    .chip:nth-child(7) { left: 18px; bottom: 30px; }
+    .mobile .strap { font-size: 11px; }
+    .mobile .hero { width: 100%; height: calc(100% - 160px); justify-content: flex-start; padding-top: 116px; }
+    .mobile h1 { max-width: 330px; font-size: 55px; line-height: .92; }
+    .mobile .lede { max-width: 325px; margin-top: 23px; font-size: 16px; line-height: 1.47; }
+    .mobile .actions { display: grid; width: 100%; margin-top: 31px; }
+    .mobile .actions button { min-height: 56px; }
+    .mobile .footer { right: 24px; bottom: 23px; left: 24px; }
+    .mobile .facts { line-height: 1.5; }
+    .mobile .table-line { width: 470px; height: 250px; right: -245px; bottom: 22px; border-width: 24px; }
+    .mobile .card-art { right: -39px; top: 108px; width: 126px; height: 178px; border-radius: 12px; opacity: .67; }
+    .mobile .card-art.back { right: 18px; top: 125px; }
+    .mobile .card-art .corner { top: 12px; left: 12px; font-size: 20px; }
+    .mobile .card-art .corner span { margin-top: 5px; font-size: 15px; }
+    .mobile .card-art .suit { font-size: 48px; }
+    .mobile .chips { right: -36px; bottom: 125px; transform: scale(.65); transform-origin: right bottom; }
+    .palette-label { position: absolute; z-index: 5; right: 20px; top: 18px; display: none; }
+  </style>
+</head>
+<body>
+  <main class="board">
+    <section class="screen desktop" aria-label="Desktop home comp">
+      <header class="nav"><div class="brand">MEJA<sup>52</sup></div><div class="strap">Chips for the table</div></header>
+      <div class="hero">
+        <h1>Poker chips.<br>Any table.<br>Any time.</h1>
+        <p class="lede">Turn every phone into a tactile poker stack while real cards stay at the centre of the game.</p>
+        <div class="actions"><button class="primary">Create a room</button><button class="secondary">Join a table</button></div>
+      </div>
+      <div class="card-art back"><div class="corner">K<span>♠</span></div><div class="suit">♠</div></div>
+      <div class="card-art"><div class="corner">A<span>♥</span></div><div class="suit">♥</div></div>
+      <div class="chips"><i class="chip"></i><i class="chip"></i><i class="chip"></i><i class="chip"></i><i class="chip"></i><i class="chip"></i><i class="chip"></i></div>
+      <div class="table-line"></div>
+      <footer class="footer"><div class="facts"><span>Up to 15 players</span></div></footer>
+    </section>
+    <section class="screen mobile" aria-label="Mobile home comp">
+      <header class="nav"><div class="brand">MEJA<sup>52</sup></div><div class="strap">Chips for the table</div></header>
+      <div class="hero">
+        <h1>Poker chips.<br>Any table.<br>Any time.</h1>
+        <p class="lede">Turn every phone into a tactile poker stack while real cards stay at the centre of the game.</p>
+        <div class="actions"><button class="primary">Create a room</button><button class="secondary">Join a table</button></div>
+      </div>
+      <div class="card-art back"><div class="corner">K<span>♠</span></div><div class="suit">♠</div></div>
+      <div class="card-art"><div class="corner">A<span>♥</span></div><div class="suit">♥</div></div>
+      <div class="chips"><i class="chip"></i><i class="chip"></i><i class="chip"></i><i class="chip"></i><i class="chip"></i><i class="chip"></i><i class="chip"></i></div>
+      <div class="table-line"></div>
+      <footer class="footer"><div class="facts"><span>Up to 15 players</span></div></footer>
+    </section>
+  </main>
+</body>
+</html>

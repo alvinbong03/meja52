@@ -1,0 +1,19 @@
+{
+  "approved": false,
+  "surface": "MEJA52 home page — desktop and mobile",
+  "direction": "Batik Indigo",
+  "palette": {
+    "canvas": "#203554",
+    "surface": "#2C4564",
+    "text": "#F3EEE4",
+    "secondaryText": "#BFC5CA",
+    "accent": "#BF573E"
+  },
+  "references": [
+    "Apple clarity and action hierarchy",
+    "Porsche grid precision",
+    "Bang & Olufsen material restraint",
+    "Linear receding chrome"
+  ],
+  "notes": "The app icon system should use the same indigo, mineral ivory and terracotta combination. Production implementation awaits owner approval."
+}

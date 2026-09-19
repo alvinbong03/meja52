@@ -20,6 +20,8 @@ Full source links and translations are recorded in `docs/design/Premium Visual R
 
 ## Surface language
 
+- The owner-selected marketing and identity palette is **Batik Indigo**: deep indigo `#203554`, raised indigo `#2C4564`, mineral ivory `#F3EEE4`, muted blue-grey `#BFC5CA`, and restrained terracotta `#BF573E`. Use solid colour relationships; do not introduce blue–purple gradients, electric cyan, glow, or generic slate-grey surfaces.
+- Brand and application icons use the same indigo body, mineral-ivory mark, and terracotta detail so they belong to the homepage without becoming miniature decorative scenes.
 - Waiting and non-active play use deep warm graphite. The active turn uses warm mineral ivory with near-black text; never stark white or casino green.
 - The host uses a distinct, explicitly labelled waiting surface so the table can identify the current host without opening controls. The proposed host waiting colour is deep desaturated claret; when it is the host's turn, the surface uses the same warm mineral ivory as every active player while retaining a visible `Host` label.
 - Oxblood is the restrained state/accent colour. Chip denominations retain their semantic colours.

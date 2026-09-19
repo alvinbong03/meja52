@@ -19,7 +19,7 @@ async function render(html, width, height, file) {
 }
 
 const icon = (size, pad) =>
-  `<div style="width:${size}px;height:${size}px;display:grid;place-items:center;background:#202427">
+  `<div style="width:${size}px;height:${size}px;display:grid;place-items:center;background:#203554">
      <div style="width:${size - pad * 2}px;height:${size - pad * 2}px">${mark.replace('<svg ', '<svg width="100%" height="100%" ')}</div>
    </div>`;
 
@@ -30,15 +30,14 @@ await render(icon(512, 40), 512, 512, 'icon-512.png');
 await render(icon(512, 110), 512, 512, 'icon-maskable-512.png');
 
 await render(
-  `<div style="position:relative;width:1200px;height:630px;background:#1e2225;color:#f6f4ef;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;overflow:hidden">
+  `<div style="position:relative;width:1200px;height:630px;background:#203554;color:#f3eee4;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;overflow:hidden">
     <div style="position:absolute;left:82px;top:76px;font-size:45px;font-weight:750;letter-spacing:4px">MEJA<sup style="font-size:20px;font-weight:500;letter-spacing:0">52</sup></div>
     <div style="position:absolute;left:82px;top:208px">
-      <div style="font-size:20px;font-weight:700;letter-spacing:4px;color:#b93037">POKER, TOGETHER</div>
-      <div style="margin-top:22px;font-size:92px;font-weight:650;line-height:.93;letter-spacing:-6px">Your table.<br/>No chip case.</div>
-      <div style="margin-top:30px;font-size:25px;line-height:1.5;color:#aeb1b2">Digital chips for real cards<br/>and everyone around the table.</div>
+      <div style="font-size:92px;font-weight:650;line-height:.93;letter-spacing:-4px">Poker chips.<br/>Any table. Any time.</div>
+      <div style="margin-top:30px;font-size:25px;line-height:1.5;color:#bfc5ca">Digital chips for real cards<br/>and everyone around the table.</div>
     </div>
     <div style="position:absolute;right:-90px;bottom:-240px;width:660px;height:660px;border:72px solid rgba(246,244,239,.045);border-radius:50%"></div>
-    <div style="position:absolute;right:108px;top:110px;width:132px;height:132px;border-radius:30px;background:#272c2f;box-shadow:0 26px 70px rgba(0,0,0,.32);display:grid;place-items:center;font-size:64px;font-weight:500">52<div style="position:absolute;bottom:22px;width:38px;height:5px;border-radius:3px;background:#b93037"></div></div>
+    <div style="position:absolute;right:108px;top:110px;width:132px;height:132px;border-radius:30px;background:#2c4564;box-shadow:0 26px 70px rgba(0,0,0,.24);display:grid;place-items:center;font-size:64px;font-weight:500">52<div style="position:absolute;bottom:22px;width:38px;height:5px;border-radius:3px;background:#bf573e"></div></div>
   </div>`,
   1200,
   630,

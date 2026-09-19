@@ -1,0 +1,8 @@
+{
+  "approved": true,
+  "approvedBy": "owner",
+  "surface": "MEJA52 app icon palette adaptation",
+  "direction": "Approved 52-only icon geometry using the owner-selected Batik Indigo palette",
+  "palette": ["#203554", "#F3EEE4", "#BF573E"],
+  "notes": "Production icon assets await owner approval of this colour adaptation."
+}
