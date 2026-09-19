@@ -45,6 +45,9 @@ export type ClientMessage =
   | { type: 'requestRebuy'; amount: number }
   | { type: 'cancelRebuy'; requestId: string }
   | { type: 'resolveRebuy'; v: number; requestId: string; allow: boolean; amount?: number }
+  | { type: 'cancelLateArrival' }
+  | { type: 'resolveLateArrival'; v: number; requestId: string; allow: boolean; amount?: number; noEntryBlind?: boolean }
+  | { type: 'chooseLateArrival'; mode: 'post' | 'wait' }
   | { type: 'requestLeave'; mode: 'afterHand' | 'now' }
   | { type: 'cancelLeave' }
   | { type: 'settings'; v: number; settings: Settings }
@@ -93,6 +96,15 @@ export interface LeaveRequestView {
   requestedAt: number;
 }
 
+export interface LateArrivalView {
+  id: string;
+  playerId: string;
+  amount: number;
+  status: 'pending' | 'choosing' | 'ready' | 'waiting';
+  mode: 'post' | 'wait' | 'free' | null;
+  requestedAt: number;
+}
+
 export type LogKind = 'action' | 'hand' | 'win' | 'undo' | 'table';
 
 export interface LogEntry {
@@ -115,6 +127,7 @@ export interface RoomView {
   rebuyRequests: RebuyRequestView[];
   breaks: BreakView[];
   leaveRequests: LeaveRequestView[];
+  lateArrivals: LateArrivalView[];
   log: LogEntry[];
   undoLabel: string | null;
   turnStartedAt: number | null;
@@ -172,11 +185,16 @@ export function parseClientMessage(raw: string): Envelope | null {
       return isId(m.playerId) ? out({ type: 'claim', playerId: m.playerId }) : null;
     case 'cancelClaim':
     case 'cancelLeave':
+    case 'cancelLateArrival':
     case 'takeHost':
       return out({ type: m.type });
     case 'requestLeave':
       return ['afterHand', 'now'].includes(String(m.mode))
         ? out({ type: 'requestLeave', mode: m.mode as 'afterHand' | 'now' })
+        : null;
+    case 'chooseLateArrival':
+      return ['post', 'wait'].includes(String(m.mode))
+        ? out({ type: 'chooseLateArrival', mode: m.mode as 'post' | 'wait' })
         : null;
     case 'resolveClaim':
       return isId(m.claimId) && typeof m.allow === 'boolean'
@@ -231,6 +249,20 @@ export function parseClientMessage(raw: string): Envelope | null {
             requestId: m.requestId,
             allow: m.allow,
             ...(m.amount === undefined ? {} : { amount: m.amount as number }),
+          })
+        : null;
+    case 'resolveLateArrival':
+      return isNum(v) && isId(m.requestId) && typeof m.allow === 'boolean' &&
+        (m.amount === undefined || isNum(m.amount)) &&
+        (m.noEntryBlind === undefined || typeof m.noEntryBlind === 'boolean') &&
+        (!m.allow || m.amount !== undefined)
+        ? out({
+            type: 'resolveLateArrival',
+            v,
+            requestId: m.requestId,
+            allow: m.allow,
+            ...(m.amount === undefined ? {} : { amount: m.amount as number }),
+            ...(m.noEntryBlind === undefined ? {} : { noEntryBlind: m.noEntryBlind }),
           })
         : null;
     case 'settings': {

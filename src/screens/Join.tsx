@@ -73,7 +73,7 @@ export function Join({ onDisplay }: { onDisplay: () => void }) {
             autoFocus
           />
           <button className="btn btn-primary btn-xl" disabled={!name.trim() || busy || full}>
-            {full ? 'Table is full' : 'Join lobby'}
+            {full ? 'Table is full' : game.phase === 'lobby' ? 'Join lobby' : 'Request a seat'}
           </button>
         </form>
 

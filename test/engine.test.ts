@@ -425,6 +425,18 @@ describe('table changes', () => {
     expect(p(g, 'p9').inHand).toBe(true);
   });
 
+  it('does not charge a posted late arrival twice when their seat is the natural big blind', () => {
+    let g = startHand(table([1000, 1000, 1000]));
+    g = fold(g, 'p0');
+    g = fold(g, 'p1');
+    g = addPlayer(g, 'p3', 'Late');
+    g = returnWithPost(g, 'p3', 0, 10);
+    g = startHand(g);
+    expect(g.bbId).toBe('p3');
+    expect(p(g, 'p3')).toMatchObject({ stack: 990, bet: 10, committed: 10 });
+    expect(chipsInPlay(g)).toBe(4000);
+  });
+
   it('settings changed mid hand apply from the next hand', () => {
     let g = startHand(table([1000, 1000]));
     g = updateSettings(g, { sb: 25, bb: 50, startingStack: 2000, buyInPrice: 2000 });

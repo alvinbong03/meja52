@@ -31,6 +31,11 @@ describe('parseClientMessage', () => {
     expect(parse({ type: 'returnFromBreak', mode: 'post' })).toEqual({ type: 'returnFromBreak', mode: 'post' });
     expect(parse({ type: 'requestLeave', mode: 'afterHand' })).toEqual({ type: 'requestLeave', mode: 'afterHand' });
     expect(parse({ type: 'cancelLeave' })).toEqual({ type: 'cancelLeave' });
+    expect(parse({ type: 'chooseLateArrival', mode: 'post' })).toEqual({ type: 'chooseLateArrival', mode: 'post' });
+    expect(parse({ type: 'cancelLateArrival' })).toEqual({ type: 'cancelLateArrival' });
+    expect(parse({ type: 'resolveLateArrival', v: 4, requestId: 'abcdef0123456789', allow: true, amount: 250 })).toEqual({
+      type: 'resolveLateArrival', v: 4, requestId: 'abcdef0123456789', allow: true, amount: 250,
+    });
     expect(parse({ type: 'resolveRebuy', v: 9, requestId: 'abcdef0123456789', allow: true, amount: 125 })).toEqual({
       type: 'resolveRebuy',
       v: 9,
@@ -61,6 +66,8 @@ describe('parseClientMessage', () => {
       { type: 'resolveRebuy', v: 1, requestId: 'abcdef0123456789', allow: true },
       { type: 'resolveRebuy', v: 1, requestId: 'abcdef0123456789', allow: false, amount: '100' },
       { type: 'requestLeave', mode: 'eventually' },
+      { type: 'chooseLateArrival', mode: 'later' },
+      { type: 'resolveLateArrival', v: 1, requestId: 'abcdef0123456789', allow: true },
       { type: 'award', v: 1, winners: { x: ['abcdef01'] } },
       { type: 'award', v: 1, winners: [] },
       { type: 'settings', v: 1, settings: { sb: '5', bb: 10, startingStack: 1000, buyInPrice: 0 } },

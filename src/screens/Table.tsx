@@ -5,6 +5,7 @@ import { Dock } from '../components/Dock';
 import { Header } from '../components/Header';
 import { Icon } from '../components/Icon';
 import { Lobby } from '../components/Lobby';
+import { LateArrival } from '../components/LateArrival';
 import { Seats } from '../components/Seats';
 import { Sheets, type SheetName } from '../components/Sheets';
 import { Stage } from '../components/Stage';
@@ -16,6 +17,7 @@ export function Table({ onDisplay, onLeft }: { onDisplay: () => void; onLeft: ()
   const { room, game, you, conn, isHost } = useTable();
   const [sheet, setSheet] = useState<SheetName>(null);
   const myTurn = !!you.legal;
+  const lateArrival = room.lateArrivals.find((request) => request.playerId === you.id);
   const wasMyTurn = useRef(false);
 
   useWakeLock(true);
@@ -69,7 +71,9 @@ export function Table({ onDisplay, onLeft }: { onDisplay: () => void; onLeft: ()
       )}
       <BetRail />
       <main className="table-main">
-        {game.phase === 'lobby' ? (
+        {lateArrival ? (
+          <LateArrival />
+        ) : game.phase === 'lobby' ? (
           <Lobby onSettings={() => setSheet('settings')} onPlayers={() => setSheet('players')} />
         ) : (
           <>
@@ -79,7 +83,7 @@ export function Table({ onDisplay, onLeft }: { onDisplay: () => void; onLeft: ()
         )}
       </main>
       <aside className="dock-wrap" aria-label="Your actions">
-        <Dock onRebuy={() => setSheet('rebuy')} />
+        {!lateArrival && <Dock onRebuy={() => setSheet('rebuy')} />}
         <button className="table-controls-handle" onClick={() => setSheet('menu')}>
           <Icon name="up" size={16} />
           Table controls

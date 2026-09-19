@@ -28,7 +28,7 @@ async function seat(browser: Browser, name: string, code?: string, options: Para
     await page.getByRole('button', { name: 'Open lobby' }).click();
   }
   await page.getByLabel('Your name').fill(name);
-  await page.getByRole('button', { name: 'Join lobby' }).click();
+  await page.getByRole('button', { name: /Join lobby|Request a seat/ }).click();
   await expect(page.getByRole('button', { name: 'Menu' })).toBeVisible();
   return page;
 }
@@ -230,6 +230,38 @@ test('a player reviews, schedules and cancels leaving before departing after the
   await expect(transfer).toContainText('Ana');
   await expect(transfer).toContainText('pays');
   await expect(transfer).toContainText('Ben');
+});
+
+test('the host approves a late arrival who posts a big blind for the next hand', async ({ browser }) => {
+  const ana = await seat(browser, 'Ana');
+  const code = codeOf(ana);
+  const ben = await seat(browser, 'Ben', code);
+  const cat = await seat(browser, 'Cat', code);
+  await ana.getByRole('button', { name: 'Deal the first hand' }).click();
+
+  const dee = await seat(browser, 'Dee', code, { viewport: { width: 390, height: 844 } });
+  await expect(dee.getByRole('heading', { name: 'Waiting for the host' })).toBeVisible();
+  await expect(dee.getByText('RM1,000 seat')).toBeVisible();
+
+  await ana.getByRole('button', { name: 'Menu' }).click();
+  await expect(ana.getByRole('button', { name: 'Late arrivals' })).toContainText('1 pending');
+  await ana.getByRole('button', { name: 'Late arrivals' }).click();
+  await ana.getByLabel('Starting balance').fill('600');
+  await ana.getByRole('button', { name: 'Approve RM600' }).click();
+  await ana.keyboard.press('Escape');
+
+  await expect(dee.getByRole('heading', { name: 'Choose when to enter' })).toBeVisible();
+  await expect(dee.getByText('join between hands with RM600')).toBeVisible();
+  await expect(dee.getByRole('radio', { name: /Post RM10/ })).toHaveAttribute('aria-checked', 'true');
+  await dee.getByRole('button', { name: 'Confirm entry' }).click();
+  await expect(dee.getByRole('heading', { name: 'Joining next hand' })).toBeVisible();
+
+  await actWhoeverIsUp([ana, ben, cat], /Fold/);
+  await actWhoeverIsUp([ana, ben, cat], /Fold/);
+  await ana.getByRole('button', { name: /Deal next hand/ }).click();
+  await expect(dee.getByText('Your balance')).toBeVisible();
+  await expect(dee.locator('.my-stack')).toHaveText('590');
+  await expect(dee.getByText('Hand 2', { exact: true })).toBeVisible();
 });
 
 test('short stack all in creates a side pot that pays the right people', async ({ browser }) => {

@@ -426,7 +426,7 @@ export function startHand(g0: Game): Game {
       p.committed += paid;
       if (p.stack === 0) p.allIn = true;
     }
-    if (live > 0) post(p, live);
+    if (live > 0) post(p, Math.max(0, live - p.bet));
     p.entryDead = 0;
     p.entryLive = 0;
   }

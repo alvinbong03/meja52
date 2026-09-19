@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { bySeat, handInProgress, LIMITS } from '../../shared/engine';
+import type { LateArrivalView } from '../../shared/protocol';
 import { setSoundEnabled, soundEnabled } from '../lib/device';
 import { fmt } from '../lib/format';
 import { chipLabel } from '../lib/chips';
@@ -9,7 +10,7 @@ import { Invite } from './Invite';
 import { Sheet } from './Sheet';
 import { Settlement } from './Settlement';
 
-export type SheetName = 'menu' | 'invite' | 'settings' | 'players' | 'settle' | 'rebuy' | 'rebuyRequests' | 'break' | 'leave' | null;
+export type SheetName = 'menu' | 'invite' | 'settings' | 'players' | 'settle' | 'rebuy' | 'rebuyRequests' | 'lateArrivals' | 'break' | 'leave' | null;
 
 interface Props {
   open: SheetName;
@@ -45,6 +46,9 @@ export function Sheets({ open, setOpen, onDisplay, onLeft }: Props) {
       <Sheet open={open === 'rebuyRequests'} onClose={close} title="Rebuy requests">
         <RebuyRequests />
       </Sheet>
+      <Sheet open={open === 'lateArrivals'} onClose={close} title="Late arrivals">
+        <LateArrivalRequests />
+      </Sheet>
       <Sheet open={open === 'break'} onClose={close} title={breakRecord ? (breakRecord.status === 'scheduled' ? 'Break scheduled' : 'Welcome back') : 'Take a break'}>
         <BreakFlow onDone={close} />
       </Sheet>
@@ -64,6 +68,7 @@ function Menu({ setOpen, onDisplay }: { setOpen: (s: SheetName) => void; onDispl
     !isHost && ((!!room.hostId && away(room.hostId)) || (!!room.hostTakeoverAt && serverNow >= room.hostTakeoverAt));
   const myRebuy = me ? room.rebuyRequests.find((request) => request.playerId === me.id) : undefined;
   const pendingRebuys = room.rebuyRequests.filter((request) => request.status === 'pending');
+  const pendingArrivals = room.lateArrivals.filter((request) => request.status === 'pending');
   const myBreak = me ? room.breaks.find((record) => record.playerId === me.id) : undefined;
   const myLeave = me ? room.leaveRequests.find((request) => request.playerId === me.id) : undefined;
 
@@ -108,6 +113,9 @@ function Menu({ setOpen, onDisplay }: { setOpen: (s: SheetName) => void; onDispl
           {isHost && item('Players and stacks', () => setOpen('players'))}
           {isHost && item('Rebuy requests', () => setOpen('rebuyRequests'), {
             note: pendingRebuys.length === 0 ? 'None pending' : `${pendingRebuys.length} pending`,
+          })}
+          {isHost && game.handNo > 0 && item('Late arrivals', () => setOpen('lateArrivals'), {
+            note: pendingArrivals.length === 0 ? 'None pending' : `${pendingArrivals.length} pending`,
           })}
           {isHost && game.handNo > 0 &&
             (room.endingAfterHand ? (
@@ -156,6 +164,39 @@ function Menu({ setOpen, onDisplay }: { setOpen: (s: SheetName) => void; onDispl
         </ul>
       )}
     </div>
+  );
+}
+
+function LateArrivalRequests() {
+  const { room } = useTable();
+  const pending = room.lateArrivals.filter((request) => request.status === 'pending');
+  if (pending.length === 0) return <p className="muted">No late-arrival requests are waiting.</p>;
+  return (
+    <div className="rebuy-requests">
+      {pending.map((request) => <LateArrivalReview key={request.id} request={request} />)}
+    </div>
+  );
+}
+
+function LateArrivalReview({ request }: { request: LateArrivalView }) {
+  const { room, run, busy, v, nameOf } = useTable();
+  const [amount, setAmount] = useState(String(request.amount));
+  const value = Number(amount);
+  const valid = Number.isSafeInteger(value) && value >= room.game.settings.bb && value <= LIMITS.maxStack;
+  return (
+    <section className="rebuy-review" aria-label={`${nameOf(request.playerId)} late-arrival request`}>
+      <p className="sheet-lead"><strong>{nameOf(request.playerId)}</strong> wants to join between hands.</p>
+      <NumberField id={`arrival-${request.id}`} label="Starting balance" value={amount} onChange={setAmount} />
+      <button className="btn btn-primary btn-xl btn-block" disabled={busy || !valid} onClick={() => run({
+        type: 'resolveLateArrival', v, requestId: request.id, allow: true, amount: value,
+      })}>Approve {valid ? chipLabel(room.currency, value) : 'entry'}</button>
+      <button className="btn btn-quiet btn-lg btn-block" disabled={busy || !valid} onClick={() => run({
+        type: 'resolveLateArrival', v, requestId: request.id, allow: true, amount: value, noEntryBlind: true,
+      })}>Approve — no entry blind</button>
+      <button className="btn btn-danger-quiet btn-lg btn-block" disabled={busy} onClick={() => run({
+        type: 'resolveLateArrival', v, requestId: request.id, allow: false,
+      })}>Decline</button>
+    </section>
   );
 }
 

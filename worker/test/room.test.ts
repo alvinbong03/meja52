@@ -326,6 +326,74 @@ describe('playing a hand', () => {
     expect(ana.state.room.rebuyRequests).toHaveLength(0);
   });
 
+  it('requires host approval and an entry choice for late arrivals', async () => {
+    const { code, clients, idOf } = await table(['Ana', 'Ben', 'Cat']);
+    const [ana, ben] = clients;
+    await ana.ok({ type: 'start', v: ana.state.v });
+
+    const dee = await Client.connect(code, tokenFor(44));
+    await dee.ok({ type: 'join', name: 'Dee' });
+    let s = await ana.settle();
+    const request = s.room.lateArrivals[0];
+    expect(request).toMatchObject({ playerId: idOf(dee), amount: 1000, status: 'pending', mode: null });
+    expect(s.room.game.players.some((player) => player.id === idOf(dee))).toBe(false);
+    expect(await ben.request({ type: 'resolveLateArrival', v: ben.state.v, requestId: request.id, allow: true, amount: 600 }))
+      .toMatchObject({ code: 'FORBIDDEN' });
+    expect(await ana.request({ type: 'resolveLateArrival', v: ana.state.v, requestId: request.id, allow: true, amount: 5 }))
+      .toMatchObject({ code: 'INVALID' });
+
+    await ana.ok({ type: 'resolveLateArrival', v: ana.state.v, requestId: request.id, allow: true, amount: 600 });
+    s = await dee.settle();
+    expect(s.room.lateArrivals[0]).toMatchObject({ amount: 600, status: 'choosing', mode: null });
+    expect(s.room.game.players.find((player) => player.id === idOf(dee))).toMatchObject({
+      stack: 600, buyIn: 600, sittingOut: true, inHand: false,
+    });
+
+    await dee.ok({ type: 'chooseLateArrival', mode: 'post' });
+    s = await ana.settle();
+    expect(s.room.lateArrivals[0]).toMatchObject({ status: 'ready', mode: 'post' });
+    expect(s.room.game.players.find((player) => player.id === idOf(dee))).toMatchObject({ sittingOut: false, entryLive: 10 });
+
+    await ana.ok({ type: 'act', v: ana.state.v, kind: 'fold' });
+    await ben.ok({ type: 'act', v: ben.state.v, kind: 'fold' });
+    await ana.ok({ type: 'next', v: ana.state.v });
+    s = await dee.settle();
+    expect(s.room.lateArrivals).toHaveLength(0);
+    expect(s.room.game.players.find((player) => player.id === idOf(dee))).toMatchObject({
+      stack: 590, bet: 10, committed: 10, inHand: true,
+    });
+  });
+
+  it('supports waiting for the natural big blind and the logged no-entry-blind override', async () => {
+    const { code, clients, idOf } = await table(['Ana', 'Ben', 'Cat']);
+    const [ana, ben] = clients;
+    await ana.ok({ type: 'start', v: ana.state.v });
+
+    const dee = await Client.connect(code, tokenFor(45));
+    await dee.ok({ type: 'join', name: 'Dee' });
+    let request = (await ana.settle()).room.lateArrivals[0];
+    await ana.ok({ type: 'resolveLateArrival', v: ana.state.v, requestId: request.id, allow: true, amount: 500 });
+    await dee.ok({ type: 'chooseLateArrival', mode: 'wait' });
+    expect(dee.state.room.lateArrivals[0]).toMatchObject({ status: 'waiting', mode: 'wait' });
+
+    await ana.ok({ type: 'act', v: ana.state.v, kind: 'fold' });
+    await ben.ok({ type: 'act', v: ben.state.v, kind: 'fold' });
+    await ana.ok({ type: 'next', v: ana.state.v });
+    let s = await dee.settle();
+    expect(s.room.lateArrivals).toHaveLength(0);
+    expect(s.room.game.bbId).toBe(idOf(dee));
+
+    const eli = await Client.connect(code, tokenFor(46));
+    await eli.ok({ type: 'join', name: 'Eli' });
+    request = (await ana.settle()).room.lateArrivals[0];
+    await ana.ok({
+      type: 'resolveLateArrival', v: ana.state.v, requestId: request.id, allow: true, amount: 700, noEntryBlind: true,
+    });
+    s = await eli.settle();
+    expect(s.room.lateArrivals[0]).toMatchObject({ status: 'ready', mode: 'free', amount: 700 });
+    expect(s.room.log.some((entry) => entry.text.includes('no entry blind'))).toBe(true);
+  });
+
   it('lets only the host end immediately between hands or queue the end of a live hand', async () => {
     const { clients } = await table(['Ana', 'Ben']);
     const [ana, ben] = clients;

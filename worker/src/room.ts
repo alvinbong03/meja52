@@ -36,6 +36,7 @@ import {
   type LogEntry,
   type LogKind,
   type LeaveRequestView,
+  type LateArrivalView,
   type MemberView,
   type RoomView,
   type RebuyRequestView,
@@ -80,6 +81,7 @@ interface Snapshot {
   rebuyRequests?: RebuyRequest[];
   breaks?: BreakView[];
   leaveRequests?: LeaveRequestView[];
+  lateArrivals?: LateArrivalView[];
 }
 
 interface Stored {
@@ -100,6 +102,7 @@ interface Stored {
   rebuyRequests?: RebuyRequest[];
   breaks?: BreakView[];
   leaveRequests?: LeaveRequestView[];
+  lateArrivals?: LateArrivalView[];
   turnStartedAt: number | null;
   turnId: string | null;
   endingAfterHand?: boolean;
@@ -185,6 +188,7 @@ export class Room extends DurableObject<Env> {
         rebuyRequests: [],
         breaks: [],
         leaveRequests: [],
+        lateArrivals: [],
         turnStartedAt: null,
         turnId: null,
         endingAfterHand: false,
@@ -359,7 +363,6 @@ export class Room extends DurableObject<Env> {
           manual: false,
           joinedAt: Date.now(),
         };
-        s.game = addPlayer(s.game, member.id, name);
         s.members.push(member);
         if (s.hostTokenHash === undefined && !s.hostId) {
           // Compatibility for rooms created before creator binding was introduced.
@@ -370,6 +373,18 @@ export class Room extends DurableObject<Env> {
           s.controllerId ??= member.id;
           s.hostTokenHash = null;
         }
+        if (s.game.phase === 'lobby') {
+          s.game = addPlayer(s.game, member.id, name);
+        } else {
+          (s.lateArrivals ??= []).push({
+            id: randomId(),
+            playerId: member.id,
+            amount: s.game.settings.startingStack,
+            status: 'pending',
+            mode: null,
+            requestedAt: Date.now(),
+          });
+        }
         s.claims = s.claims.filter((c) => c.connId !== att.connId);
         for (const other of this.ctx.getWebSockets()) {
           const oa = other.deserializeAttachment() as Attachment;
@@ -378,7 +393,7 @@ export class Room extends DurableObject<Env> {
             other.serializeAttachment(oa);
           }
         }
-        this.log('table', `${name} joined`);
+        this.log('table', s.game.phase === 'lobby' ? `${name} joined` : `${name} requested a late seat`);
         this.commit();
         return;
       }
@@ -515,6 +530,7 @@ export class Room extends DurableObject<Env> {
           if (restored.length > 0 && snap.controllerId !== undefined) s.controllerId = snap.controllerId;
         }
         if (snap.leaveRequests) s.leaveRequests = structuredClone(snap.leaveRequests);
+        if (snap.lateArrivals) s.lateArrivals = structuredClone(snap.lateArrivals);
         s.game = this.reconcile(snap.game);
         if (snap.rebuyRequests) s.rebuyRequests = structuredClone(snap.rebuyRequests);
         if (snap.breaks) s.breaks = structuredClone(snap.breaks);
@@ -624,6 +640,63 @@ export class Room extends DurableObject<Env> {
         this.commit();
         return;
       }
+      case 'cancelLateArrival': {
+        const m = requireMember();
+        const request = (s.lateArrivals ?? []).find((item) => item.playerId === m.id) ??
+          deny('INVALID', 'No late-arrival request to cancel');
+        if (request.status === 'ready') deny('PHASE', 'You are already joining the next hand');
+        this.removeMember(m, 'left');
+        return;
+      }
+      case 'resolveLateArrival': {
+        const host = requireHost();
+        checkV(msg.v);
+        const request = (s.lateArrivals ?? []).find((item) => item.id === msg.requestId) ??
+          deny('INVALID', 'Request already handled');
+        if (request.status !== 'pending') deny('INVALID', 'Request already handled');
+        const target = s.members.find((item) => item.id === request.playerId) ?? deny('INVALID', 'Player left');
+        if (!msg.allow) {
+          this.removeMember(target, 'left');
+          return;
+        }
+        const amount = msg.amount as number;
+        if (amount < s.game.settings.bb) deny('INVALID', 'Starting balance must cover the big blind');
+        let game = addPlayer(s.game, target.id, target.name);
+        game = setStack(game, target.id, amount);
+        game = setSittingOut(game, target.id, true);
+        request.amount = amount;
+        if (msg.noEntryBlind) {
+          game = setSittingOut(game, target.id, false);
+          request.status = 'ready';
+          request.mode = 'free';
+          this.log('table', `${host.name} approved ${target.name} for ${fmt(amount)} with no entry blind`);
+        } else {
+          request.status = 'choosing';
+          this.log('table', `${host.name} approved ${target.name} for ${fmt(amount)} chips`);
+        }
+        s.game = game;
+        s.v += 1;
+        this.commit();
+        return;
+      }
+      case 'chooseLateArrival': {
+        const m = requireMember();
+        const request = (s.lateArrivals ?? []).find((item) => item.playerId === m.id) ??
+          deny('INVALID', 'No late-arrival request');
+        if (request.status !== 'choosing') deny('PHASE', 'Entry timing is already set');
+        request.mode = msg.mode;
+        if (msg.mode === 'post') {
+          s.game = returnWithPost(s.game, m.id, 0, s.game.settings.bb);
+          request.status = 'ready';
+          this.log('table', `${m.name} will post ${fmt(s.game.settings.bb)} and join next hand`);
+        } else {
+          request.status = 'waiting';
+          this.log('table', `${m.name} will wait for the big blind`);
+        }
+        s.v += 1;
+        this.commit();
+        return;
+      }
       case 'requestLeave': {
         const m = requireMember();
         if (s.hostId === m.id) deny('FORBIDDEN', 'Transfer hosting before leaving');
@@ -717,6 +790,7 @@ export class Room extends DurableObject<Env> {
         const host = requireHost();
         const target = s.members.find((x) => x.id === msg.playerId) ?? deny('INVALID', 'Unknown player');
         if (target.manual) deny('INVALID', 'That seat has no phone');
+        if (!findPlayer(s.game, target.id)) deny('PHASE', 'That player is still waiting for a seat');
         s.hostId = target.id;
         s.hostTokenHash = null;
         this.log('table', `${host.name} made ${target.name} the host`);
@@ -727,6 +801,7 @@ export class Room extends DurableObject<Env> {
         const host = requireHost();
         const target = s.members.find((x) => x.id === msg.playerId) ?? deny('INVALID', 'Unknown player');
         if (target.manual) deny('INVALID', 'That seat has no phone');
+        if (!findPlayer(s.game, target.id)) deny('PHASE', 'That player is still waiting for a seat');
         s.controllerId = target.id;
         this.log('table', `${host.name} made ${target.name} the Table Controller`);
         this.commit();
@@ -735,6 +810,7 @@ export class Room extends DurableObject<Env> {
       case 'takeHost': {
         const m = requireMember();
         if (m.manual) deny('FORBIDDEN', 'Not allowed');
+        if (!findPlayer(s.game, m.id)) deny('FORBIDDEN', 'Join the table before taking over hosting');
         if (s.hostTokenHash) {
           if (this.creatorCapabilityPresent()) deny('FORBIDDEN', 'The room creator is still connected');
           if (Date.now() < s.createdAt + CREATOR_GRACE_MS) deny('FORBIDDEN', 'The room creator still has time to join');
@@ -759,6 +835,7 @@ export class Room extends DurableObject<Env> {
     const rebuyRequestsBefore = structuredClone(s.rebuyRequests ?? []);
     const breaksBefore = structuredClone(s.breaks ?? []);
     const leaveRequestsBefore = structuredClone(s.leaveRequests ?? []);
+    const lateArrivalsBefore = structuredClone(s.lateArrivals ?? []);
     const membersBefore = structuredClone(s.members);
     const controllerBefore = s.controllerId;
     const after = fn(before);
@@ -771,6 +848,7 @@ export class Room extends DurableObject<Env> {
       rebuyRequests: rebuyRequestsBefore,
       breaks: breaksBefore,
       leaveRequests: leaveRequestsBefore,
+      lateArrivals: lateArrivalsBefore,
     });
     if (this.undo.length > UNDO_DEPTH) this.undo.shift();
     s.game = after;
@@ -851,15 +929,27 @@ export class Room extends DurableObject<Env> {
     if (game.lastBbSeat !== null) {
       const seats = bySeat(game);
       const rotated = [...seats.filter((p) => p.seat > game.lastBbSeat!), ...seats.filter((p) => p.seat <= game.lastBbSeat!)];
-      const next = rotated.find((p) => eligibleForHand(p) || (s.breaks ?? []).some((b) => b.playerId === p.id && b.status === 'waiting'));
+      const next = rotated.find((p) =>
+        eligibleForHand(p) ||
+        (s.breaks ?? []).some((b) => b.playerId === p.id && b.status === 'waiting') ||
+        (s.lateArrivals ?? []).some((entry) => entry.playerId === p.id && entry.status === 'waiting'),
+      );
       const waiting = next && (s.breaks ?? []).find((b) => b.playerId === next.id && b.status === 'waiting');
+      const lateWaiting = next && (s.lateArrivals ?? []).find((entry) => entry.playerId === next.id && entry.status === 'waiting');
       if (waiting && next) {
         prepared = setSittingOut(prepared, next.id, false);
         s.breaks = (s.breaks ?? []).filter((b) => b.playerId !== next.id);
         this.log('table', `${next.name} returned on the big blind`);
+      } else if (lateWaiting && next) {
+        prepared = setSittingOut(prepared, next.id, false);
+        s.lateArrivals = (s.lateArrivals ?? []).filter((entry) => entry.id !== lateWaiting.id);
+        this.log('table', `${next.name} joined on the big blind`);
       }
     }
-    return startHand(prepared);
+    const started = startHand(prepared);
+    const ready = new Set((s.lateArrivals ?? []).filter((entry) => entry.status === 'ready').map((entry) => entry.id));
+    if (ready.size > 0) s.lateArrivals = (s.lateArrivals ?? []).filter((entry) => !ready.has(entry.id));
+    return started;
   }
 
   private updateBreaks(before: Game, after: Game) {
@@ -930,7 +1020,8 @@ export class Room extends DurableObject<Env> {
       if (!s.members.some((m) => m.id === p.id) && !p.leaving) g = removePlayer(g, p.id);
     }
     for (const m of s.members) {
-      if (!findPlayer(g, m.id)) {
+      const pendingArrival = (s.lateArrivals ?? []).some((entry) => entry.playerId === m.id && entry.status === 'pending');
+      if (!findPlayer(g, m.id) && !pendingArrival) {
         try {
           g = addPlayer(g, m.id, m.name);
         } catch {
@@ -949,6 +1040,7 @@ export class Room extends DurableObject<Env> {
     const rebuyRequestsBefore = structuredClone(s.rebuyRequests ?? []);
     const breaksBefore = structuredClone(s.breaks ?? []);
     const leaveRequestsBefore = structuredClone(s.leaveRequests ?? []);
+    const lateArrivalsBefore = structuredClone(s.lateArrivals ?? []);
     const after = findPlayer(before, target.id) ? removePlayer(before, target.id) : before;
     this.detachMember(target, how === 'kicked');
     if (s.hostId === target.id) {
@@ -965,6 +1057,7 @@ export class Room extends DurableObject<Env> {
       rebuyRequests: rebuyRequestsBefore,
       breaks: breaksBefore,
       leaveRequests: leaveRequestsBefore,
+      lateArrivals: lateArrivalsBefore,
     });
     if (this.undo.length > UNDO_DEPTH) this.undo.shift();
     s.game = after;
@@ -982,6 +1075,7 @@ export class Room extends DurableObject<Env> {
     s.rebuyRequests = (s.rebuyRequests ?? []).filter((r) => r.playerId !== target.id);
     s.breaks = (s.breaks ?? []).filter((r) => r.playerId !== target.id);
     s.leaveRequests = (s.leaveRequests ?? []).filter((r) => r.playerId !== target.id);
+    s.lateArrivals = (s.lateArrivals ?? []).filter((r) => r.playerId !== target.id);
     if (s.controllerId === target.id) s.controllerId = s.hostId;
     if (!closeSocket) return;
     for (const ws of this.ctx.getWebSockets()) {
@@ -1153,6 +1247,7 @@ export class Room extends DurableObject<Env> {
       rebuyRequests: s.rebuyRequests ?? [],
       breaks: s.breaks ?? [],
       leaveRequests: s.leaveRequests ?? [],
+      lateArrivals: s.lateArrivals ?? [],
       log: s.log.slice(-LOG_SEND),
       undoLabel: this.undo.at(-1)?.label ?? null,
       turnStartedAt: s.turnStartedAt,
