@@ -14,8 +14,8 @@ export function Qr({ value, size = 168, label }: { value: string; size?: number;
   }, [value]);
   return (
     <svg className="qr" width={size} height={size} viewBox={`0 0 ${dim} ${dim}`} role="img" aria-label={label} shapeRendering="crispEdges">
-      <rect width={dim} height={dim} fill="#fff" />
-      <path d={path} fill="#000" />
+      <rect width={dim} height={dim} fill="#FBF7EF" />
+      <path d={path} fill="#203554" />
     </svg>
   );
 }

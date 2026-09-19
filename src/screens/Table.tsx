@@ -10,7 +10,7 @@ import { turnAlert, unlockAudio, useWakeLock } from '../lib/device-features';
 import { useTable } from '../lib/table';
 
 export function Table({ onDisplay, onLeft }: { onDisplay: () => void; onLeft: () => void }) {
-  const { game, you, conn } = useTable();
+  const { game, you, conn, isHost } = useTable();
   const [sheet, setSheet] = useState<SheetName>(null);
   const myTurn = !!you.legal;
   const wasMyTurn = useRef(false);
@@ -26,7 +26,7 @@ export function Table({ onDisplay, onLeft }: { onDisplay: () => void; onLeft: ()
   useEffect(() => () => void (document.title = 'MEJA52'), []);
 
   return (
-    <div className="table-shell" data-turn={myTurn || undefined} data-phase={game.phase} onPointerDown={unlockAudio}>
+    <div className="table-shell" data-turn={myTurn || undefined} data-host={isHost || undefined} data-phase={game.phase} onPointerDown={unlockAudio}>
       <Header onInvite={() => setSheet('invite')} onMenu={() => setSheet('menu')} />
       {conn.status === 'reconnecting' && (
         <div className="offline" role="status">

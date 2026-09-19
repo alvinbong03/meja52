@@ -1,0 +1,25 @@
+{
+  "approved": false,
+  "surface": "MEJA52 brand palette and background-role mapping",
+  "direction": "Batik Indigo and Batik Ivory",
+  "constraint": "Background token replacement only; preserve all layout, spacing, alignment and component geometry.",
+  "colors": {
+    "batikIndigo": "#203554",
+    "batikIvory": "#F3EEE4",
+    "denimLift": "#2C4564",
+    "porcelain": "#FBF7EF",
+    "terracottaThread": "#BF573E",
+    "terracottaInk": "#A44232",
+    "indigoMist": "#BFC5CA",
+    "mutedIndigo": "#5D6C80",
+    "hostClaret": "#5A2538"
+  },
+  "contrast": {
+    "indigoOnIvory": "10.69:1",
+    "ivoryOnIndigo": "10.69:1",
+    "mistOnIndigo": "7.10:1",
+    "mutedIndigoOnIvory": "4.63:1",
+    "ivoryOnHostClaret": "10.34:1"
+  },
+  "notes": "Terracotta Thread is for marks and non-text state accents. Terracotta Ink is the accessible text variant on Batik Ivory. Production implementation awaits owner approval."
+}

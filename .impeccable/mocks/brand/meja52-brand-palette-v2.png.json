@@ -1,0 +1,29 @@
+{
+  "approved": true,
+  "approvedBy": "owner",
+  "surface": "MEJA52 brand palette — independently audited revision",
+  "direction": "Batik Indigo, Batik Ivory and Hibiscus",
+  "independentVerdict": "REVISE applied: retained the background anchors and replaced orange/cream and generic slate relationships.",
+  "constraint": "Background token replacement only; preserve all layout, spacing, alignment and component geometry.",
+  "colors": {
+    "batikIndigo": "#203554",
+    "batikIvory": "#F3EEE4",
+    "denimLift": "#2C4564",
+    "porcelainQrOnly": "#FBF7EF",
+    "hibiscusLacquer": "#B33A46",
+    "hibiscusInk": "#92313B",
+    "pewterMist": "#C7C8C2",
+    "mutedBatik": "#56627A",
+    "hostClaret": "#5A2538"
+  },
+  "contrast": {
+    "indigoOnIvory": "10.69:1",
+    "ivoryOnIndigo": "10.69:1",
+    "hibiscusLacquerOnIvory": "5.03:1",
+    "hibiscusInkOnIvory": "6.67:1",
+    "pewterMistOnIndigo": "7.34:1",
+    "mutedBatikOnIvory": "5.30:1",
+    "ivoryOnHostClaret": "10.34:1"
+  },
+  "notes": "Batik Indigo, Batik Ivory and Host Claret passed the independent anti-AI-colour audit. The owner approved this palette for production implementation."
+}

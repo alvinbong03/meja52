@@ -20,11 +20,11 @@ Full source links and translations are recorded in `docs/design/Premium Visual R
 
 ## Surface language
 
-- The owner-selected marketing and identity palette is **Batik Indigo**: deep indigo `#203554`, raised indigo `#2C4564`, mineral ivory `#F3EEE4`, muted blue-grey `#BFC5CA`, and restrained terracotta `#BF573E`. Use solid colour relationships; do not introduce blue–purple gradients, electric cyan, glow, or generic slate-grey surfaces.
-- Brand and application icons use the same indigo body, mineral-ivory mark, and terracotta detail so they belong to the homepage without becoming miniature decorative scenes.
-- Waiting and non-active play use deep warm graphite. The active turn uses warm mineral ivory with near-black text; never stark white or casino green.
-- The host uses a distinct, explicitly labelled waiting surface so the table can identify the current host without opening controls. The proposed host waiting colour is deep desaturated claret; when it is the host's turn, the surface uses the same warm mineral ivory as every active player while retaining a visible `Host` label.
-- Oxblood is the restrained state/accent colour. Chip denominations retain their semantic colours.
+- The owner-approved, independently audited palette is **Batik Indigo and Hibiscus**: Batik Indigo `#203554`, Denim Lift `#2C4564`, Batik Ivory `#F3EEE4`, Porcelain `#FBF7EF` for QR paper only, Hibiscus Lacquer `#B33A46`, Hibiscus Ink `#92313B`, Pewter Mist `#C7C8C2`, Muted Batik `#56627A`, and Host Claret `#5A2538`. Use solid colour relationships; do not introduce blue–purple gradients, electric cyan, glow, orange/cream startup palettes, or generic slate-grey surfaces.
+- Brand and application icons use the same indigo body, mineral-ivory mark, and hibiscus detail so they belong to the homepage without becoming miniature decorative scenes.
+- Waiting and non-active play use Batik Indigo. The active turn uses Batik Ivory with indigo text; never stark white, black, or casino green.
+- The host uses Host Claret while waiting so the table can identify the current host without opening controls. When it is the host's turn, the surface uses the same Batik Ivory as every active player while retaining a visible `Host` label.
+- Hibiscus Lacquer is the restrained state/accent colour, with Hibiscus Ink reserved for accessible accent text on light surfaces. Chip denominations retain their semantic colours.
 - Use tabular numerals for money, pots, wagers and stacks.
 - Use a cross-platform system sans stack for zero-cost delivery and native familiarity. Hierarchy comes from size, weight and spacing rather than display-font theatrics.
 - Interface chrome stays flat: hairlines and restrained elevation only. Chips alone may have richer ceramic depth and edge detail.

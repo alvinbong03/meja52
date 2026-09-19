@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>MEJA52 Brand Palette</title>
+  <style>
+    :root {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+      background: #111b29;
+      color: #203554;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 54px; }
+    main { width: 1292px; min-height: 792px; margin: auto; padding: 48px; background: #f3eee4; }
+    header { display: flex; align-items: flex-start; justify-content: space-between; padding-bottom: 34px; border-bottom: 1px solid #d8cfc1; }
+    h1 { margin: 0; font-size: 47px; line-height: 1; letter-spacing: -.035em; }
+    header p { width: 430px; margin: 0; color: #56627a; font-size: 16px; line-height: 1.5; }
+    .anchors { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 38px; }
+    .anchor { position: relative; height: 260px; padding: 30px; overflow: hidden; }
+    .anchor.dark { background: #203554; color: #f3eee4; }
+    .anchor.light { border: 1px solid #d8cfc1; background: #f3eee4; color: #203554; }
+    .role { font-size: 12px; font-weight: 680; letter-spacing: .13em; text-transform: uppercase; opacity: .72; }
+    .anchor h2 { width: 410px; margin: 68px 0 0; font-size: 34px; line-height: 1.06; letter-spacing: -.025em; }
+    .hex { position: absolute; right: 30px; bottom: 27px; font-variant-numeric: tabular-nums; font-size: 15px; }
+    .dark .hex { color: #bfc5ca; }
+    .light .hex { color: #56627a; }
+    .thread { position: absolute; right: -25px; top: 38px; width: 166px; height: 166px; border: 18px solid rgba(179, 58, 70, .25); border-radius: 50%; }
+    .swatches { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-top: 34px; }
+    .swatch { min-height: 132px; padding: 16px; display: flex; flex-direction: column; justify-content: flex-end; border: 1px solid rgba(32,53,84,.12); }
+    .swatch strong { font-size: 14px; }
+    .swatch span { margin-top: 4px; font-size: 12px; font-variant-numeric: tabular-nums; opacity: .72; }
+    .denim { background:#2c4564; color:#f3eee4; }
+    .porcelain { background:#fbf7ef; }
+    .terracotta { background:#b33a46; color:#f3eee4; }
+    .terracotta-ink { background:#92313b; color:#f3eee4; }
+    .mist { background:#c7c8c2; }
+    .claret { background:#5a2538; color:#f3eee4; }
+    .usage { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; margin-top: 34px; border-block: 1px solid #d8cfc1; }
+    .usage div { padding: 21px 22px 22px 0; }
+    .usage div + div { padding-left: 22px; border-left: 1px solid #d8cfc1; }
+    .usage strong { display:block; font-size: 14px; }
+    .usage span { display:block; margin-top:7px; color:#56627a; font-size:13px; line-height:1.4; }
+    footer { display: flex; justify-content: space-between; padding-top: 24px; color: #56627a; font-size: 12px; }
+    footer b { color: #203554; font-weight: 650; }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>MEJA<sup style="font-size:.42em;position:relative;top:-.7em">52</sup><br>brand palette</h1>
+      <p>Two purposeful worlds: Batik Indigo for waiting and Batik Ivory for setup and active play. Colour changes state; geometry stays fixed.</p>
+    </header>
+    <section class="anchors">
+      <article class="anchor dark"><span class="role">Dark anchor · Batik Indigo</span><h2>Waiting player<br>and dark chrome</h2><span class="hex">#203554</span><i class="thread"></i></article>
+      <article class="anchor light"><span class="role">Bright anchor · Batik Ivory</span><h2>Create room<br>and active turn</h2><span class="hex">#F3EEE4</span></article>
+    </section>
+    <section class="swatches">
+      <div class="swatch denim"><strong>Denim Lift</strong><span>#2C4564 · raised dark</span></div>
+      <div class="swatch porcelain"><strong>Porcelain</strong><span>#FBF7EF · QR paper only</span></div>
+      <div class="swatch terracotta"><strong>Hibiscus Lacquer</strong><span>#B33A46 · mark and state</span></div>
+      <div class="swatch terracotta-ink"><strong>Hibiscus Ink</strong><span>#92313B · accessible text</span></div>
+      <div class="swatch mist"><strong>Pewter Mist</strong><span>#C7C8C2 · dark secondary text</span></div>
+      <div class="swatch claret"><strong>Host Claret</strong><span>#5A2538 · host waiting</span></div>
+    </section>
+    <section class="usage">
+      <div><strong>Create room</strong><span>Batik Ivory background; indigo text and controls.</span></div>
+      <div><strong>Waiting player</strong><span>Batik Indigo background; ivory text.</span></div>
+      <div><strong>Active turn</strong><span>Batik Ivory background; explicit Your Turn label.</span></div>
+      <div><strong>Host waiting</strong><span>Host Claret background; role label retained.</span></div>
+    </section>
+    <footer><span>Background-token replacement only. No spacing, alignment or component geometry changes.</span><b>WCAG AA text pairs verified</b></footer>
+  </main>
+</body>
+</html>
