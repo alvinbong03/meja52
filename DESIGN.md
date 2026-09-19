@@ -22,8 +22,8 @@ Full source links and translations are recorded in `docs/design/Premium Visual R
 
 - The owner-approved, independently audited palette is **Batik Indigo and Hibiscus**: Batik Indigo `#203554`, Denim Lift `#2C4564`, Batik Ivory `#F3EEE4`, Porcelain `#FBF7EF` for QR paper only, Hibiscus Lacquer `#B33A46`, Hibiscus Ink `#92313B`, Pewter Mist `#C7C8C2`, Muted Batik `#56627A`, and Host Claret `#5A2538`. Use solid colour relationships; do not introduce blue–purple gradients, electric cyan, glow, orange/cream startup palettes, or generic slate-grey surfaces.
 - Brand and application icons use the same indigo body, mineral-ivory mark, and hibiscus detail so they belong to the homepage without becoming miniature decorative scenes.
-- Waiting and non-active play use Batik Indigo. The active turn uses Batik Ivory with indigo text; never stark white, black, or casino green.
-- The host uses Host Claret while waiting so the table can identify the current host without opening controls. When it is the host's turn, the surface uses the same Batik Ivory as every active player while retaining a visible `Host` label.
+- Waiting and non-active play use Batik Indigo for every role, including the host. The active player's own gameplay surface uses deep Hibiscus Ink with Batik Ivory text and an explicit `Your turn` label; never stark white, black, or casino green.
+- Host authority is communicated by the `Host` label and role-specific Table Controls, not by a different waiting background.
 - Hibiscus Lacquer is the restrained state/accent colour, with Hibiscus Ink reserved for accessible accent text on light surfaces. Chip denominations retain their semantic colours.
 - Use tabular numerals for money, pots, wagers and stacks.
 - Use a cross-platform system sans stack for zero-cost delivery and native familiarity. Hierarchy comes from size, weight and spacing rather than display-font theatrics.
@@ -35,11 +35,14 @@ Full source links and translations are recorded in `docs/design/Premium Visual R
 ## Interaction language
 
 - Chips are directly tappable and draggable. Every gesture has a labelled control alternative.
+- Chip denomination centres stay solid and quiet; edge markings may add physical character but never cross or compete with the value.
 - Before a wager is staged, show legal actions. After staging, replace choices with inferred action status, Clear and one exact Place action.
 - Crossing the betting line and pressing Place are equivalent commits.
 - Table Controls is a retractable sheet. Room configuration and secondary actions never compete with live play.
 - Table Controls is role-specific: ordinary players receive the approved player sheet; hosts receive a dedicated `Host` section. Do not add a Player/Host tab switch to the host sheet.
 - Use short, literal labels and a one-sentence description when a role or action could be unfamiliar.
+- Public live-hand surfaces show only each seat's current-street bet. Remaining balance and total committed in the hand stay private to that player's device; settlement may reveal final balances.
+- In phone landscape, current-street bets use a compact clockwise rail. It shows non-zero bets by default, scrolls for large tables, and the Pot control reveals the complete seat-by-seat breakdown.
 
 ## Refusals
 

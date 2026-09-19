@@ -55,7 +55,7 @@ Unlike a ledger-style chip counter or conventional online poker client, the prod
 - The interface must feel clean, deliberate and Apple-influenced without copying Apple assets or becoming a generic mobile settings screen.
 - Every surface must be evaluated against the owner-approved four-brand reference set: Apple for clarity, hierarchy and touch ergonomics; Porsche for grid precision, consistency and purposeful controls; Bang & Olufsen for tactile material craft and restraint; Linear for calm information hierarchy and receding secondary chrome. These are principles, never assets or templates to copy.
 - It must not resemble a SaaS dashboard, crypto casino, AI chat product or generic AI-generated template.
-- Waiting players use a dark interface; the active player's surface becomes warm white, reinforced by text and controls rather than colour alone.
+- All waiting players use Batik Indigo; the active player's surface becomes deep Hibiscus red, reinforced by an explicit `Your turn` label and controls rather than colour alone.
 - Chips are the primary interactive objects. Poker controls use direct terminology and receive concise one-sentence explanations where unfamiliar.
 - The approved anti-slop rules at `docs/design/Anti-Slop Rules.md` are binding.
 - The durable visual system in `DESIGN.md` and the research in `docs/design/Premium Visual References.md` are binding for all later comps and UI implementation.

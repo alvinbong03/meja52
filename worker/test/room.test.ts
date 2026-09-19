@@ -210,7 +210,7 @@ describe('playing a hand', () => {
     let s = await cat.settle();
     expect(s.room.game.phase).toBe('betting');
     expect(s.room.game.toActId).toBe(idOf(ana));
-    expect(ana.state.you.legal).toMatchObject({ toCall: 10, canRaise: true, minRaiseTo: 20 });
+    expect(ana.state.you.legal).toMatchObject({ toCall: 10, canRaise: true, minRaiseTo: 11 });
     expect(ben.state.you.legal).toBeNull();
 
     expect(await ben.request({ type: 'act', v: s.v, kind: 'call' })).toMatchObject({ code: 'NOT_TURN' });

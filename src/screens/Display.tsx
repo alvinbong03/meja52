@@ -62,9 +62,12 @@ export function Display({ onExit }: { onExit: () => void }) {
                 {p.name}
                 {hand && game.buttonId === p.id && <span className="tag">D</span>}
               </span>
-              <Num value={p.stack} className="display-seat-stack" />
+              <span className="display-seat-value">
+                <small>{hand ? 'Current bet' : 'Balance'}</small>
+                {hand ? <span className="num">{p.bet > 0 ? fmt(p.bet) : '—'}</span> : <Num value={p.stack} />}
+              </span>
               <span className="display-seat-foot">
-                {hand && p.bet > 0 ? <span className="num">bet {fmt(p.bet)}</span> : <span />}
+                <span />
                 {status && <span className="muted">{status}</span>}
               </span>
             </li>

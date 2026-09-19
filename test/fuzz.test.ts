@@ -43,7 +43,7 @@ function checkInvariants(g: Game, total: number, ctx: string) {
     if (!actor) fail('betting with nobody to act');
     if (!canAct(actor!) || !needsAction(g, actor!)) fail('actor does not need to act');
     if (!legalActions(g, actor!.id)) fail('actor has no legal actions');
-    if (g.minRaise < g.settings.bb) fail('min raise below big blind');
+    if (g.minRaise < 1) fail('raise increment below one unit');
   } else if (g.toActId) fail('toActId outside betting');
   if (g.phase === 'showdown') {
     const committed = g.players.reduce((s, p) => s + p.committed, 0);

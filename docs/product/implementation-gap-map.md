@@ -44,7 +44,7 @@ The inherited project is functional and well tested. It is a useful foundation, 
 | Visual system | Inherited yellow/light-dark Piss Poker UI | Approved warm mineral, graphite, claret and tactile-chip MEJA52 system | Slice 1 onward |
 | Orientation | Responsive portrait-first page | Landscape table-edge experience during play, portrait fallback and portrait settlement | Slice 2 |
 | Chip interaction | Slider, amount input and shortcuts | Tap denominations, stage physical-looking chips, make change, clear/back and explicit placement | Slice 2 |
-| Turn state | Device theme plus yellow active dock | Waiting players dark; active player warm white; host has distinct claret identity when waiting | Slice 2 |
+| Turn state | Device theme plus yellow active dock | All waiting roles use Batik Indigo; only the active player's own surface uses Hibiscus Ink with explicit turn copy | Slice 2 |
 | Governance | Any member may undo, deal next or award | Host-only latest-action redo; Table Controller governs physical streets and ordinary awards | Foundation / Slice 3 |
 | Rebuy | Fixed starting-stack amount applied immediately | Player enters amount; host accepts, edits or rejects; applies between hands | Slice 3 |
 | Attendance | Immediate sit-out and leave | Break/return, missed-blind handling, requested early departure and frozen settlement balance | Slice 3 |

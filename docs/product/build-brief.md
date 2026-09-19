@@ -68,7 +68,7 @@ Avoid pure peer-to-peer state for the first owned version. P2P removes a central
 5. Add a scripted 15-player end-to-end scenario with reconnect, all-in, side pots, split pot, undo, and settlement.
 6. Add privacy notice, retention statement, acceptable-use terms, and delete/expiry behaviour.
 7. Add monitoring for room creation, WebSocket failures, rejected stale actions, and reconnect success—without storing player names longer than needed.
-8. Run a real 10-phone play-money pilot on mixed iOS/Android devices and poor Wi-Fi.
+8. Run a real 15-phone play-money pilot on mixed iOS/Android devices and poor Wi-Fi.
 9. Only then add tournament timers, export, themes, and other enhancements.
 
 ## Verification plan
@@ -84,7 +84,7 @@ Automated:
 Real devices:
 
 - iPhone Safari and Android Chrome, including older/smaller phones;
-- 10 simultaneous devices on one ordinary home router;
+- 15 simultaneous devices on one ordinary home router;
 - phone lock/unlock, tab backgrounding, network switch, low battery, and host disconnection;
 - portrait and landscape, 320 px width through tablet/desktop;
 - keyboard-only use, VoiceOver/TalkBack smoke test, visible focus, contrast, reduced motion, and touch target size.
@@ -93,8 +93,8 @@ Game-rule scenarios:
 
 - heads-up blinds;
 - a short big blind;
-- short all-in that does not reopen betting;
-- cumulative short all-ins that do reopen betting;
+- a one-unit increase above the current bet;
+- repeated small raises that each reopen action;
 - three or more side pots;
 - folded dead money;
 - tied pot with an odd chip;
@@ -107,7 +107,7 @@ Go when:
 
 - the licence is preserved and branding is replaced;
 - dependency findings are resolved or documented;
-- 10-device E2E and real-device tests pass;
+- 15-device E2E and real-device tests pass;
 - every chip movement is server-authoritative and logged;
 - room expiry/privacy behaviour is documented;
 - play-money scope is explicit.

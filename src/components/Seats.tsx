@@ -48,7 +48,7 @@ export function Seats() {
   });
 
   return (
-    <ul ref={listRef} className="seats" aria-label="Players">
+    <ul ref={listRef} className="seats" data-hand={hand || undefined} aria-label="Players">
       <span
         className="seat-glide"
         aria-hidden="true"
@@ -97,7 +97,7 @@ export function Seats() {
                 <span className="won">+{fmt(won)}</span>
               ) : null}
             </span>
-            <Num value={p.stack} className="seat-stack" />
+            {!hand && <Num value={p.stack} className="seat-stack" />}
           </li>
         );
       })}

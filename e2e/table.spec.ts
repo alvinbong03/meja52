@@ -266,13 +266,50 @@ test('desktop keyboard shortcuts drive the action bar', async ({ browser }) => {
   await ana.keyboard.press('r');
   await expect(ana.getByText('Tap chips or choose a shortcut.')).toBeVisible();
   await ana.keyboard.press('ArrowUp');
-  await expect(ana.getByRole('button', { name: 'Place 30' })).toBeVisible();
+  await expect(ana.getByRole('button', { name: 'Place 20' })).toBeVisible();
   await ana.keyboard.press('Enter');
   await expect(yourTurn(ben)).toBeVisible();
   await ben.getByRole('button', { name: 'Fold' }).click();
   await expect(ana.getByRole('button', { name: /Deal next hand/ })).toBeVisible();
   await ana.keyboard.press('n');
   await expect(ana.getByText('Hand 2', { exact: true })).toBeVisible();
+});
+
+test('live play keeps balances private and exposes current bets in phone landscape', async ({ browser }) => {
+  const ana = await seat(browser, 'Ana');
+  const code = codeOf(ana);
+  const ben = await seat(browser, 'Ben', code);
+  const cat = await seat(browser, 'Cat', code);
+
+  await ana.getByRole('button', { name: 'Deal the first hand' }).click();
+  await expect(yourTurn(ana)).toBeVisible();
+  await expect(ana.locator('.table-shell')).toHaveCSS('background-color', 'rgb(146, 49, 59)');
+  await expect(ben.locator('.table-shell')).toHaveCSS('background-color', 'rgb(32, 53, 84)');
+  await expect(ana.locator('.seat-stack')).toHaveCount(0);
+  await expect(ben.locator('.seat-stack')).toHaveCount(0);
+  await expect(ana.locator('.private-hand-total')).toContainText('In this hand');
+
+  await ana.getByRole('button', { name: 'Raise' }).click();
+  await ana.getByRole('button', { name: /Custom/ }).click();
+  await ana.getByLabel('Custom amount').fill('11');
+  await ana.getByRole('button', { name: 'Place 11' }).click();
+  await expect(yourTurn(ben)).toBeVisible();
+
+  await ben.setViewportSize({ width: 568, height: 320 });
+  await expect(ben.getByRole('region', { name: 'Current street bets' })).toBeVisible();
+  await expect(ben.getByRole('button', { name: 'Call 6' })).toBeVisible();
+  const compactOverflow = await ben.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(compactOverflow).toBeLessThanOrEqual(0);
+
+  await ana.setViewportSize({ width: 844, height: 390 });
+  const rail = ana.getByRole('region', { name: 'Current street bets' });
+  await expect(rail).toBeVisible();
+  await expect(rail.getByRole('listitem')).toHaveCount(3);
+  await expect(rail.getByRole('listitem').filter({ hasText: 'Ana' })).toContainText('11');
+  await rail.getByRole('button', { name: /Pot/ }).click();
+  await expect(rail.getByRole('listitem')).toHaveCount(3);
+  await expect(rail).toContainText('Ben');
+  await expect(rail).toContainText('Cat');
 });
 
 test('no horizontal overflow from small phones to desktops', async ({ browser }) => {

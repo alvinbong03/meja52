@@ -32,8 +32,8 @@ The Digital Poker Table must look designed for friends handling chips around a r
 - No decorative purple-to-blue, aurora or mesh gradients.
 - No neon glow, cyan-on-charcoal “futuristic” styling or indiscriminate glassmorphism.
 - Do not use pure black, pure white or neutral grey everywhere; use deliberately tinted surfaces.
-- Waiting state uses dark ink; the current player's turn uses warm white, reinforced by text and controls.
-- Denomination colours belong to chips. Interface red is reserved for destructive actions and must not be the only fold signal.
+- Waiting state uses Batik Indigo; the current player's turn uses deep Hibiscus Ink, reinforced by the explicit `Your turn` label and controls.
+- Denomination colours belong to chips. Hibiscus red is reserved for the active-turn surface and deliberate state feedback; it must never be the only signal.
 - Gradients are permitted only when they describe an object or state, such as restrained chip depth—not as background decoration.
 
 ### 4. Typography must be deliberate
@@ -110,7 +110,7 @@ Every important surface must cover loading, empty, waiting, active, disconnected
 
 - Recommended visual world: **Precision Card Room**—quiet, tactile and exact.
 - Waiting surface: tinted ink, not pure black.
-- Active-turn surface: warm white, not a flashing inversion.
+- Active-turn surface: deep Hibiscus Ink with Batik Ivory text, not a flashing inversion.
 - Controls: restrained squircle-like corners; avoid pill-shaped everything.
 - Depth: concentrated on chip stacks and temporary sheets; the base interface stays flat and calm.
 - Settlement: portrait ledger/list with direct relationships, not a grid of result cards.

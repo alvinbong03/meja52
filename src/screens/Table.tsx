@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Claims } from '../components/Claims';
+import { BetRail } from '../components/BetRail';
 import { Dock } from '../components/Dock';
 import { Header } from '../components/Header';
 import { Icon } from '../components/Icon';
@@ -35,6 +36,7 @@ export function Table({ onDisplay, onLeft }: { onDisplay: () => void; onLeft: ()
         </div>
       )}
       <Claims />
+      <BetRail />
       <main className="table-main">
         {game.phase === 'lobby' ? (
           <Lobby onSettings={() => setSheet('settings')} onPlayers={() => setSheet('players')} />

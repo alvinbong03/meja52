@@ -38,7 +38,7 @@ The website does not hold, transfer or process money. Currency labels are bookke
 - Replace physical poker chips for a 2–15-person face-to-face game.
 - Support both physical and digital cards.
 - Support cash games and single-table tournaments.
-- Guide correct betting order, minimum raises, all-ins, main pots and side pots.
+- Guide correct betting order, the approved flexible-raise house rule, all-ins, main pots and side pots.
 - Survive refreshes, brief disconnections and host changes without losing state.
 - Preserve an auditable record of rebuys, departures, corrections and settlement.
 - Run on the latest two major iPhone Safari and Android Chrome releases without an app-store download.
@@ -65,7 +65,7 @@ Fork and rebrand [Piss Poker](https://github.com/KarthikSubramanian07/Piss-Poker
 - Cloudflare Pages, Workers and SQLite-backed Durable Objects architecture.
 - Four-letter rooms, QR/link joining and account-free device identity.
 - Server-authoritative WebSocket room state and versioned actions.
-- No-limit Hold'em betting engine, blinds, turn order and minimum-raise rules.
+- No-limit Hold'em betting engine, blinds, turn order and wager validation.
 - Short all-ins, automatic uncalled-bet return, layered side pots and odd chips.
 - Reconnect, seat recovery, host handoff, room expiry and public display concepts.
 - Settlement ledger and minimum-transfer calculation.
@@ -336,14 +336,15 @@ Custom denomination sets use an exact bounded change-making algorithm. If the vi
 
 - Supported actions: fold, check, call, bet, raise to and all-in.
 - Players act strictly in server-controlled order.
-- The current amount to call and legal minimum raise are always shown.
-- Pin and cite the adopted Poker TDA rules version in the implementation. A single short all-in does not reopen betting; multiple short all-ins cumulatively reopen betting for a prior actor once the total increase they face equals or exceeds a full minimum raise. Executable examples are required.
+- The current amount to call and the smallest legal next raise-to amount are always available to the interface.
+- MEJA52 intentionally uses a flexible home-game raise rule instead of Poker TDA's full-raise minimum: any whole-unit raise-to amount above the current table bet and within the player's balance is legal. Every accepted raise reopens action for prior actors. Executable examples are required.
 - Pot-Limit Omaha uses integer arithmetic with: `call amount = current street bet − player's prior street contribution`; `pot after call = pot before action + call amount`; `maximum raise-to = player's prior street contribution + call amount + pot after call`.
 - Unmatched excess is returned automatically.
 - Folded contributions remain dead money.
 - Main and side pots are built automatically from contribution layers.
 - All devices receive the committed action and new state immediately.
 - A short public message appears, for example: “Alvin raises to RM30.”
+- During a live hand, public player surfaces show current-street bets but not remaining balances or cumulative hand contributions. Each player's own device privately shows their balance and total committed in the hand. The shared display follows the same public-state rule; final settlement may show final balances.
 
 Cash games have no automatic turn timer by default. The host may enable one. Tournament presets include a host-adjustable timer. One visible/audible warning precedes timeout; on expiry the server checks when legal and otherwise folds. A disconnected player first receives the reconnection grace workflow, and the tournament level clock continues unless the host pauses the whole tournament.
 
@@ -759,7 +760,7 @@ The server must verify after every accepted mutation:
 
 - Heads-up blinds and transition from three players to two.
 - Dead-button, late-seat and missed-blind state tables, including entrants between the button and small blind.
-- Short big blind and short all-ins that do/do not reopen action.
+- Short big blind, a one-unit raise and repeated small raises that each reopen action under the MEJA52 house rule.
 - At least three nested side pots, dead money, tied pots and odd chips.
 - PLO pot-limit maximum calculations.
 - Manual and automatic chip change with custom denominations.

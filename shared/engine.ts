@@ -26,7 +26,7 @@ export interface Player {
   folded: boolean;
   allIn: boolean;
   acted: boolean;
-  /** The bet level this player last acted at. Drives the raise reopening rule. */
+  /** The bet level this player last acted at. Retained for action history and recovery. */
   actedLevel: number;
   sittingOut: boolean;
   leaving: boolean;
@@ -186,8 +186,8 @@ function raiseAllowed(g: Game, p: Player): boolean {
   if (!canAct(p)) return false;
   if (p.stack + p.bet <= g.currentBet) return false;
   if (!g.players.some((q) => q.id !== p.id && canAct(q))) return false;
-  // TDA 47: a player who already acted may re-raise only when facing at least a full raise since then.
-  return !p.acted || g.currentBet - p.actedLevel >= g.minRaise;
+  // MEJA52 house rule: every increase above the current bet reopens action.
+  return true;
 }
 
 export function legalActions(g: Game, id: string): Legal | null {
@@ -205,7 +205,7 @@ export function legalActions(g: Game, id: string): Legal | null {
     callAmount,
     callIsAllIn: toCall > 0 && callAmount === p.stack,
     canRaise,
-    minRaiseTo: canRaise ? Math.min(maxRaiseTo, g.currentBet + g.minRaise) : 0,
+    minRaiseTo: canRaise ? g.currentBet + 1 : 0,
     maxRaiseTo: canRaise ? maxRaiseTo : 0,
   };
 }
@@ -428,11 +428,8 @@ export function act(g0: Game, id: string, action: { kind: ActionKind; amount?: n
       if (!isInt(to, 1, LIMITS.maxStack) || to <= g.currentBet || to > max) fail('INVALID', 'Invalid amount');
       const target = to as number;
       const inc = target - g.currentBet;
-      if (inc < g.minRaise && target !== max) {
-        fail('INVALID', `Minimum is ${g.currentBet + g.minRaise}`);
-      }
       post(p, target - p.bet);
-      if (inc >= g.minRaise) g.minRaise = inc;
+      g.minRaise = inc;
       g.currentBet = target;
       p.acted = true;
       p.actedLevel = target;

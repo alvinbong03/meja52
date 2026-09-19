@@ -14,7 +14,7 @@ The decisions below are approved as the design brief. Every resulting UI/UX desi
 1. **Product surface** — Browser-based responsive web app; no download required. Landscape is preferred during play, with a complete portrait fallback.
 2. **Release boundary** — Design Release 1 first: physical-card no-limit Hold'em cash games for 2–15 players. Later releases remain in the product specification but do not expand the first design pass.
 3. **Visual direction** — **Precision Card Room:** quiet, tactile, exact and recognisably built for an in-person poker table.
-4. **Turn contrast** — Waiting players use a dark ink interface; the active player's entire gameplay surface becomes warm white with dark text, a visible **Your Turn** label and optional haptic/sound cue.
+4. **Turn contrast** — All waiting players, including the host, use Batik Indigo. The active player's entire gameplay surface becomes deep Hibiscus Ink with Batik Ivory text, a visible **Your turn** label and optional haptic/sound cue.
 5. **Colour approach** — Restrained neutral interface with colour concentrated in real chip denominations and state feedback; no decorative gradients, glassmorphism, neon glow or casino-felt cliché.
 6. **Typography** — Start with the open-source Public Sans family and tabular numerals; validate it in mockups before freezing the design system.
 7. **Chip treatment** — Tactile two-dimensional chips with printed values and edge patterns, shallow physical depth and compact stacked counts; no photorealistic 3D casino render.
@@ -39,3 +39,12 @@ Approval authorises design work, not the complete production build. The next des
 > I approve the recommended approval package in Poker App Design Approval.md.
 
 Any exception should name the item number and the preferred replacement.
+
+## Approved gameplay refinement — 19 September 2026
+
+- Public live-hand rows show only each player's current-street bet; they never expose another player's remaining balance.
+- Each player privately sees their own remaining balance and cumulative amount committed in the hand.
+- Phone landscape uses a compact, clockwise, horizontally scrollable bet rail. Non-zero bets appear by default; tapping Pot reveals the complete current-street breakdown.
+- All waiting roles use Batik Indigo. Only the active player's own screen uses Hibiscus Ink.
+- Chip faces retain their approved shape, depth and denomination colours, with solid centres so edge markings never obstruct values.
+- MEJA52 uses a deliberate house rule: any whole-unit amount above the current table bet is a legal raise and every such raise reopens action.

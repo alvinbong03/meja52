@@ -998,40 +998,28 @@ body:has(.notice) {
   color: var(--ink);
 }
 
-.table-shell[data-host]:not([data-turn]) {
-  --bg: var(--brand-host-claret);
-  --surface: color-mix(in srgb, var(--brand-host-claret) 82%, var(--brand-ivory));
-  --surface-2: color-mix(in srgb, var(--brand-host-claret) 90%, var(--brand-ivory));
-  --ink-3: color-mix(in srgb, var(--brand-pewter) 70%, var(--brand-host-claret));
-  --accent-soft: color-mix(in srgb, var(--brand-hibiscus) 46%, var(--brand-host-claret));
-}
-
 .table-shell[data-turn] {
-  color-scheme: light;
-  --bg: var(--brand-ivory);
-  --surface: color-mix(in srgb, var(--brand-ivory) 94%, var(--brand-indigo));
-  --surface-2: color-mix(in srgb, var(--brand-ivory) 87%, var(--brand-indigo));
-  --ink: var(--brand-indigo);
-  --ink-2: var(--brand-muted-batik);
-  --ink-3: color-mix(in srgb, var(--brand-muted-batik) 76%, var(--brand-ivory));
-  --line: rgba(32, 53, 84, 0.14);
-  --line-strong: rgba(32, 53, 84, 0.28);
-  --accent: var(--brand-hibiscus);
-  --accent-soft: color-mix(in srgb, var(--brand-hibiscus) 15%, var(--brand-ivory));
-  --accent-text: var(--brand-hibiscus-ink);
-  --on-accent: var(--brand-ivory);
+  color-scheme: dark;
+  --bg: var(--brand-hibiscus-ink);
+  --surface: color-mix(in srgb, var(--brand-hibiscus-ink) 86%, var(--brand-ivory));
+  --surface-2: color-mix(in srgb, var(--brand-hibiscus-ink) 78%, var(--brand-ivory));
+  --ink: var(--brand-ivory);
+  --ink-2: color-mix(in srgb, var(--brand-ivory) 82%, var(--brand-hibiscus-ink));
+  --ink-3: color-mix(in srgb, var(--brand-ivory) 62%, var(--brand-hibiscus-ink));
+  --line: rgba(243, 238, 228, 0.16);
+  --line-strong: rgba(243, 238, 228, 0.34);
+  --accent: var(--brand-ivory);
+  --accent-soft: color-mix(in srgb, var(--brand-ivory) 16%, var(--brand-hibiscus-ink));
+  --accent-text: var(--brand-ivory);
+  --on-accent: var(--brand-indigo);
 }
 
 body:has(.table-shell) {
   background: var(--brand-indigo);
 }
 
-body:has(.table-shell[data-host]:not([data-turn])) {
-  background: var(--brand-host-claret);
-}
-
 body:has(.table-shell[data-turn]) {
-  background: var(--brand-ivory);
+  background: var(--brand-hibiscus-ink);
 }
 
 .topbar {
@@ -1045,7 +1033,7 @@ body:has(.table-shell[data-turn]) {
 }
 
 .table-shell[data-turn] .topbar {
-  box-shadow: inset 0 calc(var(--safe-top) + 3px) 0 var(--accent);
+  box-shadow: inset 0 calc(var(--safe-top) + 3px) 0 var(--brand-ivory);
 }
 
 .code-btn {
@@ -1221,6 +1209,10 @@ body:has(.table-shell[data-turn]) {
   list-style: none;
 }
 
+.seats[data-hand] .seat {
+  grid-template-columns: 10px minmax(0, 1fr) auto;
+}
+
 .seat-glide {
   position: absolute;
   top: 0;
@@ -1367,6 +1359,12 @@ body:has(.table-shell[data-turn]) {
   text-align: right;
   font-size: 1.0625rem;
   font-weight: 540;
+}
+
+/* ---------- compact landscape bet rail ---------- */
+
+.landscape-bet-rail {
+  display: none;
 }
 
 /* ---------- dock ---------- */
@@ -1522,8 +1520,8 @@ body:has(.table-shell[data-turn]) {
 }
 
 .table-shell[data-turn] .dock-turn:not([data-acting-for]) .btn-turn-main {
-  background: var(--brand-indigo);
-  color: var(--brand-ivory);
+  background: var(--brand-ivory);
+  color: var(--brand-indigo);
 }
 
 .table-shell[data-turn] .dock-turn:not([data-acting-for]) .btn-turn-quiet {
@@ -1532,7 +1530,7 @@ body:has(.table-shell[data-turn]) {
 }
 
 .table-shell[data-turn] .dock-turn:not([data-acting-for]) :focus-visible {
-  outline-color: var(--brand-indigo);
+  outline-color: var(--brand-ivory);
 }
 
 .raise-top {
@@ -1648,9 +1646,9 @@ body:has(.table-shell[data-turn]) {
 }
 
 .table-shell[data-turn] .dock-turn:not([data-acting-for]) .preset[data-on] {
-  border-color: var(--brand-indigo);
-  background: var(--brand-indigo);
-  color: var(--brand-ivory);
+  border-color: var(--brand-ivory);
+  background: var(--brand-ivory);
+  color: var(--brand-indigo);
 }
 
 /* ---------- tactile chip edge ---------- */
@@ -1702,6 +1700,15 @@ button.chip-stack:active:not(:disabled) .poker-chip {
     0 9px 13px rgba(10, 16, 24, 0.18);
   color: #162238;
   transition: transform 140ms var(--ease-out);
+}
+
+.poker-chip::before {
+  content: '';
+  position: absolute;
+  inset: 8px;
+  border: 1px solid color-mix(in srgb, var(--chip-edge) 46%, var(--chip-face));
+  border-radius: 50%;
+  background: var(--chip-face);
 }
 
 .poker-chip[data-chip='1'] { --chip-face: #b33a46; --chip-edge: #f3eee4; color: #f3eee4; }
@@ -1815,16 +1822,97 @@ button.chip-stack:active:not(:disabled) .poker-chip {
 .raise-presets .preset[data-on] strong { color: inherit; }
 .custom-amount { padding: 0 12%; }
 
+.private-hand-total {
+  display: flex;
+  min-height: 28px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--ink-2);
+  font-size: 0.78rem;
+}
+
+.private-hand-total .num {
+  color: var(--ink);
+  font-weight: 650;
+}
+
 .table-controls-handle { display: none; }
 
 @media (orientation: landscape) and (max-height: 600px) {
-  .table-shell { max-width: none; }
+  .table-shell { max-width: none; overflow: hidden; }
   .topbar,
   .table-main { display: none; }
+  .landscape-bet-rail {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    min-height: 52px;
+    align-items: center;
+    border-bottom: 1px solid var(--line);
+    background: var(--bg);
+  }
+  .bet-rail-pot {
+    display: grid;
+    min-width: 84px;
+    min-height: 51px;
+    align-content: center;
+    padding: 4px 16px;
+    border: 0;
+    border-right: 1px solid var(--line);
+    background: transparent;
+    text-align: left;
+  }
+  .bet-rail-pot span:first-child,
+  .bet-rail-hint {
+    color: var(--ink-2);
+    font-size: 0.68rem;
+    letter-spacing: 0.035em;
+  }
+  .bet-rail-pot .num { font-size: 1.1rem; font-weight: 680; }
+  .bet-rail-scroll {
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--line-strong) transparent;
+  }
+  .bet-rail-list {
+    display: flex;
+    min-width: max-content;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .bet-rail-list li {
+    position: relative;
+    display: grid;
+    min-width: 88px;
+    min-height: 36px;
+    align-content: center;
+    gap: 1px;
+    padding: 0 14px;
+    border-right: 1px solid var(--line);
+  }
+  .bet-rail-list li[data-acting]::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 5px;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--ink);
+    transform: translateY(-50%);
+  }
+  .bet-rail-list li span { max-width: 9rem; overflow: hidden; color: var(--ink-2); font-size: 0.7rem; text-overflow: ellipsis; white-space: nowrap; }
+  .bet-rail-list li strong { font-size: 0.92rem; font-weight: 650; }
+  .bet-rail-empty { padding: 0 14px; color: var(--ink-2); font-size: 0.78rem; }
+  .bet-rail-hint { padding: 0 14px; white-space: nowrap; }
   .dock-wrap,
   .dock-shake,
-  .dock { min-height: 0; height: 100%; }
-  .dock-wrap { flex: 1; }
+  .dock { min-height: 0; }
+  .dock-wrap { flex: 1; height: auto; overflow-y: auto; }
+  .dock-shake,
+  .dock { height: 100%; }
   .dock { align-content: space-between; gap: 7px; padding-top: 10px; padding-bottom: calc(var(--safe-bottom) + 8px); }
   .turn-overview { min-height: 46px; }
   .turn-title { font-size: 1.16rem; }
@@ -1839,6 +1927,7 @@ button.chip-stack:active:not(:disabled) .poker-chip {
   .raise-heading .turn-title { font-size: 1.05rem; }
   .raise-utility { min-height: 36px; }
   .raise-presets .preset { min-height: 43px; }
+  .private-hand-total { min-height: 20px; }
   .table-controls-handle {
     position: absolute;
     bottom: 0;
@@ -2480,9 +2569,24 @@ body:has(.display) {
   text-overflow: ellipsis;
 }
 
-.display-seat-stack {
+.display-seat-value {
+  display: grid;
+  gap: 1px;
   font-size: clamp(1.5rem, 3vw, 2.25rem);
   font-weight: 560;
+}
+
+.display-seat-value small {
+  color: var(--ink-2);
+  font-size: 0.68rem;
+  font-weight: 520;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.display-seat[data-acting] .display-seat-value small {
+  color: inherit;
+  opacity: 0.75;
 }
 
 .display-seat-foot {

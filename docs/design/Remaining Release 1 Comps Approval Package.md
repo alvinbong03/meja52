@@ -12,7 +12,7 @@ Every comp uses the owner-approved **Precision Card Room** system and must be ju
 - **Bang & Olufsen:** premium restraint and honest material craft, with depth concentrated on chips.
 - **Linear:** calm information density, predictable actions and secondary chrome that recedes.
 
-The established Batik Ivory active/setup surface, Batik Indigo waiting surface, Host Claret identity, restrained Hibiscus state accent, indigo primary action, hairline structure and tactile chip language remain unchanged.
+The established Batik Indigo waiting surface, Hibiscus Ink active surface, Batik Ivory text/actions, hairline structure and tactile chip language govern gameplay. Host identity uses role copy and role-specific controls rather than a separate waiting colour.
 
 ## Approval checklist
 
@@ -25,7 +25,7 @@ The established Batik Ivory active/setup surface, Batik Indigo waiting surface, 
 7. **Approved:** [Break and leave](../Poker%20Chips/app/.impeccable/mocks/attendance/break-return-leave-v1.png) — reserve seat, return with missed blinds and freeze an early leaver's stack.
 8. **Approved:** [Host transfer and late arrival](../Poker%20Chips/app/.impeccable/mocks/attendance/host-transfer-late-arrival-v1.png) — accepted authority transfer and entry timing between hands.
 9. **Approved:** [Corrections and recovery](../Poker%20Chips/app/.impeccable/mocks/corrections/undo-void-reconnect-v1.png) — undo the latest action, preview a void and freeze a disconnected client.
-10. **Approved:** [Shared table display](../Poker%20Chips/app/.impeccable/mocks/shared-display/table-view-v1.png) — public balances, pots, positions, action, status and joining QR without private data.
+10. **Approved, privacy-amended:** [Shared table display](../Poker%20Chips/app/.impeccable/mocks/shared-display/table-view-v1.png) — public current-street bets, pots, positions, action, status and joining QR; live remaining balances are private.
 11. **Approved:** [Cash settlement](../Poker%20Chips/app/.impeccable/mocks/settlement/cash-settlement-v1.png) — personal result, minimum transfers and balanced final record including early leavers.
 12. **Approved:** [History and deletion](../Poker%20Chips/app/.impeccable/mocks/history/history-retention-v1.png) — audit trail, exports, 30-day retention and deliberate early deletion.
 13. **Approved:** [Custom amount](../Poker%20Chips/app/.impeccable/mocks/raise-flow/custom-amount-v1.png) — native numeric entry as a secondary path before chips are staged.

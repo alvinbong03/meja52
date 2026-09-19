@@ -73,7 +73,7 @@ function MyStatus() {
   if (!inHand) note = me.stack === 0 ? 'Busted' : me.sittingOut ? 'Sitting out' : 'In from the next hand';
   else if (me.folded) note = 'Folded';
   else if (me.allIn) note = 'All in';
-  else note = me.committed > 0 ? `${fmt(me.committed)} in the pot` : 'In the hand';
+  else note = me.committed > 0 ? `${fmt(me.committed)} in this hand` : 'In the hand';
   const canRebuy = me.stack === 0 && !inHand;
   return (
     <div className="my-status">
@@ -214,6 +214,12 @@ function ActionPanel({ legal, player, actingFor, onCancel }: ActionProps) {
           ))}
         </div>
       )}
+      {!actingFor && (
+        <div className="private-hand-total">
+          <span>In this hand</span>
+          <Num value={player.committed} />
+        </div>
+      )}
       <ChipRack amount={player.stack - staged} currency={room.currency} onChip={addChip} />
     </div>
   );
@@ -253,7 +259,7 @@ function RaisePanel({ legal, pot, currentBet, bb, label, player, currency, busy,
     const half = opening ? pot / 2 : currentBet + potAfterCall / 2;
     const full = opening ? pot : currentBet + potAfterCall;
     return [
-      { label: 'Min', value: min },
+      { label: 'Next', value: min },
       { label: '½ pot', value: clamp(half) },
       { label: 'Pot', value: clamp(full) },
       { label: 'All in', value: max },
@@ -271,8 +277,8 @@ function RaisePanel({ legal, pot, currentBet, bb, label, player, currency, busy,
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onBack();
       else if (e.key === 'Enter') confirm();
-      else if (e.key === 'ArrowUp' && e.target !== inputRef.current) set(final + bb);
-      else if (e.key === 'ArrowDown' && e.target !== inputRef.current) set(final - bb);
+      else if (e.key === 'ArrowUp' && e.target !== inputRef.current) set((amount ?? currentBet) + bb);
+      else if (e.key === 'ArrowDown' && e.target !== inputRef.current) set((amount ?? currentBet) - bb);
       else if (e.key.toLowerCase() === 'a' && e.target !== inputRef.current) set(max);
       else return;
       e.preventDefault();
@@ -290,7 +296,7 @@ function RaisePanel({ legal, pot, currentBet, bb, label, player, currency, busy,
       </div>
       <div className="raise-heading">
         <span className="turn-title">{label === 'Bet' ? 'Bet' : 'Raise to'}</span>
-        <span className="turn-sub">{fmt(min)} minimum</span>
+        <span className="turn-sub">Any amount above {fmt(currentBet)}</span>
       </div>
       {amount !== null && <StagedChips amount={Math.max(0, amount - player.bet)} currency={currency} />}
       <div className="raise-utility">
@@ -316,6 +322,10 @@ function RaisePanel({ legal, pot, currentBet, bb, label, player, currency, busy,
           </button>
         ))}
         <button className="preset" data-on={custom || undefined} onClick={() => { setCustom(true); setAmount(null); setText(''); }}><span>Custom</span><strong>Type amount</strong></button>
+      </div>
+      <div className="private-hand-total">
+        <span>In this hand</span>
+        <Num value={player.committed} />
       </div>
       <ChipRack
         amount={player.stack - (amount === null ? 0 : Math.max(0, amount - player.bet))}

@@ -1,11 +1,11 @@
 # Host Player State — Comp Brief
 
-Status: Host waiting/active v1 approved by owner
+Status: Superseded by the approved 19 September 2026 gameplay refinement
 Workflow: Impeccable comp-first; no production UI code before approval
 
 ## Purpose
 
-Show how the host is recognisable at the physical table while waiting, and how the interface transitions to the universal warm-white active-turn state without losing the host role.
+Historical brief. The host is now recognised through the `Host` label and role-specific Table Controls while sharing the universal Batik Indigo waiting surface. The active player's own surface uses Hibiscus Ink.
 
 ## Binding references
 
@@ -16,8 +16,8 @@ Show how the host is recognisable at the physical table while waiting, and how t
 
 ## Comparison comp
 
-1. **Host waiting:** deep desaturated claret surface; `Host · Waiting for Maya`; warm-ivory text; the normal pot, balance, last action, chips and Table controls.
-2. **Host active:** the same warm mineral ivory used for every active player; `Host · Your turn`; RM10 to call; empty wager field; Fold, Call RM10 and Raise.
+1. **Host waiting:** Batik Indigo surface; `Host · Waiting for Maya`; warm-ivory text; the normal private balance, public pot, last action, chips and Table Controls.
+2. **Host active:** the same deep Hibiscus Ink used for every active player; `Host · Your turn`; RM10 to call; empty wager field; Fold, Call RM10 and Raise.
 
 ## Action composition
 
@@ -30,5 +30,5 @@ Show how the host is recognisable at the physical table while waiting, and how t
 ## Boundaries
 
 - Host identity must not rely on colour alone.
-- The host's active-turn background is not claret; it is the same approved warm white as every active player.
+- Host identity does not use a unique background. Waiting is Batik Indigo and active play is Hibiscus Ink for every role.
 - No crown icon, badge ornament, gradient, glow, glass, gold, dashboard container or casino styling.

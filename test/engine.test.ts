@@ -73,7 +73,7 @@ describe('blinds and action order', () => {
     expect(legal.canCheck).toBe(true);
     expect(legal.canFold).toBe(false);
     expect(legal.canRaise).toBe(true);
-    expect(legal.minRaiseTo).toBe(20);
+    expect(legal.minRaiseTo).toBe(11);
     g = check(g, 'p2');
     expect(g.street).toBe(1);
     expect(g.toActId).toBe('p1');
@@ -121,7 +121,7 @@ describe('blinds and action order', () => {
   it('short big blind: callers still owe the full blind', () => {
     let g = startHand(table([1000, 1000, 4]));
     expect(p(g, 'p2').allIn).toBe(true);
-    expect(legalActions(g, 'p0')).toMatchObject({ toCall: 10, minRaiseTo: 20 });
+    expect(legalActions(g, 'p0')).toMatchObject({ toCall: 10, minRaiseTo: 11 });
     g = call(g, 'p0');
     g = call(g, 'p1');
     expect(g.street).toBe(1);
@@ -151,41 +151,40 @@ describe('blinds and action order', () => {
 });
 
 describe('bets and raises', () => {
-  it('min bet is the big blind, min raise tracks the last full raise', () => {
+  it('accepts any whole-unit raise above the current bet and reopens action', () => {
     let g = startHand(table([1000, 1000]));
     g = check(call(g, 'p0'), 'p1');
-    expect(legalActions(g, 'p1')!.minRaiseTo).toBe(10);
-    expectRule(() => raise(g, 'p1', 9), 'INVALID');
-    g = raise(g, 'p1', 30);
-    expect(legalActions(g, 'p0')!.minRaiseTo).toBe(60);
-    expectRule(() => raise(g, 'p0', 59), 'INVALID');
-    g = raise(g, 'p0', 100);
-    expect(legalActions(g, 'p1')!.minRaiseTo).toBe(170);
+    expect(legalActions(g, 'p1')!.minRaiseTo).toBe(1);
+    g = raise(g, 'p1', 1);
+    expect(legalActions(g, 'p0')!.minRaiseTo).toBe(2);
+    g = raise(g, 'p0', 2);
+    expect(legalActions(g, 'p1')).toMatchObject({ canRaise: true, minRaiseTo: 3 });
   });
 
-  it('all-in bet smaller than the big blind keeps the full minimum raise', () => {
+  it('a small all-in still leaves any higher whole-unit raise available', () => {
     let g = startHand(table([1000, 1000, 25], { sb: 10, bb: 20 }));
     g = check(call(call(g, 'p0'), 'p1'), 'p2');
     expect(g.street).toBe(1);
     g = check(g, 'p1');
     g = raise(g, 'p2', 5);
     expect(p(g, 'p2').allIn).toBe(true);
-    expect(legalActions(g, 'p0')).toMatchObject({ toCall: 5, canRaise: true, minRaiseTo: 25 });
+    expect(legalActions(g, 'p0')).toMatchObject({ toCall: 5, canRaise: true, minRaiseTo: 6 });
   });
 
-  it('short all-in raise does not reopen betting for players who already acted', () => {
+  it('every raise reopens betting for players who already acted', () => {
     let g = startHand(table([80, 1000, 1000, 1000], { sb: 10, bb: 20 }));
     g = raise(g, 'p3', 60);
     g = raise(g, 'p0', 80);
     expect(p(g, 'p0').allIn).toBe(true);
-    expect(legalActions(g, 'p1')).toMatchObject({ canRaise: true, minRaiseTo: 120 });
+    expect(legalActions(g, 'p1')).toMatchObject({ canRaise: true, minRaiseTo: 81 });
     g = call(g, 'p1');
     g = call(g, 'p2');
-    expect(legalActions(g, 'p3')).toMatchObject({ canCall: true, toCall: 20, canRaise: false });
-    expectRule(() => raise(g, 'p3', 1000), 'INVALID');
+    expect(legalActions(g, 'p3')).toMatchObject({ canCall: true, toCall: 20, canRaise: true, minRaiseTo: 81 });
+    g = raise(g, 'p3', 81);
+    expect(g.currentBet).toBe(81);
   });
 
-  it('several short all-ins that add up to a full raise do reopen betting', () => {
+  it('several small raises keep action open without a full-raise threshold', () => {
     let g = startHand(table([1000, 200, 1000, 1000, 150], { sb: 10, bb: 20 }));
     g = raise(g, 'p3', 100);
     g = raise(g, 'p4', 150);
@@ -196,7 +195,7 @@ describe('bets and raises', () => {
     expect(legalActions(g, 'p3')!.canRaise).toBe(true);
     g = call(g, 'p3');
     expect(g.toActId).toBe('p0');
-    expect(legalActions(g, 'p0')).toMatchObject({ toCall: 50, canRaise: false });
+    expect(legalActions(g, 'p0')).toMatchObject({ toCall: 50, canRaise: true, minRaiseTo: 201 });
   });
 
   it('last live player facing an all-in may only call or fold', () => {
@@ -213,17 +212,18 @@ describe('bets and raises', () => {
     let g = startHand(table([1000, 1000, 1000]));
     expectRule(() => call(g, 'p1'), 'NOT_TURN');
     expectRule(() => raise(g, 'p0', 25.5), 'INVALID');
-    expectRule(() => raise(g, 'p0', 15), 'INVALID');
-    g = call(call(g, 'p0'), 'p1');
-    expectRule(() => fold(g, 'p2'), 'INVALID');
-    expectRule(() => call(g, 'p2'), 'INVALID');
+    g = raise(g, 'p0', 15);
+    expect(g.currentBet).toBe(15);
+    g = call(call(g, 'p1'), 'p2');
+    expectRule(() => fold(g, 'p1'), 'INVALID');
+    expectRule(() => call(g, 'p1'), 'INVALID');
   });
 
   it('never mutates the input state', () => {
     const g = startHand(table([1000, 1000, 1000]));
     const frozen = JSON.stringify(g);
     raise(g, 'p0', 50);
-    expectRule(() => raise(g, 'p0', 12));
+    expectRule(() => raise(g, 'p0', 10));
     expect(JSON.stringify(g)).toBe(frozen);
   });
 });
