@@ -104,16 +104,18 @@ function Menu({ setOpen, onDisplay, onLeft }: { setOpen: (s: SheetName) => void;
             ) : confirmEnd ? (
               <li className="confirm-row end-game-row">
                 <span>{handInProgress(game) ? 'Finish this hand, then settle?' : 'Freeze balances and settle?'}</span>
-                <button className="btn btn-quiet btn-sm" onClick={() => setConfirmEnd(false)}>Cancel</button>
-                <button
-                  className="btn btn-danger btn-sm"
-                  disabled={busy}
-                  onClick={async () => {
-                    if (await run({ type: 'endGame', v })) setOpen(null);
-                  }}
-                >
-                  {handInProgress(game) ? 'End after hand' : 'End game'}
-                </button>
+                <div className="confirm-actions">
+                  <button className="btn btn-quiet btn-sm" onClick={() => setConfirmEnd(false)}>Cancel</button>
+                  <button
+                    className="btn btn-danger btn-sm"
+                    disabled={busy}
+                    onClick={async () => {
+                      if (await run({ type: 'endGame', v })) setOpen(null);
+                    }}
+                  >
+                    {handInProgress(game) ? 'End after hand' : 'End game'}
+                  </button>
+                </div>
               </li>
             ) : (
               item(handInProgress(game) ? 'End after this hand' : 'End game', () => setConfirmEnd(true), {

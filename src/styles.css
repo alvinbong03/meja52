@@ -2338,6 +2338,13 @@ button.chip-stack:active:not(:disabled) .poker-chip {
   font-size: 0.9375rem;
 }
 
+.confirm-actions {
+  display: flex;
+  flex: none;
+  gap: 8px;
+  margin-left: auto;
+}
+
 .players {
   display: grid;
   gap: 18px;

@@ -119,7 +119,14 @@ test('the host ends after the current hand and everyone receives frozen settleme
 
   await ana.getByRole('button', { name: 'Menu' }).click();
   await ana.getByRole('button', { name: 'End after this hand' }).click();
-  await ana.getByRole('button', { name: 'End after hand' }).click();
+  const cancelEnd = ana.getByRole('button', { name: 'Cancel' });
+  const confirmEnd = ana.getByRole('button', { name: 'End after hand' });
+  const [cancelBox, confirmBox] = await Promise.all([cancelEnd.boundingBox(), confirmEnd.boundingBox()]);
+  expect(cancelBox).not.toBeNull();
+  expect(confirmBox).not.toBeNull();
+  expect(Math.abs(cancelBox!.y - confirmBox!.y)).toBeLessThanOrEqual(1);
+  expect(confirmBox!.x - (cancelBox!.x + cancelBox!.width)).toBeLessThanOrEqual(10);
+  await confirmEnd.click();
   await expect(ben.getByText('Final hand', { exact: true })).toBeVisible();
 
   await ana.getByRole('button', { name: 'Fold' }).click();
