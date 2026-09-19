@@ -1,0 +1,8 @@
+{
+  "approved": false,
+  "supersededBy": "setup-steps-v3.png",
+  "approvedBy": "owner",
+  "generatedWith": "built-in image_gen",
+  "surface": "Release 1 stakes and room review",
+  "revision": "Removed redundant game-format selection; superseded to remove the resulting dead Change action"
+}

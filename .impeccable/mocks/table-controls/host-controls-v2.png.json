@@ -1,0 +1,5 @@
+{
+  "approved": true,
+  "generatedWith": "built-in image_gen",
+  "prompt": "Preserve approved host-controls v1 except for the role-mode labels. Remove Player completely. Keep one Host section label beneath the Table controls header with a short oxblood underline, balanced to look intentional rather than like a remaining tab. Add no replacement switch, toggle or explanation. Preserve every host control, description, room summary, two-column grid, claret host surface and premium visual system."
+}
