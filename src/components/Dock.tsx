@@ -29,7 +29,7 @@ export function Dock({ onRebuy }: { onRebuy: () => void }) {
 }
 
 function DockBody({ onRebuy }: { onRebuy: () => void }) {
-  const { game, you, me, room, serverNow, away, member } = useTable();
+  const { game, you, me, room, serverNow, away, member, isHost } = useTable();
   const [actingFor, setActingFor] = useState<string | null>(null);
 
   const actorId = game.toActId;
@@ -38,6 +38,31 @@ function DockBody({ onRebuy }: { onRebuy: () => void }) {
   if (game.phase === 'lobby') return <LobbyDock />;
   if (game.phase === 'showdown') return <AwardPanel />;
   if (game.phase === 'done') return <ResultsPanel onRebuy={onRebuy} />;
+
+  if (room.paused) {
+    return (
+      <div className="dock dock-hold" role="status">
+        <span className="label">Hand paused</span>
+        <strong>{room.voidProposal ? 'Void under review' : 'Actions are temporarily locked'}</strong>
+        <small>{room.voidProposal ? 'The host is reviewing the hand with the table.' : 'The table remains visible while the host resolves the issue.'}</small>
+      </div>
+    );
+  }
+
+  if (room.correctionForId) {
+    const correctionPlayer = findPlayer(game, room.correctionForId);
+    if (isHost && correctionPlayer) {
+      const legal = legalActions(game, correctionPlayer.id);
+      if (legal) return <ActionPanel legal={legal} player={correctionPlayer} actingFor correcting />;
+    }
+    return (
+      <div className="dock dock-hold" role="status">
+        <span className="label">Correction in progress</span>
+        <strong>The host is entering the corrected action</strong>
+        <small>The original action stays in table history.</small>
+      </div>
+    );
+  }
 
   if (you.legal && me) return <ActionPanel legal={you.legal} player={me} />;
 
@@ -102,10 +127,11 @@ interface ActionProps {
   legal: Legal;
   player: Player;
   actingFor?: boolean;
+  correcting?: boolean;
   onCancel?: () => void;
 }
 
-function ActionPanel({ legal, player, actingFor, onCancel }: ActionProps) {
+function ActionPanel({ legal, player, actingFor, correcting, onCancel }: ActionProps) {
   const { game, room, run, busy, v } = useTable();
   const [raising, setRaising] = useState(false);
   const [staged, setStaged] = useState(0);
@@ -184,12 +210,12 @@ function ActionPanel({ legal, player, actingFor, onCancel }: ActionProps) {
     <div className="dock dock-turn" data-acting-for={actingFor || undefined}>
       <div className="turn-overview">
         <div>
-          <span className="turn-title">{actingFor ? `Acting for ${player.name}` : 'Your turn'}</span>
+          <span className="turn-title">{correcting ? `Correcting ${player.name}` : actingFor ? `Acting for ${player.name}` : 'Your turn'}</span>
           <span className="turn-sub">{legal.toCall > 0 ? `${fmt(legal.callAmount)} to call` : 'Check is available'}</span>
         </div>
         <span className="turn-metric"><small>Pot</small><Num value={pot} /></span>
         <span className="turn-metric"><small>Balance</small><Num value={player.stack} /></span>
-        {actingFor && (
+        {actingFor && onCancel && (
           <button className="icon-btn" onClick={onCancel} aria-label="Stop acting for this player">
             <Icon name="close" />
           </button>

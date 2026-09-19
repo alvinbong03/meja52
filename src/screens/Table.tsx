@@ -11,10 +11,11 @@ import { Sheets, type SheetName } from '../components/Sheets';
 import { Stage } from '../components/Stage';
 import { Settlement } from '../components/Settlement';
 import { turnAlert, unlockAudio, useWakeLock } from '../lib/device-features';
+import { chipLabel } from '../lib/chips';
 import { useTable } from '../lib/table';
 
 export function Table({ onDisplay, onLeft }: { onDisplay: () => void; onLeft: () => void }) {
-  const { room, game, you, conn, isHost } = useTable();
+  const { room, game, you, conn, isHost, run, busy, v } = useTable();
   const [sheet, setSheet] = useState<SheetName>(null);
   const myTurn = !!you.legal;
   const lateArrival = room.lateArrivals.find((request) => request.playerId === you.id);
@@ -57,11 +58,6 @@ export function Table({ onDisplay, onLeft }: { onDisplay: () => void; onLeft: ()
   return (
     <div className="table-shell" data-turn={myTurn || undefined} data-host={isHost || undefined} data-phase={game.phase} onPointerDown={unlockAudio}>
       <Header onInvite={() => setSheet('invite')} onMenu={() => setSheet('menu')} />
-      {conn.status === 'reconnecting' && (
-        <div className="offline" role="status">
-          Reconnecting…
-        </div>
-      )}
       <Claims />
       {room.endingAfterHand && (
         <div className="final-hand-notice" role="status">
@@ -69,6 +65,30 @@ export function Table({ onDisplay, onLeft }: { onDisplay: () => void; onLeft: ()
           <span>The host will open settlement after the payout.</span>
         </div>
       )}
+      {room.voidProposal ? (
+        <div className="void-review" role="status">
+          <div>
+            <span className="eyebrow">Hand paused · Void review</span>
+            <strong>{room.voidProposal.reason}</strong>
+            <small>{chipLabel(room.currency, room.voidProposal.returnAmount)} will return to its pre-hand owners.</small>
+          </div>
+          {isHost ? (
+            <div className="void-review-actions">
+              <button className="btn btn-quiet btn-sm" disabled={busy} onClick={() => run({ type: 'cancelVoid', v })}>Cancel preview</button>
+              <button className="btn btn-danger btn-sm" disabled={busy} onClick={() => run({ type: 'confirmVoid', v })}>Confirm void</button>
+            </div>
+          ) : <span className="void-waiting">Waiting for host confirmation</span>}
+        </div>
+      ) : room.paused ? (
+        <div className="void-review" role="status">
+          <div>
+            <span className="eyebrow">Hand paused</span>
+            <strong>Player actions are locked</strong>
+            <small>The table remains visible while the host resolves the issue.</small>
+          </div>
+          {isHost && <button className="btn btn-quiet btn-sm" disabled={busy} onClick={() => run({ type: 'resumeHand', v })}>Resume hand</button>}
+        </div>
+      ) : null}
       <BetRail />
       <main className="table-main">
         {lateArrival ? (
@@ -83,7 +103,15 @@ export function Table({ onDisplay, onLeft }: { onDisplay: () => void; onLeft: ()
         )}
       </main>
       <aside className="dock-wrap" aria-label="Your actions">
-        {!lateArrival && <Dock onRebuy={() => setSheet('rebuy')} />}
+        {conn.status === 'reconnecting' ? (
+          <div className="reconnect-panel" role="alert">
+            <span className="eyebrow">Connection lost</span>
+            <strong>Reconnecting…</strong>
+            <p>Last confirmed: {room.log[room.log.length - 1]?.text ?? 'Table state saved'}</p>
+            <button className="btn btn-primary btn-lg btn-block" onClick={conn.reconnect}>Try now</button>
+            <small>Your seat and balance are safe. Actions stay locked until you’re back.</small>
+          </div>
+        ) : !lateArrival ? <Dock onRebuy={() => setSheet('rebuy')} /> : null}
         <button className="table-controls-handle" onClick={() => setSheet('menu')}>
           <Icon name="up" size={16} />
           Table controls

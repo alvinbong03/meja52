@@ -149,7 +149,14 @@ export function useRoom(code: string): RoomConnection {
       if (!ws || ws.readyState !== WebSocket.OPEN || Date.now() - lastRx.current > 15_000) reconnect();
       else ws.send(PING);
     };
+    const wentOffline = () => {
+      if (stopped.current) return;
+      setStatus('reconnecting');
+      failPending('Connection lost');
+      wsRef.current?.close();
+    };
     document.addEventListener('visibilitychange', wake);
+    window.addEventListener('offline', wentOffline);
     window.addEventListener('online', wake);
     window.addEventListener('pageshow', wake);
     window.addEventListener('focus', wake);
@@ -160,6 +167,7 @@ export function useRoom(code: string): RoomConnection {
       clearInterval(heartbeat);
       clearTimeout(retryTimer.current);
       document.removeEventListener('visibilitychange', wake);
+      window.removeEventListener('offline', wentOffline);
       window.removeEventListener('online', wake);
       window.removeEventListener('pageshow', wake);
       window.removeEventListener('focus', wake);

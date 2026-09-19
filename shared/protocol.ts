@@ -37,7 +37,12 @@ export type ClientMessage =
   | { type: 'act'; v: number; kind: ActionKind; amount?: number; playerId?: string }
   | { type: 'award'; v: number; winners: Record<string, string[]> }
   | { type: 'next'; v: number }
-  | { type: 'undo'; v: number }
+  | { type: 'undo'; v: number; mode?: 'return' | 'correct' }
+  | { type: 'pauseHand'; v: number }
+  | { type: 'resumeHand'; v: number }
+  | { type: 'previewVoid'; v: number; reason: string; advanceButton: boolean }
+  | { type: 'cancelVoid'; v: number }
+  | { type: 'confirmVoid'; v: number }
   | { type: 'endGame'; v: number }
   | { type: 'cancelEndGame'; v: number }
   | { type: 'takeBreak'; playerId?: string }
@@ -105,6 +110,13 @@ export interface LateArrivalView {
   requestedAt: number;
 }
 
+export interface VoidProposalView {
+  reason: string;
+  advanceButton: boolean;
+  returnAmount: number;
+  proposedAt: number;
+}
+
 export type LogKind = 'action' | 'hand' | 'win' | 'undo' | 'table';
 
 export interface LogEntry {
@@ -128,6 +140,9 @@ export interface RoomView {
   breaks: BreakView[];
   leaveRequests: LeaveRequestView[];
   lateArrivals: LateArrivalView[];
+  paused: boolean;
+  voidProposal: VoidProposalView | null;
+  correctionForId: string | null;
   log: LogEntry[];
   undoLabel: string | null;
   turnStartedAt: number | null;
@@ -202,10 +217,22 @@ export function parseClientMessage(raw: string): Envelope | null {
         : null;
     case 'start':
     case 'next':
-    case 'undo':
     case 'endGame':
     case 'cancelEndGame':
       return isNum(v) ? out({ type: m.type, v }) : null;
+    case 'undo':
+      return isNum(v) && (m.mode === undefined || ['return', 'correct'].includes(String(m.mode)))
+        ? out(m.mode === undefined ? { type: 'undo', v } : { type: 'undo', v, mode: m.mode as 'return' | 'correct' })
+        : null;
+    case 'pauseHand':
+    case 'resumeHand':
+    case 'cancelVoid':
+    case 'confirmVoid':
+      return isNum(v) ? out({ type: m.type, v }) : null;
+    case 'previewVoid':
+      return isNum(v) && isStr(m.reason, 80) && m.reason.trim().length > 0 && typeof m.advanceButton === 'boolean'
+        ? out({ type: 'previewVoid', v, reason: m.reason, advanceButton: m.advanceButton })
+        : null;
     case 'act': {
       if (!isNum(v) || typeof m.kind !== 'string' || !KINDS.includes(m.kind) || !optId(m.playerId)) return null;
       if (m.amount !== undefined && !isNum(m.amount)) return null;

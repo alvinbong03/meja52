@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { bySeat, handInProgress, LIMITS } from '../../shared/engine';
+import { bySeat, handInProgress, LIMITS, potTotal } from '../../shared/engine';
 import type { LateArrivalView } from '../../shared/protocol';
 import { setSoundEnabled, soundEnabled } from '../lib/device';
 import { fmt } from '../lib/format';
@@ -10,7 +10,7 @@ import { Invite } from './Invite';
 import { Sheet } from './Sheet';
 import { Settlement } from './Settlement';
 
-export type SheetName = 'menu' | 'invite' | 'settings' | 'players' | 'settle' | 'rebuy' | 'rebuyRequests' | 'lateArrivals' | 'break' | 'leave' | null;
+export type SheetName = 'menu' | 'invite' | 'settings' | 'players' | 'settle' | 'rebuy' | 'rebuyRequests' | 'lateArrivals' | 'break' | 'leave' | 'undo' | 'void' | null;
 
 interface Props {
   open: SheetName;
@@ -55,6 +55,12 @@ export function Sheets({ open, setOpen, onDisplay, onLeft }: Props) {
       <Sheet open={open === 'leave'} onClose={close} title="Leave the game">
         <LeaveFlow onDone={close} onLeft={onLeft} onTransfer={() => setOpen('players')} />
       </Sheet>
+      <Sheet open={open === 'undo'} onClose={close} title="Undo last action">
+        <UndoFlow onDone={close} />
+      </Sheet>
+      <Sheet open={open === 'void'} onClose={close} title="Void this hand">
+        <VoidFlow onDone={close} />
+      </Sheet>
     </>
   );
 }
@@ -84,7 +90,7 @@ function Menu({ setOpen, onDisplay }: { setOpen: (s: SheetName) => void; onDispl
   return (
     <div className="menu">
       <ul className="menu-group">
-        {isHost && room.undoLabel && item('Undo', () => run({ type: 'undo', v }).then((ok) => ok && setOpen(null)), { note: room.undoLabel })}
+        {isHost && room.undoLabel && item('Undo last action', () => setOpen('undo'), { note: room.undoLabel })}
         {item('Invite players', () => setOpen('invite'), { note: room.code })}
         {item('Settle up', () => setOpen('settle'))}
         {item('Table display', onDisplay, { note: 'Big screen view' })}
@@ -116,6 +122,17 @@ function Menu({ setOpen, onDisplay }: { setOpen: (s: SheetName) => void; onDispl
           })}
           {isHost && game.handNo > 0 && item('Late arrivals', () => setOpen('lateArrivals'), {
             note: pendingArrivals.length === 0 ? 'None pending' : `${pendingArrivals.length} pending`,
+          })}
+          {isHost && handInProgress(game) && item(room.paused ? 'Resume hand' : 'Pause hand', () => {
+            if (room.paused) void run({ type: 'resumeHand', v });
+            else void run({ type: 'pauseHand', v });
+          }, {
+            note: room.paused ? 'Unlock player actions' : 'Temporarily lock player actions',
+            disabled: !!room.voidProposal,
+          })}
+          {isHost && game.handNo > 0 && item('Void hand', () => setOpen('void'), {
+            note: 'Return every contribution',
+            danger: true,
           })}
           {isHost && game.handNo > 0 &&
             (room.endingAfterHand ? (
@@ -163,6 +180,71 @@ function Menu({ setOpen, onDisplay }: { setOpen: (s: SheetName) => void; onDispl
           })}
         </ul>
       )}
+    </div>
+  );
+}
+
+function UndoFlow({ onDone }: { onDone: () => void }) {
+  const { room, run, busy, v } = useTable();
+  const [mode, setMode] = useState<'return' | 'correct'>('return');
+  if (!room.undoLabel) return <p className="muted">There is no recent action to undo.</p>;
+  return (
+    <div className="correction-flow">
+      <p className="sheet-lead"><strong>{room.undoLabel}</strong><br />No later action has been committed.</p>
+      <div className="return-choices" role="radiogroup" aria-label="After undoing">
+        <button className="return-choice" role="radio" aria-checked={mode === 'return'} onClick={() => setMode('return')}>
+          <span className="choice-dot" aria-hidden="true" />
+          <span><strong>Return the turn</strong><small>Let the original player choose again.</small></span>
+        </button>
+        <button className="return-choice" role="radio" aria-checked={mode === 'correct'} onClick={() => setMode('correct')}>
+          <span className="choice-dot" aria-hidden="true" />
+          <span><strong>Enter corrected action</strong><small>The host acts once for that player.</small></span>
+        </button>
+      </div>
+      <button className="btn btn-primary btn-xl btn-block" disabled={busy} onClick={async () => {
+        if (await run({ type: 'undo', v, mode })) onDone();
+      }}>Undo action</button>
+      <p className="hint centre">The original action and correction remain in table history.</p>
+    </div>
+  );
+}
+
+function VoidFlow({ onDone }: { onDone: () => void }) {
+  const { room, game, run, busy, v } = useTable();
+  const [reason, setReason] = useState('Misdeal');
+  const [advanceButton, setAdvanceButton] = useState(false);
+  const returned = potTotal(game);
+  return (
+    <div className="void-flow">
+      <p className="sheet-lead">This pauses the table and shows everyone a review before anything is restored.</p>
+      <div className="void-warning">
+        <strong>{chipLabel(room.currency, returned)} returns to players</strong>
+        <span>Blinds and all other contributions go back to their pre-hand owners.</span>
+      </div>
+      <div className="field">
+        <label className="field-label" htmlFor="void-reason">Reason</label>
+        <select id="void-reason" className="text-input" value={reason} onChange={(event) => setReason(event.target.value)}>
+          <option>Misdeal</option>
+          <option>Exposed card</option>
+          <option>Dispute</option>
+          <option>Technical problem</option>
+          <option>Other</option>
+        </select>
+      </div>
+      <div className="return-choices" role="radiogroup" aria-label="Dealer button after void">
+        <button className="return-choice" role="radio" aria-checked={!advanceButton} onClick={() => setAdvanceButton(false)}>
+          <span className="choice-dot" aria-hidden="true" />
+          <span><strong>Keep the button</strong><small>Replay from the same dealer position.</small></span>
+        </button>
+        <button className="return-choice" role="radio" aria-checked={advanceButton} onClick={() => setAdvanceButton(true)}>
+          <span className="choice-dot" aria-hidden="true" />
+          <span><strong>Advance the button</strong><small>Move on to the next dealer position.</small></span>
+        </button>
+      </div>
+      <button className="btn btn-danger btn-xl btn-block" disabled={busy} onClick={async () => {
+        if (await run({ type: 'previewVoid', v, reason, advanceButton })) onDone();
+      }}>Preview void</button>
+      <button className="btn btn-quiet btn-lg btn-block" onClick={onDone}>Cancel</button>
     </div>
   );
 }

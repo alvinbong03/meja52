@@ -499,6 +499,64 @@ describe('playing a hand', () => {
     expect(s.room.log.at(-1)?.text).toMatch(/undid: Ana raises to 100/);
   });
 
+  it('lets the host enter one corrected action after undo while keeping other players locked out', async () => {
+    const { clients, idOf } = await table(['Ana', 'Ben']);
+    const [ana, ben] = clients;
+    await ana.ok({ type: 'start', v: ana.state.v });
+    await ana.ok({ type: 'act', v: ana.state.v, kind: 'raise', amount: 100 });
+    await ana.ok({ type: 'undo', v: ana.state.v, mode: 'correct' });
+    let s = await ben.settle();
+    expect(s.room.correctionForId).toBe(idOf(ana));
+    expect(s.you.legal).toBeNull();
+    expect(await ben.request({ type: 'act', v: s.v, kind: 'call' })).toMatchObject({ code: 'FORBIDDEN' });
+    await ana.ok({ type: 'act', v: ana.state.v, kind: 'raise', amount: 30, playerId: idOf(ana) });
+    s = await ana.settle();
+    expect(s.room.correctionForId).toBeNull();
+    expect(s.room.game.currentBet).toBe(30);
+    expect(s.room.log.at(-1)?.text).toBe('Ana raises to 30');
+  });
+
+  it('pauses and resumes a live hand with host-only controls', async () => {
+    const { clients } = await table(['Ana', 'Ben']);
+    const [ana, ben] = clients;
+    await ana.ok({ type: 'start', v: ana.state.v });
+    expect(await ben.request({ type: 'pauseHand', v: ben.state.v })).toMatchObject({ code: 'FORBIDDEN' });
+    await ana.ok({ type: 'pauseHand', v: ana.state.v });
+    let s = await ben.settle();
+    expect(s.room.paused).toBe(true);
+    expect(s.you.legal).toBeNull();
+    expect(await ana.request({ type: 'act', v: s.v, kind: 'call' })).toMatchObject({ code: 'PHASE' });
+    await ana.ok({ type: 'resumeHand', v: s.v });
+    s = await ana.settle();
+    expect(s.room.paused).toBe(false);
+    expect(s.you.legal).not.toBeNull();
+  });
+
+  it('previews a void publicly, freezes actions, and restores every pre-hand stack', async () => {
+    const { clients } = await table(['Ana', 'Ben', 'Cat']);
+    const [ana, ben] = clients;
+    await ana.ok({ type: 'start', v: ana.state.v });
+    await ana.ok({ type: 'act', v: ana.state.v, kind: 'raise', amount: 60 });
+    await ben.ok({ type: 'act', v: ben.state.v, kind: 'call' });
+    const contribution = ana.state.room.game.players.reduce((sum, player) => sum + player.committed, 0);
+    await ana.ok({ type: 'previewVoid', v: ana.state.v, reason: 'Exposed card', advanceButton: false });
+    let s = await ben.settle();
+    expect(s.room.paused).toBe(true);
+    expect(s.room.voidProposal).toMatchObject({ reason: 'Exposed card', returnAmount: contribution });
+    expect(await ben.request({ type: 'act', v: s.v, kind: 'call' })).toMatchObject({ code: 'PHASE' });
+    expect(await ben.request({ type: 'confirmVoid', v: s.v })).toMatchObject({ code: 'FORBIDDEN' });
+    await ana.ok({ type: 'confirmVoid', v: s.v });
+    s = await ana.settle();
+    expect(s.room.game.phase).toBe('lobby');
+    expect(s.room.game.handNo).toBe(0);
+    expect(s.room.game.players.map((player) => player.stack)).toEqual([1000, 1000, 1000]);
+    expect(s.room.game.players.every((player) => player.committed === 0)).toBe(true);
+    expect(s.room.paused).toBe(false);
+    expect(s.room.voidProposal).toBeNull();
+    expect(s.room.undoLabel).toBeNull();
+    expect(s.room.log.at(-1)?.text).toMatch(/voided Hand 1: Exposed card/);
+  });
+
   it('undo never removes someone who joined afterwards', async () => {
     const { code, clients } = await table(['Ana', 'Ben']);
     const [ana] = clients;

@@ -10,6 +10,7 @@ import {
   findPlayer,
   handInProgress,
   legalActions,
+  potTotal,
   removePlayer,
   returnWithPost,
   RuleError,
@@ -37,6 +38,7 @@ import {
   type LogKind,
   type LeaveRequestView,
   type LateArrivalView,
+  type VoidProposalView,
   type MemberView,
   type RoomView,
   type RebuyRequestView,
@@ -82,6 +84,7 @@ interface Snapshot {
   breaks?: BreakView[];
   leaveRequests?: LeaveRequestView[];
   lateArrivals?: LateArrivalView[];
+  handStart?: Game | null;
 }
 
 interface Stored {
@@ -103,6 +106,10 @@ interface Stored {
   breaks?: BreakView[];
   leaveRequests?: LeaveRequestView[];
   lateArrivals?: LateArrivalView[];
+  handStart?: Game | null;
+  paused?: boolean;
+  voidProposal?: VoidProposalView | null;
+  correctionForId?: string | null;
   turnStartedAt: number | null;
   turnId: string | null;
   endingAfterHand?: boolean;
@@ -189,6 +196,10 @@ export class Room extends DurableObject<Env> {
         breaks: [],
         leaveRequests: [],
         lateArrivals: [],
+        handStart: null,
+        paused: false,
+        voidProposal: null,
+        correctionForId: null,
         turnStartedAt: null,
         turnId: null,
         endingAfterHand: false,
@@ -458,14 +469,15 @@ export class Room extends DurableObject<Env> {
         requireHost();
         checkV(msg.v);
         if (s.game.phase !== 'lobby') deny('PHASE', 'The game already started');
-        this.mutate('Start the game', (g) => this.startPreparedHand(g));
+        this.mutate('Start the game', (g) => this.startPreparedHand(g), 'hand', true);
         return;
       }
       case 'next': {
         requireController();
         checkV(msg.v);
+        if (s.paused) deny('PHASE', 'The hand is paused');
         if (s.game.phase !== 'done') deny('PHASE', 'The hand is not over');
-        this.mutate('Deal the next hand', (g) => this.startPreparedHand(g));
+        this.mutate('Deal the next hand', (g) => this.startPreparedHand(g), 'hand', true);
         return;
       }
       case 'endGame': {
@@ -497,21 +509,26 @@ export class Room extends DurableObject<Env> {
         return;
       }
       case 'act': {
+        if (s.paused) deny('PHASE', 'The hand is paused');
         const m = requireMember();
         checkV(msg.v);
+        if (s.correctionForId && s.hostId !== m.id) deny('FORBIDDEN', 'The host is correcting the last action');
         const actorId = msg.playerId ?? m.id;
         if (actorId !== m.id) {
           const target = s.members.find((x) => x.id === actorId) ?? deny('INVALID', 'Unknown player');
-          if (!this.isAway(target)) deny('FORBIDDEN', `${target.name} is still here`);
+          const correcting = s.hostId === m.id && s.correctionForId === actorId;
+          if (!correcting && !this.isAway(target)) deny('FORBIDDEN', `${target.name} is still here`);
         }
         const before = s.game;
         const after = act(before, actorId, { kind: msg.kind, amount: msg.amount });
         const text = this.describeAction(before, after, actorId);
         const suffix = actorId !== m.id ? ` (by ${m.name})` : '';
+        s.correctionForId = null;
         this.mutate(text + suffix, () => after, 'action');
         return;
       }
       case 'award': {
+        if (s.paused) deny('PHASE', 'The hand is paused');
         requireController();
         checkV(msg.v);
         this.mutate('Award the pot', (g) => award(g, msg.winners));
@@ -531,11 +548,82 @@ export class Room extends DurableObject<Env> {
         }
         if (snap.leaveRequests) s.leaveRequests = structuredClone(snap.leaveRequests);
         if (snap.lateArrivals) s.lateArrivals = structuredClone(snap.lateArrivals);
+        if (snap.handStart !== undefined) s.handStart = snap.handStart ? structuredClone(snap.handStart) : null;
         s.game = this.reconcile(snap.game);
         if (snap.rebuyRequests) s.rebuyRequests = structuredClone(snap.rebuyRequests);
         if (snap.breaks) s.breaks = structuredClone(snap.breaks);
+        s.correctionForId = msg.mode === 'correct' ? snap.game.toActId : null;
         s.v += 1;
         this.log('undo', `${m.name} undid: ${snap.label}`);
+        this.commit();
+        return;
+      }
+      case 'pauseHand': {
+        const host = requireHost();
+        checkV(msg.v);
+        if (!handInProgress(s.game)) deny('PHASE', 'There is no live hand to pause');
+        s.paused = true;
+        s.v += 1;
+        this.log('table', `${host.name} paused the hand`);
+        this.commit();
+        return;
+      }
+      case 'resumeHand': {
+        const host = requireHost();
+        checkV(msg.v);
+        if (!s.paused) deny('PHASE', 'The hand is not paused');
+        if (s.voidProposal) deny('PHASE', 'Cancel the void preview first');
+        s.paused = false;
+        s.v += 1;
+        this.log('table', `${host.name} resumed the hand`);
+        this.commit();
+        return;
+      }
+      case 'previewVoid': {
+        const host = requireHost();
+        checkV(msg.v);
+        if (!s.handStart || s.game.handNo === 0) deny('PHASE', 'There is no hand to void');
+        s.paused = true;
+        s.voidProposal = {
+          reason: msg.reason.trim(),
+          advanceButton: msg.advanceButton,
+          returnAmount: potTotal(s.game),
+          proposedAt: Date.now(),
+        };
+        s.v += 1;
+        this.log('table', `${host.name} proposed voiding Hand ${s.game.handNo}: ${msg.reason.trim()}`);
+        this.commit();
+        return;
+      }
+      case 'cancelVoid': {
+        const host = requireHost();
+        checkV(msg.v);
+        if (!s.voidProposal) deny('PHASE', 'There is no void preview');
+        s.voidProposal = null;
+        s.v += 1;
+        this.log('table', `${host.name} cancelled the void preview`);
+        this.commit();
+        return;
+      }
+      case 'confirmVoid': {
+        const host = requireHost();
+        checkV(msg.v);
+        const proposal = s.voidProposal ?? deny('PHASE', 'Preview the void first');
+        const current = s.game;
+        let restored = structuredClone(s.handStart ?? deny('PHASE', 'There is no hand to void'));
+        if (proposal.advanceButton) {
+          restored.lastBbId = current.bbId;
+          restored.lastBbSeat = findPlayer(current, current.bbId)?.seat ?? current.lastBbSeat;
+        }
+        restored = this.reconcileVoid(restored, current);
+        s.game = restored;
+        s.handStart = null;
+        s.paused = false;
+        s.voidProposal = null;
+        s.correctionForId = null;
+        this.undo = [];
+        s.v += 1;
+        this.log('table', `${host.name} voided Hand ${current.handNo}: ${proposal.reason}`);
         this.commit();
         return;
       }
@@ -829,7 +917,7 @@ export class Room extends DurableObject<Env> {
 
   // ---------- state changes ----------
 
-  private mutate(label: string, fn: (g: Game) => Game, kind: LogKind = 'hand') {
+  private mutate(label: string, fn: (g: Game) => Game, kind: LogKind = 'hand', startsHand = false) {
     const s = this.s as Stored;
     const before = s.game;
     const rebuyRequestsBefore = structuredClone(s.rebuyRequests ?? []);
@@ -838,6 +926,7 @@ export class Room extends DurableObject<Env> {
     const lateArrivalsBefore = structuredClone(s.lateArrivals ?? []);
     const membersBefore = structuredClone(s.members);
     const controllerBefore = s.controllerId;
+    const handStartBefore = s.handStart ? structuredClone(s.handStart) : null;
     const after = fn(before);
     this.undo.push({
       label,
@@ -849,9 +938,11 @@ export class Room extends DurableObject<Env> {
       breaks: breaksBefore,
       leaveRequests: leaveRequestsBefore,
       lateArrivals: lateArrivalsBefore,
+      handStart: handStartBefore,
     });
     if (this.undo.length > UNDO_DEPTH) this.undo.shift();
     s.game = after;
+    if (startsHand) s.handStart = structuredClone(before);
     s.v += 1;
     this.logTransition(before, after, label, kind);
     this.updateBreaks(before, after);
@@ -860,6 +951,28 @@ export class Room extends DurableObject<Env> {
     this.applyApprovedRebuys();
     this.finishIfScheduled(s.game);
     this.commit();
+  }
+
+  private reconcileVoid(base: Game, current: Game) {
+    const s = this.s as Stored;
+    let restored = base;
+    for (const player of [...restored.players]) {
+      if (!s.members.some((member) => member.id === player.id)) restored = removePlayer(restored, player.id);
+    }
+    for (const member of s.members) {
+      if (findPlayer(restored, member.id)) continue;
+      if ((s.lateArrivals ?? []).some((entry) => entry.playerId === member.id && entry.status === 'pending')) continue;
+      const existing = findPlayer(current, member.id);
+      restored = addPlayer(restored, member.id, member.name);
+      if (existing) {
+        restored = setStack(restored, member.id, existing.stack + existing.committed);
+        restored = setSittingOut(restored, member.id, existing.sittingOut);
+        if (existing.entryDead || existing.entryLive) {
+          restored = returnWithPost(restored, member.id, existing.entryDead, existing.entryLive);
+        }
+      }
+    }
+    return restored;
   }
 
   private applyImmediateLeaves() {
@@ -1248,6 +1361,9 @@ export class Room extends DurableObject<Env> {
       breaks: s.breaks ?? [],
       leaveRequests: s.leaveRequests ?? [],
       lateArrivals: s.lateArrivals ?? [],
+      paused: s.paused ?? false,
+      voidProposal: s.voidProposal ?? null,
+      correctionForId: s.correctionForId ?? null,
       log: s.log.slice(-LOG_SEND),
       undoLabel: this.undo.at(-1)?.label ?? null,
       turnStartedAt: s.turnStartedAt,
@@ -1276,7 +1392,7 @@ export class Room extends DurableObject<Env> {
         isHost,
         isController: !!id && (s.controllerId ?? s.hostId) === id,
         claimId: s.claims.find((c) => c.connId === att.connId)?.id ?? null,
-        legal: id ? legalActions(s.game, id) : null,
+        legal: id && !s.paused && (!s.correctionForId || isHost) ? legalActions(s.game, id) : null,
       },
     };
   }

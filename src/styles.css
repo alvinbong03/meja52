@@ -1135,6 +1135,41 @@ body:has(.table-shell[data-turn]) {
   font-weight: 650;
 }
 
+.void-review {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 20px;
+  margin: 10px var(--gutter) 0;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+}
+
+.void-review > div:first-child {
+  display: grid;
+  gap: 3px;
+}
+
+.void-review strong {
+  font-size: 1rem;
+  font-weight: 650;
+}
+
+.void-review small,
+.void-waiting {
+  color: var(--ink-2);
+  font-size: 0.8125rem;
+}
+
+.void-review-actions {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
 .claim {
   display: flex;
   flex-wrap: wrap;
@@ -1431,6 +1466,45 @@ body:has(.table-shell[data-turn]) {
 .dock-wait {
   color: var(--ink-2);
   text-align: center;
+}
+
+.dock-hold {
+  gap: 5px;
+}
+
+.dock-hold strong {
+  font-size: 1.125rem;
+  font-weight: 620;
+}
+
+.dock-hold small {
+  color: var(--ink-2);
+}
+
+.reconnect-panel {
+  display: grid;
+  gap: 10px;
+  padding: 20px var(--gutter) calc(var(--safe-bottom) + 20px);
+  border-top: 1px solid var(--private-line);
+  background: var(--private-surface);
+}
+
+.reconnect-panel strong {
+  font-size: 1.25rem;
+}
+
+.reconnect-panel p,
+.reconnect-panel small {
+  margin: 0;
+  color: var(--ink-2);
+}
+
+.reconnect-panel p {
+  font-size: 0.9375rem;
+}
+
+.reconnect-panel small {
+  font-size: 0.8125rem;
 }
 
 .my-status {
@@ -2347,9 +2421,28 @@ button.chip-stack:active:not(:disabled) .poker-chip {
 
 .rebuy-flow,
 .rebuy-requests,
-.rebuy-review {
+.rebuy-review,
+.correction-flow,
+.void-flow {
   display: grid;
   gap: 16px;
+}
+
+.void-warning {
+  display: grid;
+  gap: 4px;
+  padding: 14px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.void-warning strong {
+  font-weight: 620;
+}
+
+.void-warning span {
+  color: var(--ink-2);
+  font-size: 0.875rem;
 }
 
 .rebuy-requests {
@@ -2921,7 +3014,8 @@ body:has(.display) {
   .topbar,
   .offline,
   .claim,
-  .final-hand-notice {
+  .final-hand-notice,
+  .void-review {
     grid-column: 1 / -1;
   }
 
@@ -2932,6 +3026,11 @@ body:has(.display) {
 
   .claim {
     margin: 12px 0 0;
+  }
+
+  .void-review {
+    margin-left: 0;
+    margin-right: 0;
   }
 
   .table-main {
@@ -2949,6 +3048,12 @@ body:has(.display) {
   }
 
   .dock {
+    padding: 22px;
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+  }
+
+  .reconnect-panel {
     padding: 22px;
     border: 1px solid var(--line);
     border-radius: var(--r-lg);

@@ -379,8 +379,34 @@ test('anyone can act for a seat without a phone, and undo rolls it back', async 
   await ana.getByRole('button', { name: 'Menu' }).click();
   await expect(ana.getByText('Gran checks (by Ben)')).toBeVisible();
   await ana.getByRole('button', { name: /^Undo/ }).click();
+  await expect(ana.getByRole('heading', { name: 'Undo last action' })).toBeVisible();
+  await ana.getByRole('button', { name: 'Undo action' }).click();
   await expect(ben.getByRole('button', { name: 'Act for Gran' })).toBeVisible();
   await expect(ben.locator('.phase-name')).toHaveText('Preflop');
+});
+
+test('the host can pause, publicly review, and confirm a voided hand', async ({ browser }) => {
+  const ana = await seat(browser, 'Ana');
+  const code = codeOf(ana);
+  const ben = await seat(browser, 'Ben', code);
+  await ana.getByRole('button', { name: 'Deal the first hand' }).click();
+  await expect(yourTurn(ana)).toBeVisible();
+
+  await ana.getByRole('button', { name: 'Menu' }).click();
+  await ana.getByRole('button', { name: 'Pause hand' }).click();
+  await ana.keyboard.press('Escape');
+  await expect(ben.getByText('Player actions are locked')).toBeVisible();
+  await ana.getByRole('button', { name: 'Resume hand' }).click();
+  await expect(yourTurn(ana)).toBeVisible();
+
+  await ana.getByRole('button', { name: 'Menu' }).click();
+  await ana.getByRole('button', { name: 'Void hand' }).click();
+  await ana.getByLabel('Reason').selectOption('Exposed card');
+  await ana.getByRole('button', { name: 'Preview void' }).click();
+  await expect(ben.getByText('Exposed card', { exact: true })).toBeVisible();
+  await expect(ben.getByText('Waiting for host confirmation')).toBeVisible();
+  await ana.getByRole('button', { name: 'Confirm void' }).click();
+  await expect(ana.getByRole('button', { name: 'Deal the first hand' })).toBeVisible();
 });
 
 test('a new device can take over a seat after approval', async ({ browser }) => {
@@ -412,6 +438,8 @@ test('recovers after losing the connection', async ({ browser }) => {
 
   await ben.context().setOffline(true);
   await ben.evaluate(() => window.dispatchEvent(new Event('offline')));
+  await expect(ben.getByText('Connection lost')).toBeVisible({ timeout: 10_000 });
+  await expect(ben.getByRole('button', { name: 'Try now' })).toBeVisible();
   await stageAndPlace(ana, 'Call 5', 5);
   await ben.context().setOffline(false);
   await ben.evaluate(() => window.dispatchEvent(new Event('online')));

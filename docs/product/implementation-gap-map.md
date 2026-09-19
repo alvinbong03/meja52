@@ -83,11 +83,13 @@ Implement the approved waiting, active-turn, preselection, staged-call, raise bu
 
 Implement player/host controls, rebuy requests, breaks, return/missed blinds, late arrival, leaving, host transfer and disconnect recovery.
 
-**Implemented in pass 2:** a player can request any valid whole-unit rebuy, cancel it before review, and privately track its state. The host can review, edit, approve or reject it. Approval between hands applies immediately; approval during a hand is queued until the hand ends, remains correct through undo, enters the buy-in ledger and is hidden from unrelated players and shared displays. Cash-game breaks now reserve the seat and stack, start at the hand boundary, track a passed blind position, and let the player either post the missed small blind as dead money plus a live big blind or wait to return naturally on the big blind. Governed leaving and late-arrival timing remain pending.
+**Implemented in passes 2–5:** a player can request any valid whole-unit rebuy, cancel it before review, and privately track its state. The host can review, edit, approve or reject it. Approval between hands applies immediately; approval during a hand is queued until the hand ends, remains correct through undo, enters the buy-in ledger and is hidden from unrelated players and shared displays. Cash-game breaks reserve the seat and stack, start at the hand boundary, track a passed blind position, and let the player either post the missed small blind as dead money plus a live big blind or wait to return naturally on the big blind. Governed leaving retains a frozen result for settlement and requires explicit host transfer. Late arrivals now request a seat, receive host-approved chips, and choose the approved big-blind entry workflow. Disconnects keep the last confirmed table visible, freeze controls immediately, and offer an explicit retry while preserving the seat and balance.
 
 ### Slice 4 — physical hand control and corrections
 
 Implement street advancement, showdown awards, ties, side pots, multiple physical runouts, redo, void hand and governed administrative override.
+
+**Implemented in pass 6:** Host-only Undo now opens a review instead of applying immediately. The host can return the turn to the original player or enter one corrected action for them; non-host actions stay locked during that correction and the audit history retains both events. The host can pause and resume a live hand. Voiding is a two-stage public workflow with a required reason, visible returned amount, optional dealer-button advance, frozen player actions, host confirmation, exact restoration of all pre-hand contributions including blinds, and an audit entry. Reconnect recovery now presents the last confirmed event and an explicit retry while keeping the table readable. Multiple physical runouts and the broader administrative ledger override remain pending.
 
 ### Slice 5 — close and retain
 

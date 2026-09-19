@@ -83,3 +83,24 @@ A separate agent independently researched the market, tested ChipStack, checked 
 ## Workspace impact
 
 Only this `/Users/alvin/Documents/Second Brain/20 Work/Poker Chips/` research folder was created. No Pemberton Academy source, backend, database, deployment, or production configuration was intentionally changed.
+
+## MEJA52 implementation verification — 20 September 2026
+
+### Corrections and recovery workflow
+
+- Host-only Undo now requires an explicit review and supports either returning the turn or entering one corrected action.
+- Pause freezes legal actions for every client while leaving the table readable.
+- Void requires a reason and public preview, shows the amount being returned, and restores the pre-hand stacks and contributions only after host confirmation.
+- Reconnect immediately replaces private controls with a frozen recovery panel, preserves the visible table, identifies the last confirmed event, and offers an explicit retry.
+- The approved table layout, Indigo waiting state, Hibiscus active-turn state, and private dock treatment were retained.
+
+Verification from the repository root:
+
+```text
+npm run typecheck    PASS
+npm test             PASS (55 unit tests, 43 Worker integration tests)
+npm run build        PASS
+npm run test:e2e     PASS (18 browser workflows)
+```
+
+Browser coverage included the full phone workflow, governed undo, pause/void confirmation, connection loss and recovery, phone landscape visibility, 320×568 through desktop overflow checks, and a 15-player phone lobby. No browser page errors were reported by the exercised workflows.
