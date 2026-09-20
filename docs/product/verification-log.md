@@ -592,3 +592,5 @@ git diff --check                          PASS
 ```
 
 The complete-suite run's desktop-keyboard workflow timed out while creating its setup room; the isolated workflow passed in 1.6 seconds. No action, layout or keyboard assertion failed.
+
+Deployed to `https://meja52.meja52.workers.dev` as Worker version `07159892-a895-4d74-9d70-68cc8b9f02d9`. The post-deploy two-device WebSocket smoke test passed with private balances and public pot state intact.
