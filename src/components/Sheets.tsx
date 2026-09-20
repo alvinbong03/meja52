@@ -237,7 +237,7 @@ function HostTransferFlow({ mode, onDone }: { mode: 'transfer' | 'backup'; onDon
   const [selected, setSelected] = useState(mode === 'backup' ? (room.backupHostId ?? '') : '');
   const candidates = game.players
     .map((player) => ({ player, member: room.members.find((member) => member.id === player.id) }))
-    .filter(({ player, member }) => player.id !== room.hostId && !player.sittingOut && !player.leaving && player.stack > 0 &&
+    .filter(({ player, member }) => player.id !== room.hostId && !player.sittingOut && !player.leaving && !player.busted &&
       !!member && !member.manual && member.connections > 0);
 
   if (!isHost) return <p className="muted">Only the current host can change hosting.</p>;

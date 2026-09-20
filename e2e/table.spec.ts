@@ -65,6 +65,17 @@ async function confirmAward(page: Page) {
   await page.getByRole('button', { name: 'Confirm award' }).click();
 }
 
+async function startFirstHand(page: Page) {
+  await page.locator('.lobby-role-rows button').filter({ hasText: 'Dealer button' }).click();
+  await page.locator('.table-map-seat').first().click();
+  await page.getByRole('button', { name: 'Lock seats & start' }).click();
+}
+
+async function openPlayers(page: Page) {
+  await page.getByRole('button', { name: 'Menu' }).click();
+  await page.getByRole('button', { name: 'Players and stacks' }).click();
+}
+
 test('room setup preferences have accessible controls', async ({ page }) => {
   await page.goto('/create');
   await page.getByRole('button', { name: 'Continue' }).click();
@@ -81,14 +92,34 @@ test('room setup preferences have accessible controls', async ({ page }) => {
   await expect.poll(() => page.evaluate(() => ({ sound: localStorage.getItem('pp.sound'), haptics: localStorage.getItem('pp.haptics') }))).toEqual({ sound: 'off', haptics: 'off' });
 });
 
+test('players confirm physical neighbours and the host chooses the first dealer', async ({ browser }) => {
+  const ana = await seat(browser, 'Ana');
+  const ben = await seat(browser, 'Ben', codeOf(ana));
+
+  await expect(ben.getByRole('heading', { name: 'Confirm your seat' })).toBeVisible();
+  await expect(ben.getByLabel(/Ana is on your left.*Ana is on your right/)).toBeVisible();
+  await ben.getByRole('button', { name: 'Something’s wrong' }).click();
+  await expect(ana.getByText('1 player asked you to check the order.')).toBeVisible();
+
+  const cat = await seat(browser, 'Cat', codeOf(ana));
+  await expect(ben.getByRole('heading', { name: 'Confirm your seat' })).toBeVisible();
+  await ben.getByRole('button', { name: 'Yes, this matches' }).click();
+  await expect(ana.getByText('2 of 3 seats confirmed')).toBeVisible();
+
+  await ana.getByRole('button', { name: /Dealer button/ }).click();
+  await ana.getByRole('button', { name: /Cat, seat 3/ }).click();
+  await ana.getByRole('button', { name: 'Lock seats & start' }).click();
+  await expect(cat.getByRole('listitem').filter({ hasText: 'Cat' }).locator('.dealer')).toBeVisible();
+});
+
 test('three players play a hand from deal to payout', async ({ browser }) => {
   const ana = await seat(browser, 'Ana');
   const code = codeOf(ana);
   const ben = await seat(browser, 'Ben', code);
   const cat = await seat(browser, 'Cat', code);
 
-  await expect(ben.getByText('Waiting for Ana to deal the first hand')).toBeVisible();
-  await ana.getByRole('button', { name: 'Deal the first hand' }).click();
+  await expect(ben.getByText('Waiting for host to start')).toBeVisible();
+  await startFirstHand(ana);
 
   await expect(yourTurn(ana)).toBeVisible();
   await expect(ben.getByText('Ana to act · 10 to call')).toBeVisible();
@@ -133,7 +164,7 @@ test('a disputed award is publicly reviewed before a governed table override', a
   const code = codeOf(ana);
   const ben = await seat(browser, 'Ben', code);
   const cat = await seat(browser, 'Cat', code);
-  await ana.getByRole('button', { name: 'Deal the first hand' }).click();
+  await startFirstHand(ana);
   await ana.getByRole('button', { name: 'Raise' }).click();
   await ana.getByRole('button', { name: /Custom/ }).click();
   await ana.getByLabel('Custom amount').fill('60');
@@ -166,7 +197,7 @@ test('the host ends after the current hand and everyone receives frozen settleme
   const ana = await seat(browser, 'Ana');
   const ben = await seat(browser, 'Ben', codeOf(ana));
 
-  await ana.getByRole('button', { name: 'Deal the first hand' }).click();
+  await startFirstHand(ana);
   await expect(yourTurn(ana)).toBeVisible();
 
   await ben.getByRole('button', { name: 'Menu' }).click();
@@ -251,7 +282,7 @@ test('a player requests a rebuy and the host edits and approves it', async ({ br
   await expect(ana.getByText('No rebuy requests are waiting.')).toBeVisible();
   await ana.keyboard.press('Escape');
 
-  await ana.getByRole('button', { name: 'Manage' }).click();
+  await openPlayers(ana);
   await expect(ana.locator('.player-row').filter({ hasText: 'Ben' })).toContainText('Private');
   await ana.keyboard.press('Escape');
   await ben.getByRole('button', { name: 'Menu' }).click();
@@ -264,7 +295,7 @@ test('a player takes a break and chooses how to return after missing blinds', as
   const ben = await seat(browser, 'Ben', codeOf(ana));
   const cat = await seat(browser, 'Cat', codeOf(ana));
 
-  await ana.getByRole('button', { name: 'Deal the first hand' }).click();
+  await startFirstHand(ana);
   await ben.getByRole('button', { name: 'Menu' }).click();
   await ben.getByRole('button', { name: 'Take a break' }).click();
   await expect(ben.getByText('Your seat and RM995 stay reserved.')).toBeVisible();
@@ -296,7 +327,7 @@ test('a player reviews, schedules and cancels leaving before departing after the
   await expect(ana.getByRole('button', { name: 'Choose a new host' })).toBeVisible();
   await ana.keyboard.press('Escape');
 
-  await ana.getByRole('button', { name: 'Deal the first hand' }).click();
+  await startFirstHand(ana);
   await ben.getByRole('button', { name: 'Menu' }).click();
   await ben.getByRole('button', { name: 'Leave game' }).click();
   await expect(ben.getByRole('heading', { name: 'Leave the game' })).toBeVisible();
@@ -331,7 +362,7 @@ test('the host approves a late arrival who posts a big blind for the next hand',
   const code = codeOf(ana);
   const ben = await seat(browser, 'Ben', code);
   const cat = await seat(browser, 'Cat', code);
-  await ana.getByRole('button', { name: 'Deal the first hand' }).click();
+  await startFirstHand(ana);
 
   const dee = await seat(browser, 'Dee', code, { viewport: { width: 390, height: 844 } });
   await expect(dee.getByRole('heading', { name: 'Waiting for the host' })).toBeVisible();
@@ -364,14 +395,14 @@ test('short stack all in creates a side pot that pays the right people', async (
   const ben = await seat(browser, 'Ben', code);
   const cat = await seat(browser, 'Cat', code);
 
-  await ana.getByRole('button', { name: 'Manage' }).click();
+  await openPlayers(ana);
   const benRow = ana.locator('.player-row').filter({ hasText: 'Ben' });
   await benRow.getByRole('button', { name: 'Set stack' }).click();
   await ana.getByLabel('New stack for Ben').fill('100');
   await ana.getByRole('button', { name: 'Set', exact: true }).click();
   await expect(benRow).toContainText('Private');
   await ana.keyboard.press('Escape');
-  await ana.getByRole('button', { name: 'Deal the first hand' }).click();
+  await startFirstHand(ana);
   await expect(yourTurn(ana)).toBeVisible();
   await ana.getByRole('button', { name: 'Raise' }).click();
   await ana.getByRole('button', { name: /All in 1,000/ }).click();
@@ -422,7 +453,7 @@ test('two players with the same hand chop the pot', async ({ browser }) => {
   const ben = await seat(browser, 'Ben', code);
   const cat = await seat(browser, 'Cat', code);
 
-  await ana.getByRole('button', { name: 'Deal the first hand' }).click();
+  await startFirstHand(ana);
   await expect(yourTurn(ana)).toBeVisible();
   await stageAndPlace(ana, /Call/, 10);
   await expect(yourTurn(ben)).toBeVisible();
@@ -458,13 +489,13 @@ test('the host can act for a seat without a phone, and undo rolls it back', asyn
   const code = codeOf(ana);
   const ben = await seat(browser, 'Ben', code);
 
-  await ana.getByRole('button', { name: 'Manage' }).click();
+  await openPlayers(ana);
   await ana.getByLabel('Add someone without a phone').fill('Gran');
   await ana.getByRole('button', { name: 'Add' }).click();
   await expect(ana.locator('.player-row').filter({ hasText: 'Gran' })).toBeVisible();
   await ana.keyboard.press('Escape');
 
-  await ana.getByRole('button', { name: 'Deal the first hand' }).click();
+  await startFirstHand(ana);
   await expect(yourTurn(ana)).toBeVisible();
   await stageAndPlace(ana, 'Call 10', 10);
   await expect(yourTurn(ben)).toBeVisible();
@@ -494,7 +525,7 @@ test('the host can pause, publicly review, and confirm a voided hand', async ({ 
   const ana = await seat(browser, 'Ana');
   const code = codeOf(ana);
   const ben = await seat(browser, 'Ben', code);
-  await ana.getByRole('button', { name: 'Deal the first hand' }).click();
+  await startFirstHand(ana);
   await expect(yourTurn(ana)).toBeVisible();
 
   await ana.getByRole('button', { name: 'Menu' }).click();
@@ -511,7 +542,7 @@ test('the host can pause, publicly review, and confirm a voided hand', async ({ 
   await expect(ben.getByText('Exposed card', { exact: true })).toBeVisible();
   await expect(ben.getByText('Waiting for host confirmation')).toBeVisible();
   await ana.getByRole('button', { name: 'Confirm void' }).click();
-  await expect(ana.getByRole('button', { name: 'Deal the first hand' })).toBeVisible();
+  await expect(ana.getByRole('button', { name: 'Lock seats & start' })).toBeVisible();
 });
 
 test('a new device can take over a seat after approval', async ({ browser }) => {
@@ -538,7 +569,7 @@ test('recovers after losing the connection', async ({ browser }) => {
   const ana = await seat(browser, 'Ana');
   const code = codeOf(ana);
   const ben = await seat(browser, 'Ben', code);
-  await ana.getByRole('button', { name: 'Deal the first hand' }).click();
+  await startFirstHand(ana);
   await expect(yourTurn(ana)).toBeVisible();
 
   await ben.context().setOffline(true);
@@ -556,7 +587,7 @@ test('recovers after losing the connection', async ({ browser }) => {
 test('desktop keyboard shortcuts drive the action bar', async ({ browser }) => {
   const ana = await seat(browser, 'Ana', undefined, { viewport: { width: 1440, height: 900 }, isMobile: false, hasTouch: false });
   const ben = await seat(browser, 'Ben', codeOf(ana));
-  await ana.getByRole('button', { name: 'Deal the first hand' }).click();
+  await startFirstHand(ana);
   await expect(yourTurn(ana)).toBeVisible();
   await ana.keyboard.press('r');
   await expect(ana.getByText('Tap chips or choose a shortcut.')).toBeVisible();
@@ -576,7 +607,7 @@ test('live play keeps balances private and exposes current bets in phone landsca
   const ben = await seat(browser, 'Ben', code);
   const cat = await seat(browser, 'Cat', code);
 
-  await ana.getByRole('button', { name: 'Deal the first hand' }).click();
+  await startFirstHand(ana);
   await expect(yourTurn(ana)).toBeVisible();
   await expect(ana.locator('.table-shell')).toHaveCSS('background-color', 'rgb(146, 49, 59)');
   await expect(ana.locator('.dock-turn')).toHaveCSS('background-color', 'rgb(179, 58, 70)');
@@ -643,14 +674,15 @@ test('a full fifteen-player lobby remains usable on a phone', async ({ browser }
   const code = codeOf(host);
   for (let i = 2; i <= 15; i++) await seat(browser, `Player ${i}`, code);
 
-  await expect(host.getByRole('heading', { name: 'Seats 15/15' })).toBeVisible();
-  await expect(host.locator('.lobby-seats > li')).toHaveCount(15);
+  await expect(host.getByRole('heading', { name: 'Seat the table' })).toBeVisible();
+  await expect(host.getByText('15 of 15 players')).toBeVisible();
+  await expect(host.locator('.table-map-seat')).toHaveCount(15);
   const overflow = await host.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBeLessThanOrEqual(0);
-  await host.getByRole('button', { name: 'Manage' }).click();
+  await openPlayers(host);
   await expect(host.getByRole('dialog', { name: 'Players' }).getByText('Player 15', { exact: true })).toBeVisible();
   await host.keyboard.press('Escape');
-  await host.getByRole('button', { name: 'Deal the first hand' }).click();
+  await startFirstHand(host);
   await host.setViewportSize({ width: 844, height: 390 });
   const rail = host.getByRole('region', { name: 'Current street bets' });
   await expect(rail.getByRole('listitem')).toHaveCount(15);

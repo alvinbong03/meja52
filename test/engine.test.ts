@@ -17,6 +17,7 @@ import {
   removePlayer,
   RuleError,
   setSeatOrder,
+  setInitialButton,
   setSittingOut,
   setStack,
   shareOut,
@@ -123,6 +124,13 @@ describe('blinds and action order', () => {
     g = setSeatOrder(g, ['p2', 'p0', 'p1']);
     g = startHand(g);
     expect([g.buttonId, g.sbId, g.bbId]).toEqual(['p2', 'p0', 'p1']);
+  });
+
+  it('uses the host-selected dealer button for the first hand', () => {
+    let g = table([1000, 1000, 1000, 1000]);
+    g = setInitialButton(g, 'p2');
+    g = startHand(g);
+    expect([g.buttonId, g.sbId, g.bbId, g.toActId]).toEqual(['p2', 'p3', 'p0', 'p1']);
   });
 
   it('short big blind: callers still owe the full blind', () => {

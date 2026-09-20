@@ -164,7 +164,7 @@ describe('joining', () => {
   it('sends each device only its own private chip totals while preserving public bets and pot', async () => {
     const { code, clients, idOf } = await table(['Ana', 'Ben']);
     const [ana, ben] = clients;
-    await ana.ok({ type: 'start', v: ana.state.v });
+    await ana.ok({ type: 'start', allowUnconfirmed: true, v: ana.state.v });
     await ben.settle();
 
     const anaOwn = ana.state.room.game.players.find((player) => player.id === idOf(ana))!;
@@ -269,7 +269,7 @@ describe('playing a hand', () => {
       await actor.ok({ type: 'act', v: actor.state.v, kind: 'fold' });
     };
 
-    await ana.ok({ type: 'start', v: ana.state.v });
+    await ana.ok({ type: 'start', allowUnconfirmed: true, v: ana.state.v });
     await ana.ok({ type: 'takeBreak' });
     expect(ana.state.room.breaks[0]).toMatchObject({ playerId: idOf(ana), status: 'scheduled', missedBlinds: false });
     await foldCurrent();
@@ -293,7 +293,7 @@ describe('playing a hand', () => {
 
     const second = await table(['Dee', 'Eli', 'Fay']);
     const [dee] = second.clients;
-    await dee.ok({ type: 'start', v: dee.state.v });
+    await dee.ok({ type: 'start', allowUnconfirmed: true, v: dee.state.v });
     await dee.ok({ type: 'takeBreak' });
     for (let i = 0; i < 2; i++) {
       await Promise.all(second.clients.map((client) => client.settle()));
@@ -319,7 +319,7 @@ describe('playing a hand', () => {
     const { clients, idOf } = await table(['Ana', 'Ben', 'Cat']);
     const [ana, ben, cat] = clients;
 
-    await ana.ok({ type: 'start', v: ana.state.v });
+    await ana.ok({ type: 'start', allowUnconfirmed: true, v: ana.state.v });
     await ben.ok({ type: 'requestRebuy', amount: 125 });
     let hostState = await ana.settle();
     let playerState = await ben.settle();
@@ -395,7 +395,7 @@ describe('playing a hand', () => {
   it('requires host approval and an entry choice for late arrivals', async () => {
     const { code, clients, idOf } = await table(['Ana', 'Ben', 'Cat']);
     const [ana, ben] = clients;
-    await ana.ok({ type: 'start', v: ana.state.v });
+    await ana.ok({ type: 'start', allowUnconfirmed: true, v: ana.state.v });
 
     const dee = await Client.connect(code, tokenFor(44));
     await dee.ok({ type: 'join', name: 'Dee' });
@@ -433,7 +433,7 @@ describe('playing a hand', () => {
   it('supports waiting for the natural big blind and the logged no-entry-blind override', async () => {
     const { code, clients, idOf } = await table(['Ana', 'Ben', 'Cat']);
     const [ana, ben] = clients;
-    await ana.ok({ type: 'start', v: ana.state.v });
+    await ana.ok({ type: 'start', allowUnconfirmed: true, v: ana.state.v });
 
     const dee = await Client.connect(code, tokenFor(45));
     await dee.ok({ type: 'join', name: 'Dee' });
@@ -464,7 +464,7 @@ describe('playing a hand', () => {
     const { clients } = await table(['Ana', 'Ben']);
     const [ana, ben] = clients;
 
-    await ana.ok({ type: 'start', v: ana.state.v });
+    await ana.ok({ type: 'start', allowUnconfirmed: true, v: ana.state.v });
     expect(await ben.request({ type: 'endGame', v: ben.state.v })).toMatchObject({ code: 'FORBIDDEN' });
 
     await ana.ok({ type: 'endGame', v: ana.state.v });
@@ -486,7 +486,7 @@ describe('playing a hand', () => {
 
     const { clients: secondTable } = await table(['Cam', 'Dee']);
     const [cam] = secondTable;
-    await cam.ok({ type: 'start', v: cam.state.v });
+    await cam.ok({ type: 'start', allowUnconfirmed: true, v: cam.state.v });
     await cam.ok({ type: 'act', v: cam.state.v, kind: 'fold' });
     await cam.ok({ type: 'endGame', v: cam.state.v });
     expect(cam.state.room.endingAfterHand).toBe(false);
@@ -496,7 +496,7 @@ describe('playing a hand', () => {
   it('reviews, acknowledges and explicitly finalises a frozen settlement record', async () => {
     const { clients, idOf } = await table(['Ana', 'Ben']);
     const [ana, ben] = clients;
-    await ana.ok({ type: 'start', v: ana.state.v });
+    await ana.ok({ type: 'start', allowUnconfirmed: true, v: ana.state.v });
     await ana.ok({ type: 'act', v: ana.state.v, kind: 'fold' });
     await ana.ok({ type: 'endGame', v: ana.state.v });
     let state = await ben.settle();
@@ -524,7 +524,7 @@ describe('playing a hand', () => {
   it('allows the host to finalise deliberately with a permanent issue marker', async () => {
     const { clients } = await table(['Ana', 'Ben']);
     const [ana, ben] = clients;
-    await ana.ok({ type: 'start', v: ana.state.v });
+    await ana.ok({ type: 'start', allowUnconfirmed: true, v: ana.state.v });
     await ana.ok({ type: 'act', v: ana.state.v, kind: 'fold' });
     await ana.ok({ type: 'endGame', v: ana.state.v });
     await ana.ok({ type: 'reviewSettlement', v: ana.state.v, status: 'correct' });
@@ -538,7 +538,7 @@ describe('playing a hand', () => {
     const { code, clients } = await table(['Ana', 'Ben']);
     const [ana] = clients;
     const recordToken = tokenFor(503);
-    await ana.ok({ type: 'start', v: ana.state.v });
+    await ana.ok({ type: 'start', allowUnconfirmed: true, v: ana.state.v });
     await ana.ok({ type: 'act', v: ana.state.v, kind: 'fold' });
     await ana.ok({ type: 'endGame', v: ana.state.v });
     await ana.ok({ type: 'reviewSettlement', v: ana.state.v, status: 'correct' });
@@ -572,8 +572,8 @@ describe('playing a hand', () => {
     const [ana, ben, cat] = clients;
     const v0 = ana.state.v;
 
-    expect(await ben.request({ type: 'start', v: v0 })).toMatchObject({ code: 'FORBIDDEN' });
-    await ana.ok({ type: 'start', v: v0 });
+    expect(await ben.request({ type: 'start', allowUnconfirmed: true, v: v0 })).toMatchObject({ code: 'FORBIDDEN' });
+    await ana.ok({ type: 'start', allowUnconfirmed: true, v: v0 });
     let s = await cat.settle();
     expect(s.room.game.phase).toBe('betting');
     expect(s.room.game.toActId).toBe(idOf(ana));
@@ -630,7 +630,7 @@ describe('playing a hand', () => {
   it('undo restores the previous game state, and a double undo only steps back once', async () => {
     const { clients, idOf } = await table(['Ana', 'Ben']);
     const [ana, ben] = clients;
-    await ana.ok({ type: 'start', v: ana.state.v });
+    await ana.ok({ type: 'start', allowUnconfirmed: true, v: ana.state.v });
     await ana.ok({ type: 'act', v: ana.state.v, kind: 'raise', amount: 100 });
     let s = await ben.settle();
     expect(s.room.undoLabel).toBe('Ana raises to 100');
@@ -646,7 +646,7 @@ describe('playing a hand', () => {
   it('lets the host enter one corrected action after undo while keeping other players locked out', async () => {
     const { clients, idOf } = await table(['Ana', 'Ben']);
     const [ana, ben] = clients;
-    await ana.ok({ type: 'start', v: ana.state.v });
+    await ana.ok({ type: 'start', allowUnconfirmed: true, v: ana.state.v });
     await ana.ok({ type: 'act', v: ana.state.v, kind: 'raise', amount: 100 });
     await ana.ok({ type: 'undo', v: ana.state.v, mode: 'correct' });
     let s = await ben.settle();
@@ -663,7 +663,7 @@ describe('playing a hand', () => {
   it('pauses and resumes a live hand with host-only controls', async () => {
     const { clients } = await table(['Ana', 'Ben']);
     const [ana, ben] = clients;
-    await ana.ok({ type: 'start', v: ana.state.v });
+    await ana.ok({ type: 'start', allowUnconfirmed: true, v: ana.state.v });
     expect(await ben.request({ type: 'pauseHand', v: ben.state.v })).toMatchObject({ code: 'FORBIDDEN' });
     await ana.ok({ type: 'pauseHand', v: ana.state.v });
     let s = await ben.settle();
@@ -679,7 +679,7 @@ describe('playing a hand', () => {
   it('previews a void publicly, freezes actions, and restores every pre-hand stack', async () => {
     const { clients, idOf } = await table(['Ana', 'Ben', 'Cat']);
     const [ana, ben] = clients;
-    await ana.ok({ type: 'start', v: ana.state.v });
+    await ana.ok({ type: 'start', allowUnconfirmed: true, v: ana.state.v });
     await ana.ok({ type: 'act', v: ana.state.v, kind: 'raise', amount: 60 });
     await ben.ok({ type: 'act', v: ben.state.v, kind: 'call' });
     const contribution = ana.state.room.potTotal;
@@ -711,7 +711,7 @@ describe('playing a hand', () => {
     await ana.ok({ type: 'setStack', v: ana.state.v, playerId: idOf(ana), stack: 100 });
     await ana.ok({ type: 'setStack', v: ana.state.v, playerId: idOf(ben), stack: 100 });
     await ana.ok({ type: 'transferController', playerId: idOf(ben) });
-    await ana.ok({ type: 'start', v: ana.state.v });
+    await ana.ok({ type: 'start', allowUnconfirmed: true, v: ana.state.v });
     await ana.ok({ type: 'act', v: ana.state.v, kind: 'raise', amount: 100 });
     await ben.ok({ type: 'act', v: ben.state.v, kind: 'call' });
     let s = await ana.settle();
@@ -753,7 +753,7 @@ describe('playing a hand', () => {
   it('holds a disputed award and requires governed approval for a conserved table override', async () => {
     const { clients, idOf } = await table(['Ana', 'Ben', 'Cat']);
     const [ana] = clients;
-    await ana.ok({ type: 'start', v: ana.state.v });
+    await ana.ok({ type: 'start', allowUnconfirmed: true, v: ana.state.v });
     const folded = clients.find((client) => idOf(client) === ana.state.room.game.toActId)!;
     await folded.ok({ type: 'act', v: folded.state.v, kind: 'fold' });
 
@@ -792,7 +792,7 @@ describe('playing a hand', () => {
   it('undo never removes someone who joined afterwards', async () => {
     const { code, clients } = await table(['Ana', 'Ben']);
     const [ana] = clients;
-    await ana.ok({ type: 'start', v: ana.state.v });
+    await ana.ok({ type: 'start', allowUnconfirmed: true, v: ana.state.v });
     const late = await Client.connect(code, tokenFor(50));
     await late.ok({ type: 'join', name: 'Late' });
     await ana.ok({ type: 'undo', v: ana.state.v });
@@ -807,7 +807,7 @@ describe('playing a hand', () => {
     const [ana, ben] = clients;
     const settings = { sb: 25, bb: 50, startingStack: 5000, buyInPrice: 2000 };
     expect(await ben.request({ type: 'settings', v: ben.state.v, settings })).toMatchObject({ code: 'FORBIDDEN' });
-    await ana.ok({ type: 'start', v: ana.state.v });
+    await ana.ok({ type: 'start', allowUnconfirmed: true, v: ana.state.v });
     await ana.ok({ type: 'settings', v: ana.state.v, settings });
     let s = await ben.settle();
     expect(s.room.game.pendingSettings).toEqual(settings);
@@ -824,6 +824,35 @@ describe('playing a hand', () => {
 });
 
 describe('seats and devices', () => {
+  it('records advisory seat confirmations and clears only players whose neighbours change', async () => {
+    const { clients, idOf } = await table(['Ana', 'Ben', 'Cat', 'Dee', 'Eli']);
+    const [ana, ben, cat, dee, eli] = clients;
+    void ben;
+    void dee;
+    for (const client of clients) await client.ok({ type: 'confirmSeat', v: client.state.v, matches: true });
+    expect((await ana.settle()).room.seatConfirmations).toHaveLength(5);
+
+    await ana.ok({
+      type: 'seatOrder',
+      v: ana.state.v,
+      ids: [idOf(ana), idOf(cat), idOf(ben), idOf(dee), idOf(eli)],
+    });
+    const confirmations = (await eli.settle()).room.seatConfirmations;
+    expect(confirmations).toEqual([expect.objectContaining({ playerId: idOf(eli), status: 'confirmed' })]);
+  });
+
+  it('requires the host to acknowledge unconfirmed seats and honours the chosen first dealer', async () => {
+    const { clients, idOf } = await table(['Ana', 'Ben', 'Cat']);
+    const [ana, , cat] = clients;
+    expect(await ana.request({ type: 'start', v: ana.state.v })).toMatchObject({
+      code: 'INVALID',
+      message: 'Some players have not confirmed their seats',
+    });
+    await ana.ok({ type: 'setDealerButton', v: ana.state.v, playerId: idOf(cat) });
+    await ana.ok({ type: 'start', allowUnconfirmed: true, v: ana.state.v });
+    expect(ana.state.room.game.buttonId).toBe(idOf(cat));
+  });
+
   it('host can assign a phone player as Table Controller before play', async () => {
     const { clients, idOf } = await table(['Ana', 'Ben', 'Cat']);
     const [ana, ben, cat] = clients;
@@ -834,7 +863,7 @@ describe('seats and devices', () => {
     expect(ben.state.you).toMatchObject({ isHost: false, isController: true });
     expect(ana.state.you).toMatchObject({ isHost: true, isController: false });
 
-    await ana.ok({ type: 'start', v: ana.state.v });
+    await ana.ok({ type: 'start', allowUnconfirmed: true, v: ana.state.v });
     await ana.ok({ type: 'transferController', playerId: idOf(cat) });
     expect(cat.state.you.isController).toBe(true);
     await ana.ok({ type: 'transferController', playerId: idOf(ben) });
@@ -848,7 +877,7 @@ describe('seats and devices', () => {
     const { clients, idOf } = await table(['Ana', 'Ben', 'Cat']);
     const [ana, ben, cat] = clients;
     await ana.ok({ type: 'transferController', playerId: idOf(ben) });
-    await ana.ok({ type: 'start', v: ana.state.v });
+    await ana.ok({ type: 'start', allowUnconfirmed: true, v: ana.state.v });
 
     while (ana.state.room.game.phase === 'betting') {
       const actor = clients.find((client) => idOf(client) === ana.state.room.game.toActId)!;
@@ -877,7 +906,7 @@ describe('seats and devices', () => {
     expect(dee.manual).toBe(true);
     expect(await ben.request({ type: 'takeBreak', playerId: dee.id })).toMatchObject({ code: 'FORBIDDEN' });
 
-    await ana.ok({ type: 'start', v: ana.state.v });
+    await ana.ok({ type: 'start', allowUnconfirmed: true, v: ana.state.v });
     s = await ben.settle();
     const turn = s.room.game.toActId!;
     if (turn === idOf(ana)) {
@@ -958,7 +987,7 @@ describe('seats and devices', () => {
   it('kicking folds the player, closes their socket and passes nothing else', async () => {
     const { clients, idOf } = await table(['Ana', 'Ben', 'Cat']);
     const [ana, ben, cat] = clients;
-    await ana.ok({ type: 'start', v: ana.state.v });
+    await ana.ok({ type: 'start', allowUnconfirmed: true, v: ana.state.v });
     expect(await ben.request({ type: 'kick', playerId: idOf(cat) })).toMatchObject({ code: 'FORBIDDEN' });
     await ana.ok({ type: 'kick', playerId: idOf(cat) });
     await cat.waitFor((m) => m.type === 'closed' && m.reason === 'kicked');
@@ -1047,7 +1076,7 @@ describe('seats and devices', () => {
   it('lets a player finish the hand before leaving and keeps their result in settlement', async () => {
     const { clients, idOf } = await table(['Ana', 'Ben']);
     const [ana, ben] = clients;
-    await ana.ok({ type: 'start', v: ana.state.v });
+    await ana.ok({ type: 'start', allowUnconfirmed: true, v: ana.state.v });
     await ben.ok({ type: 'requestLeave', mode: 'afterHand' });
 
     let s = await ana.settle();
@@ -1070,7 +1099,7 @@ describe('seats and devices', () => {
   it('queues leave now until the player can legally fold', async () => {
     const { clients, idOf } = await table(['Ana', 'Ben', 'Cat']);
     const [ana, ben, cat] = clients;
-    await ana.ok({ type: 'start', v: ana.state.v });
+    await ana.ok({ type: 'start', allowUnconfirmed: true, v: ana.state.v });
     await ben.ok({ type: 'requestLeave', mode: 'now' });
 
     let s = await cat.settle();
@@ -1088,7 +1117,7 @@ describe('seats and devices', () => {
   it('allows a scheduled departure to be cancelled or undone with the hand result', async () => {
     const { clients, idOf } = await table(['Ana', 'Ben']);
     const [ana, ben] = clients;
-    await ana.ok({ type: 'start', v: ana.state.v });
+    await ana.ok({ type: 'start', allowUnconfirmed: true, v: ana.state.v });
     await ben.ok({ type: 'requestLeave', mode: 'afterHand' });
     await ben.ok({ type: 'cancelLeave' });
     expect((await ana.settle()).room.leaveRequests).toHaveLength(0);
@@ -1177,7 +1206,7 @@ describe('seats and devices', () => {
 
     const legacyHost = await Client.connect(code, tokenFor(1));
     expect(legacyHost.state.you).toMatchObject({ isHost: true, isController: true });
-    await legacyHost.ok({ type: 'start', v: legacyHost.state.v });
+    await legacyHost.ok({ type: 'start', allowUnconfirmed: true, v: legacyHost.state.v });
     await legacyHost.ok({ type: 'act', v: legacyHost.state.v, kind: 'fold' });
     await legacyHost.ok({ type: 'next', v: legacyHost.state.v });
     expect(legacyHost.state.room.game.handNo).toBe(2);

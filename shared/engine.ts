@@ -294,6 +294,15 @@ export function setSeatOrder(g0: Game, ids: string[]): Game {
   return g;
 }
 
+export function setInitialButton(g0: Game, id: string): Game {
+  if (g0.phase !== 'lobby' || g0.handNo !== 0) fail('PHASE', 'Choose the first dealer before play starts');
+  const g = clone(g0);
+  const player = must(g, id);
+  if (!eligibleForHand(player)) fail('INVALID', 'Choose a player with chips');
+  g.buttonId = player.id;
+  return g;
+}
+
 export function updateSettings(g0: Game, settings: Settings): Game {
   const s = validateSettings(settings);
   const g = clone(g0);
@@ -382,16 +391,27 @@ export function startHand(g0: Game): Game {
   if (elig.length < 2) fail('INVALID', 'Need at least two players with chips');
 
   let bbP: Player;
+  let sbP: Player;
+  let btnP: Player;
   const lastBb = findPlayer(g, g.lastBbId);
   if (lastBb || g.lastBbSeat !== null) {
     // The big blind moves exactly one eligible seat, so nobody posts it twice in a row.
     bbP = clockwise(g, lastBb ? lastBb.seat : (g.lastBbSeat as number), eligibleForHand)[0];
+    const behind = clockwise(g, bbP.seat, (q) => eligibleForHand(q) && q.id !== bbP.id).reverse();
+    sbP = behind[0];
+    btnP = elig.length === 2 ? sbP : behind[1];
   } else {
-    bbP = elig.length === 2 ? elig[1] : elig[2];
+    const proposed = findPlayer(g, g.buttonId);
+    if (proposed && eligibleForHand(proposed)) {
+      btnP = proposed;
+      sbP = elig.length === 2 ? proposed : clockwise(g, proposed.seat, eligibleForHand)[0];
+      bbP = clockwise(g, sbP.seat, (player) => eligibleForHand(player) && player.id !== sbP.id)[0];
+    } else {
+      btnP = elig[0];
+      sbP = elig.length === 2 ? elig[0] : elig[1];
+      bbP = elig.length === 2 ? elig[1] : elig[2];
+    }
   }
-  const behind = clockwise(g, bbP.seat, (q) => eligibleForHand(q) && q.id !== bbP.id).reverse();
-  const sbP = behind[0];
-  const btnP = elig.length === 2 ? sbP : behind[1];
 
   for (const p of g.players) {
     Object.assign(p, {

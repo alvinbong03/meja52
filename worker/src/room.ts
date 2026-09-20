@@ -17,6 +17,7 @@ import {
   returnWithPost,
   RuleError,
   setSeatOrder,
+  setInitialButton,
   setSittingOut,
   setStack,
   splitPotsForRunouts,
@@ -55,6 +56,7 @@ import {
   type SettlementStateView,
   type SettlementEntryView,
   type SettlementRecord,
+  type SeatConfirmationView,
   type ServerMessage,
   type CurrencyCode,
 } from '../../shared/protocol';
@@ -88,6 +90,11 @@ interface Claim extends ClaimView {
 }
 
 interface RebuyRequest extends RebuyRequestView {}
+
+interface StoredSeatConfirmation extends SeatConfirmationView {
+  leftId: string;
+  rightId: string;
+}
 
 interface StoredRunoutPlan extends RunoutPlanView {
   boards: number[][];
@@ -123,6 +130,7 @@ interface Stored {
   hostTransfer?: HostTransferView | null;
   hostAwaySince?: number | null;
   hostRecoveryDeclinedIds?: string[];
+  seatConfirmations?: StoredSeatConfirmation[];
   currency?: CurrencyCode;
   members: Member[];
   game: Game;
@@ -224,6 +232,7 @@ export class Room extends DurableObject<Env> {
         hostTransfer: null,
         hostAwaySince: null,
         hostRecoveryDeclinedIds: [],
+        seatConfirmations: [],
         currency: currency ?? 'USD',
         members: [],
         game: createGame(settings ?? DEFAULT_SETTINGS),
@@ -534,6 +543,9 @@ export class Room extends DurableObject<Env> {
         requireHost();
         checkV(msg.v);
         if (s.game.phase !== 'lobby') deny('PHASE', 'The game already started');
+        if (this.unconfirmedSeatIds().length > 0 && msg.allowUnconfirmed !== true) {
+          deny('INVALID', 'Some players have not confirmed their seats');
+        }
         this.mutate('Start the game', (g) => this.startPreparedHand(g), 'hand', true);
         return;
       }
@@ -1159,6 +1171,31 @@ export class Room extends DurableObject<Env> {
         this.mutate('Seats rearranged', (g) => setSeatOrder(g, msg.ids), 'table');
         return;
       }
+      case 'setDealerButton': {
+        requireHost();
+        checkV(msg.v);
+        if (s.game.phase !== 'lobby') deny('PHASE', 'Choose the first dealer before play starts');
+        s.game = setInitialButton(s.game, msg.playerId);
+        s.v += 1;
+        this.commit();
+        return;
+      }
+      case 'confirmSeat': {
+        const member = requireMember();
+        checkV(msg.v);
+        if (s.game.phase !== 'lobby') deny('PHASE', 'Seats are already locked');
+        const neighbours = this.seatNeighbours(member.id) ?? deny('INVALID', 'Wait for another player to join');
+        const confirmation: StoredSeatConfirmation = {
+          playerId: member.id,
+          status: msg.matches ? 'confirmed' : 'issue',
+          confirmedAt: Date.now(),
+          ...neighbours,
+        };
+        s.seatConfirmations = [...(s.seatConfirmations ?? []).filter((item) => item.playerId !== member.id), confirmation];
+        s.v += 1;
+        this.commit();
+        return;
+      }
       case 'transferHost': {
         const host = requireHost();
         const target = s.members.find((x) => x.id === msg.playerId) ?? deny('INVALID', 'Unknown player');
@@ -1586,6 +1623,7 @@ export class Room extends DurableObject<Env> {
     s.breaks = (s.breaks ?? []).filter((r) => r.playerId !== target.id);
     s.leaveRequests = (s.leaveRequests ?? []).filter((r) => r.playerId !== target.id);
     s.lateArrivals = (s.lateArrivals ?? []).filter((r) => r.playerId !== target.id);
+    s.seatConfirmations = (s.seatConfirmations ?? []).filter((confirmation) => confirmation.playerId !== target.id);
     if (s.backupHostId === target.id) s.backupHostId = null;
     if (s.hostTransfer?.targetId === target.id) s.hostTransfer = null;
     if (s.controllerId === target.id) s.controllerId = s.hostId;
@@ -1637,6 +1675,10 @@ export class Room extends DurableObject<Env> {
 
   private commit() {
     const s = this.s as Stored;
+    if (s.game.phase === 'lobby') {
+      this.ensureDealerButton();
+      this.reconcileSeatConfirmations();
+    }
     const turn = s.game.toActId;
     if (turn !== s.turnId) {
       s.turnStartedAt = turn ? Date.now() : null;
@@ -1645,6 +1687,52 @@ export class Room extends DurableObject<Env> {
     s.lastActivity = Date.now();
     this.persist();
     this.broadcast();
+  }
+
+  private seatNeighbours(playerId: string) {
+    const seats = bySeat((this.s as Stored).game);
+    if (seats.length < 2) return null;
+    const index = seats.findIndex((player) => player.id === playerId);
+    if (index < 0) return null;
+    return {
+      leftId: seats[(index - 1 + seats.length) % seats.length].id,
+      rightId: seats[(index + 1) % seats.length].id,
+    };
+  }
+
+  private reconcileSeatConfirmations() {
+    const s = this.s as Stored;
+    s.seatConfirmations = (s.seatConfirmations ?? []).filter((confirmation) => {
+      const member = s.members.find((candidate) => candidate.id === confirmation.playerId);
+      const neighbours = this.seatNeighbours(confirmation.playerId);
+      return !!member && !member.manual && !!neighbours &&
+        neighbours.leftId === confirmation.leftId && neighbours.rightId === confirmation.rightId;
+    });
+  }
+
+  private unconfirmedSeatIds() {
+    const s = this.s as Stored;
+    const confirmed = new Set((s.seatConfirmations ?? [])
+      .filter((confirmation) => confirmation.status === 'confirmed')
+      .map((confirmation) => confirmation.playerId));
+    return bySeat(s.game)
+      .filter((player) => {
+        const member = s.members.find((candidate) => candidate.id === player.id);
+        return !!member && !member.manual && player.id !== s.hostId && !confirmed.has(player.id);
+      })
+      .map((player) => player.id);
+  }
+
+  private ensureDealerButton() {
+    const s = this.s as Stored;
+    const seats = bySeat(s.game).filter(eligibleForHand);
+    if (seats.length < 2) {
+      s.game.buttonId = null;
+      return;
+    }
+    if (s.game.buttonId && seats.some((player) => player.id === s.game.buttonId)) return;
+    const random = crypto.getRandomValues(new Uint32Array(1))[0];
+    s.game.buttonId = seats[random % seats.length].id;
   }
 
   private persist() {
@@ -1949,6 +2037,8 @@ export class Room extends DurableObject<Env> {
       backupHostId: s.backupHostId ?? null,
       hostTransfer: s.hostTransfer ?? null,
       hostRecoveryAt: recoveryAt,
+      seatConfirmations: (s.seatConfirmations ?? []).map(({ playerId, status, confirmedAt }) => ({ playerId, status, confirmedAt })),
+      dealerButtonId: s.game.phase === 'lobby' ? s.game.buttonId : null,
       controllerId: s.controllerId ?? s.hostId,
       currency: s.currency ?? 'USD',
       members,

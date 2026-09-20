@@ -2,7 +2,7 @@
 
 Date: 20 September 2026  
 Reviewers: independent security review and independent full-product review  
-Decision after follow-up: **security hardening passes; public Release 1 remains blocked by four product gaps**
+Decision after follow-up: **security hardening passes; the seating and host-continuity blockers are resolved; tactile chip/change interaction and final P2/release gates remain**
 
 ## Security verdict
 
@@ -42,11 +42,11 @@ Worker integration tests cover two player devices, an unseated display and a hos
 
 Resolved by the per-recipient public/private protocol described above. This finding is no longer a Release 1 blocker.
 
-### 2. Approved seating lobby is incomplete
+### 2. Approved seating lobby is incomplete — resolved
 
-The current numbered list and up/down controls do not implement the approved physical-table mapping, neighbour confirmation, confirmation progress, dealer-button proposal or explicit **Lock seats & start** step.
+Resolved with the approved physical clockwise table map, player neighbour confirmation, selective confirmation invalidation, confirmation progress, proposed dealer and Table Controller selection, accessible tap-to-move alternative, 15-seat responsive layout and explicit **Lock seats & start** action.
 
-Required outcome: prepare and approve a revised lobby comp before implementation.
+The owner-approved seating comp was implemented and verified across two-device and 15-player browser workflows.
 
 ### 3. Defining tactile chip/change interaction is incomplete
 
@@ -54,17 +54,13 @@ The rack supports taps and labelled placement, but not persistent denomination i
 
 Required outcome: prepare and approve an interaction comp and state model before implementation.
 
-### 4. Host transfer does not require acceptance
+### 4. Host transfer does not require acceptance — resolved
 
-**Make host** currently transfers authority immediately.
+Resolved with pending transfer, recipient accept/decline, host cancellation, expiry and public audit handling.
 
-Required outcome: pending transfer, accept/decline, cancellation, disconnect/expiry handling and a public audit event. Prepare the recipient prompt and host pending state for approval first.
+### 5. Host-disconnect takeover is too quick and too open — resolved
 
-### 5. Host-disconnect takeover is too quick and too open
-
-Any seated player may currently take hosting after the short away threshold. The approved flow uses about 60 seconds, then offers authority to a configured backup or nominated longest-connected active player and requires acceptance.
-
-Required outcome: combine this with the accepted host-transfer design and distinguish planned transfer, host absence, and seat recovery.
+Resolved with a 60-second reconnect grace period, configured backup or deterministic eligible nominee, explicit acceptance and no general-purpose takeover action.
 
 ### 6. Setup Sound and Haptics choices are not honoured — resolved
 

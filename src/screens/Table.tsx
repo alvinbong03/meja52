@@ -112,7 +112,7 @@ export function Table({ onDisplay, onLeft }: { onDisplay: () => void; onLeft: ()
         {lateArrival ? (
           <LateArrival />
         ) : game.phase === 'lobby' ? (
-          <Lobby onSettings={() => setSheet('settings')} onPlayers={() => setSheet('players')} />
+          <Lobby onInvite={() => setSheet('invite')} />
         ) : (
           <>
             <Stage />

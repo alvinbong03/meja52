@@ -1,6 +1,6 @@
 # MEJA52 — Release 1 Implementation Gap Map
 
-Status: Release 1 implementation complete through the approved private-record, export and retention checkpoint; final release/publishing review remains
+Status: Release 1 implementation complete through the approved seating-lobby checkpoint; tactile chip/change interaction and final release review remain
 Working branch: `codex/meja52-release1`
 Upstream baseline: `7867414` (`origin/main` at audit time)
 
@@ -40,7 +40,7 @@ The inherited project is functional and well tested. It is a useful foundation, 
 | Roles | Host only; dealing authority is implicit | Separate Host and transferable Table Controller roles with one-sentence descriptions | Foundation |
 | Room setup | Room is created immediately, then settings are edited | Approved three-step card mode, stakes and review flow | Slice 1 |
 | Settings | Numeric chips and optional USD buy-in | Currency label, starting balance, blind values, smallest unit and visual denomination model | Foundation / Slice 1 |
-| Join and lobby | Functional code/name join and list ordering | Approved join, avatar, physical seating confirmation and 15-seat lobby | Slice 1 |
+| Join and lobby | Functional code/name join and list ordering | **Implemented:** approved join, avatar, physical seating confirmation, dealer/controller selection and 15-seat lobby | Slice 1 |
 | Visual system | Inherited yellow/light-dark Piss Poker UI | Approved warm mineral, graphite, claret and tactile-chip MEJA52 system | Slice 1 onward |
 | Orientation | Responsive portrait-first page | Landscape table-edge experience during play, portrait fallback and portrait settlement | Slice 2 |
 | Chip interaction | Slider, amount input and shortcuts | Tap denominations, stage physical-looking chips, make change, clear/back and explicit placement | Slice 2 |
@@ -72,6 +72,8 @@ Implement the fully approved journey:
 `Home → Card mode → Stakes → Review → Room ready → Code/name join → Seating lobby → Start game`
 
 This slice establishes MEJA52's production tokens, typography, brand application, capability flow and 15-player responsive behaviour.
+
+**Implemented in pass 13:** the host receives a physical clockwise table map for 2–15 players with drag-and-drop plus a tap-based accessible alternative. Each player privately confirms the people on their left and right or asks the host to check the order. Confirmation is advisory, remains valid only while that player's neighbours are unchanged, and never prevents the host from starting. The host selects the proposed first dealer and Table Controller, then uses the explicit **Lock seats & start** action. The selected dealer now determines the first hand's button and blind positions.
 
 ### Slice 2 — tactile table edge
 

@@ -121,5 +121,8 @@ export async function table(names: string[]) {
   }
   await clients[0].settle();
   const idOf = (c: Client) => c.state.you.id as string;
+  if (clients.length >= 2) {
+    await clients[0].ok({ type: 'setDealerButton', v: clients[0].state.v, playerId: idOf(clients[0]) });
+  }
   return { code, clients, idOf };
 }

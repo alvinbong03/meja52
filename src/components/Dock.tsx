@@ -655,27 +655,13 @@ function ResultsPanel({ onRebuy }: { onRebuy: () => void }) {
 // ---------------- lobby ----------------
 
 function LobbyDock() {
-  const { game, isHost, room, run, busy, v, nameOf, away, serverNow } = useTable();
+  const { game, isHost, run, busy, v } = useTable();
   const ready = game.players.filter((player) => !player.sittingOut && !player.leaving && !player.busted).length >= 2;
-  if (!isHost) {
-    const hostAway = (!!room.hostId && away(room.hostId)) || (!!room.hostTakeoverAt && serverNow >= room.hostTakeoverAt);
-    return (
-      <div className="dock">
-        <p className="dock-wait">
-          {room.hostId ? `Waiting for ${nameOf(room.hostId)} to deal the first hand` : 'Waiting for a host'}
-        </p>
-        {hostAway && (
-          <button className="btn btn-quiet btn-lg btn-block" disabled={busy} onClick={() => run({ type: 'takeHost' })}>
-            Take over hosting
-          </button>
-        )}
-      </div>
-    );
-  }
+  if (!isHost) return null;
   return (
     <div className="dock">
-      <button className="btn btn-primary btn-xl btn-block" disabled={!ready || busy} onClick={() => run({ type: 'start', v })}>
-        {ready ? 'Deal the first hand' : 'Needs one more player'}
+      <button className="btn btn-primary btn-xl btn-block" disabled={!ready || busy} onClick={() => run({ type: 'start', v, allowUnconfirmed: true })}>
+        {ready ? 'Lock seats & start' : 'Needs one more player'}
       </button>
     </div>
   );

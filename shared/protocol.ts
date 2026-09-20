@@ -35,7 +35,7 @@ export type ClientMessage =
   | { type: 'claim'; playerId: string }
   | { type: 'cancelClaim' }
   | { type: 'resolveClaim'; claimId: string; allow: boolean }
-  | { type: 'start'; v: number }
+  | { type: 'start'; v: number; allowUnconfirmed?: boolean }
   | { type: 'act'; v: number; kind: ActionKind; amount?: number; playerId?: string }
   | { type: 'award'; v: number; winners: Record<string, string[]> }
   | { type: 'confirmAward'; v: number }
@@ -73,6 +73,8 @@ export type ClientMessage =
   | { type: 'settings'; v: number; settings: Settings }
   | { type: 'setStack'; v: number; playerId: string; stack: number }
   | { type: 'seatOrder'; v: number; ids: string[] }
+  | { type: 'setDealerButton'; v: number; playerId: string }
+  | { type: 'confirmSeat'; v: number; matches: boolean }
   | { type: 'kick'; playerId: string }
   | { type: 'transferHost'; playerId: string }
   | { type: 'cancelHostTransfer' }
@@ -126,6 +128,12 @@ export interface HostTransferView {
   targetId: string;
   requestedAt: number;
   expiresAt: number;
+}
+
+export interface SeatConfirmationView {
+  playerId: string;
+  status: 'confirmed' | 'issue';
+  confirmedAt: number;
 }
 
 export interface LateArrivalView {
@@ -263,6 +271,8 @@ export interface RoomView {
   backupHostId: string | null;
   hostTransfer: HostTransferView | null;
   hostRecoveryAt: number | null;
+  seatConfirmations: SeatConfirmationView[];
+  dealerButtonId: string | null;
   controllerId: string | null;
   currency: CurrencyCode;
   members: MemberView[];
@@ -360,10 +370,17 @@ export function parseClientMessage(raw: string): Envelope | null {
         ? out({ type: 'resolveClaim', claimId: m.claimId, allow: m.allow })
         : null;
     case 'start':
+      return isNum(v) && (m.allowUnconfirmed === undefined || typeof m.allowUnconfirmed === 'boolean')
+        ? out(m.allowUnconfirmed === undefined ? { type: 'start', v } : { type: 'start', v, allowUnconfirmed: m.allowUnconfirmed })
+        : null;
     case 'next':
     case 'endGame':
     case 'cancelEndGame':
       return isNum(v) ? out({ type: m.type, v }) : null;
+    case 'setDealerButton':
+      return isNum(v) && isId(m.playerId) ? out({ type: 'setDealerButton', v, playerId: m.playerId }) : null;
+    case 'confirmSeat':
+      return isNum(v) && typeof m.matches === 'boolean' ? out({ type: 'confirmSeat', v, matches: m.matches }) : null;
     case 'undo':
       return isNum(v) && (m.mode === undefined || ['return', 'correct'].includes(String(m.mode)))
         ? out(m.mode === undefined ? { type: 'undo', v } : { type: 'undo', v, mode: m.mode as 'return' | 'correct' })

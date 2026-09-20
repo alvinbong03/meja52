@@ -282,3 +282,26 @@ git diff --check                          PASS
 ```
 
 Deployed to `https://meja52.meja52.workers.dev` as Worker version `0e29289a-5071-4447-b3cb-99b13e2b0e64`. The post-deploy two-device WebSocket smoke test passed with private balances and public pot state intact.
+
+### Approved physical seating lobby — 20 September 2026
+
+- Replaced the generic lobby ordering controls with the approved physical clockwise table map for 2–15 players.
+- Added desktop drag-and-drop plus a keyboard/touch-friendly tap-player, tap-destination alternative without changing the visual hierarchy.
+- Added player-facing left/right neighbour confirmation, an issue signal to the host, advisory confirmation progress and selective invalidation only when a player's neighbours change.
+- Added proposed first-dealer and Table Controller selection. The chosen dealer now sets the button and blind positions for hand one.
+- Added the explicit **Lock seats & start** action; the host may deliberately start before every advisory confirmation arrives.
+- Preserved the approved Batik Indigo, Denim Lift, Batik Ivory and Hibiscus palette and corrected host-transfer candidate filtering so private opponent balances are never used as UI eligibility data.
+
+Verification:
+
+```text
+npm run typecheck                         PASS
+npm test                                  PASS (67 unit, 58 Worker)
+npm run test:e2e                          PASS (22 workflows)
+npm run build                             PASS
+npm run deploy:dry-run                    PASS
+Impeccable detector                       PASS (0 findings)
+git diff --check                          PASS
+```
+
+Browser coverage includes two independent player devices, neighbour confirmation and issue reporting, selected-dealer blind order, host/controller selection, full gameplay and settlement regressions, no horizontal overflow from 320 px to desktop, and a 15-player phone lobby plus scrollable 15-player landscape bet rail.
