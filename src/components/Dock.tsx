@@ -9,7 +9,7 @@ import {
   type Player,
 } from '../../shared/engine';
 import { fmt } from '../lib/format';
-import { composeChips, emptyInventory, inventoryTotal, takeExact, type ChipCount, type ChipValue } from '../lib/chips';
+import { chipLabel, composeChips, emptyInventory, inventoryTotal, takeExact, type ChipCount, type ChipValue } from '../lib/chips';
 import { useTable } from '../lib/table';
 import { useShake } from '../lib/motion';
 import { ChipRack, StagedChips } from './ChipRack';
@@ -317,14 +317,15 @@ function ActionPanel({ legal, player, actingFor, correcting, onCancel }: ActionP
 }
 
 function ChangeChipPanel({ value, available, currency, busy, onSelect, onCancel, onConfirm }: { value: ChipValue; available: ChipValue[]; currency: string; busy: boolean; onSelect: (value: ChipValue) => void; onCancel: () => void; onConfirm: () => void }) {
-  const parts: Record<number, string> = { 5: '5 × RM1', 10: '2 × RM5', 20: '2 × RM10', 50: '2 × RM20 + RM10' };
+  const label = (amount: number) => chipLabel(currency, amount);
+  const parts: Record<number, string> = { 5: `5 × ${label(1)}`, 10: `2 × ${label(5)}`, 20: `2 × ${label(10)}`, 50: `2 × ${label(20)} + ${label(10)}` };
   return (
     <div className="change-chip-panel" role="group" aria-label="Make change preview">
       <div>
         <span className="label">Make change · balance stays the same</span>
-        <strong>{currency === 'MYR' ? 'RM' : ''}{value} → {parts[value]}</strong>
+        <strong>{label(value)} → {parts[value]}</strong>
         <div className="change-chip-choices" aria-label="Choose a chip to break">
-          {available.map((option) => <button key={option} type="button" data-on={option === value || undefined} onClick={() => onSelect(option)}>RM{option}</button>)}
+          {available.map((option) => <button key={option} type="button" data-on={option === value || undefined} onClick={() => onSelect(option)}>{label(option)}</button>)}
         </div>
       </div>
       <div className="change-chip-actions">
