@@ -27,6 +27,7 @@ import {
   type Settings,
 } from '../../shared/engine';
 import { cleanName, sameName } from '../../shared/names';
+import { ledger, netsInCents, settleUp } from '../../shared/settle';
 import {
   AWAY_AFTER_MS,
   MAX_MESSAGE_BYTES,
@@ -48,6 +49,8 @@ import {
   type RunoutPlanView,
   type AwardProposalView,
   type OverrideProposalView,
+  type SettlementStateView,
+  type SettlementEntryView,
   type ServerMessage,
   type CurrencyCode,
 } from '../../shared/protocol';
@@ -94,10 +97,12 @@ interface Snapshot {
   breaks?: BreakView[];
   leaveRequests?: LeaveRequestView[];
   lateArrivals?: LateArrivalView[];
+  buyInEvents?: SettlementEntryView[];
   handStart?: Game | null;
   runoutPlan?: StoredRunoutPlan | null;
   awardProposal?: AwardProposalView | null;
   overrideProposal?: OverrideProposalView | null;
+  settlement?: SettlementStateView | null;
 }
 
 interface Stored {
@@ -119,6 +124,7 @@ interface Stored {
   breaks?: BreakView[];
   leaveRequests?: LeaveRequestView[];
   lateArrivals?: LateArrivalView[];
+  buyInEvents?: SettlementEntryView[];
   handStart?: Game | null;
   paused?: boolean;
   voidProposal?: VoidProposalView | null;
@@ -126,6 +132,7 @@ interface Stored {
   runoutPlan?: StoredRunoutPlan | null;
   awardProposal?: AwardProposalView | null;
   overrideProposal?: OverrideProposalView | null;
+  settlement?: SettlementStateView | null;
   turnStartedAt: number | null;
   turnId: string | null;
   endingAfterHand?: boolean;
@@ -212,6 +219,7 @@ export class Room extends DurableObject<Env> {
         breaks: [],
         leaveRequests: [],
         lateArrivals: [],
+        buyInEvents: [],
         handStart: null,
         paused: false,
         voidProposal: null,
@@ -219,6 +227,7 @@ export class Room extends DurableObject<Env> {
         runoutPlan: null,
         awardProposal: null,
         overrideProposal: null,
+        settlement: null,
         turnStartedAt: null,
         turnId: null,
         endingAfterHand: false,
@@ -372,7 +381,9 @@ export class Room extends DurableObject<Env> {
       return id;
     };
 
-    if (s.endedAt && !['claim', 'cancelClaim', 'resolveClaim'].includes(msg.type)) {
+    if (s.endedAt && ![
+      'claim', 'cancelClaim', 'resolveClaim', 'reviewSettlement', 'setTransferSettled', 'setMyTransfersSettled', 'finalizeSettlement',
+    ].includes(msg.type)) {
       deny('PHASE', 'The game has ended');
     }
 
@@ -405,6 +416,7 @@ export class Room extends DurableObject<Env> {
         }
         if (s.game.phase === 'lobby') {
           s.game = addPlayer(s.game, member.id, name);
+          this.recordBuyIn(member.id, 'initial', s.game.settings.startingStack);
         } else {
           (s.lateArrivals ??= []).push({
             id: randomId(),
@@ -434,6 +446,7 @@ export class Room extends DurableObject<Env> {
         const member: Member = { id: randomId(), name, avatar: null, tokenHash: null, manual: true, joinedAt: Date.now() };
         s.game = addPlayer(s.game, member.id, name);
         s.members.push(member);
+        this.recordBuyIn(member.id, 'initial', s.game.settings.startingStack);
         this.log('table', `${name} sat down without a phone`);
         this.commit();
         return;
@@ -510,6 +523,7 @@ export class Room extends DurableObject<Env> {
           this.log('table', `${host.name} will end the game after this hand`);
         } else {
           s.endedAt = Date.now();
+          s.settlement = this.newSettlementState();
           this.undo = [];
           this.log('table', `${host.name} ended the game`);
           s.v += 1;
@@ -524,6 +538,72 @@ export class Room extends DurableObject<Env> {
         s.endingAfterHand = false;
         s.v += 1;
         this.log('table', `${host.name} kept the game running`);
+        this.commit();
+        return;
+      }
+      case 'reviewSettlement': {
+        const member = requireMember();
+        checkV(msg.v);
+        const settlement = this.requireOpenSettlement();
+        const review = {
+          playerId: member.id,
+          status: msg.status,
+          reason: msg.status === 'issue' ? msg.reason!.trim() : null,
+          reviewedAt: Date.now(),
+        } as const;
+        settlement.reviews = settlement.reviews.filter((item) => item.playerId !== member.id);
+        settlement.reviews.push(review);
+        s.v += 1;
+        this.log('table', msg.status === 'correct'
+          ? `${member.name} confirmed their settlement result`
+          : `${member.name} reported a settlement issue: ${review.reason}`);
+        this.commit();
+        return;
+      }
+      case 'setTransferSettled': {
+        const member = requireMember();
+        checkV(msg.v);
+        const settlement = this.requireOpenSettlement();
+        const transfer = this.settlementTransfers()[msg.transferIndex] ?? deny('INVALID', 'Unknown settlement transfer');
+        if (transfer.from !== member.id) deny('FORBIDDEN', 'Only the player who owes this transfer can update it');
+        const current = new Set(settlement.settledTransfers);
+        if (msg.settled) current.add(msg.transferIndex);
+        else current.delete(msg.transferIndex);
+        settlement.settledTransfers = [...current].sort((a, b) => a - b);
+        s.v += 1;
+        this.log('table', `${member.name} marked a settlement transfer ${msg.settled ? 'settled' : 'unsettled'}`);
+        this.commit();
+        return;
+      }
+      case 'setMyTransfersSettled': {
+        const member = requireMember();
+        checkV(msg.v);
+        const settlement = this.requireOpenSettlement();
+        const indexes = this.settlementTransfers().flatMap((transfer, index) => transfer.from === member.id ? [index] : []);
+        if (indexes.length === 0) deny('INVALID', 'You have no outgoing settlement transfers');
+        const current = new Set(settlement.settledTransfers);
+        for (const index of indexes) {
+          if (msg.settled) current.add(index);
+          else current.delete(index);
+        }
+        settlement.settledTransfers = [...current].sort((a, b) => a - b);
+        s.v += 1;
+        this.log('table', `${member.name} marked ${indexes.length === 1 ? 'their transfer' : 'their transfers'} ${msg.settled ? 'settled' : 'unsettled'}`);
+        this.commit();
+        return;
+      }
+      case 'finalizeSettlement': {
+        const host = requireHost();
+        checkV(msg.v);
+        const settlement = this.requireOpenSettlement();
+        if (!settlement.reviews.some((review) => review.playerId === host.id)) deny('INVALID', 'Review your result before finalising');
+        const hasIssues = settlement.reviews.some((review) => review.status === 'issue');
+        if (hasIssues && !msg.withIssues) deny('INVALID', 'Resolve the reported issues or finalise with the issue marker');
+        if (!hasIssues && msg.withIssues) deny('INVALID', 'There are no unresolved issues');
+        settlement.finalizedAt = Date.now();
+        settlement.finalizedWithIssues = hasIssues;
+        s.v += 1;
+        this.log('table', `${host.name} finalised the settlement${hasIssues ? ' with unresolved issues' : ''}`);
         this.commit();
         return;
       }
@@ -700,6 +780,7 @@ export class Room extends DurableObject<Env> {
         }
         if (snap.leaveRequests) s.leaveRequests = structuredClone(snap.leaveRequests);
         if (snap.lateArrivals) s.lateArrivals = structuredClone(snap.lateArrivals);
+        if (snap.buyInEvents) s.buyInEvents = structuredClone(snap.buyInEvents);
         if (snap.handStart !== undefined) s.handStart = snap.handStart ? structuredClone(snap.handStart) : null;
         s.game = this.reconcile(snap.game);
         if (snap.rebuyRequests) s.rebuyRequests = structuredClone(snap.rebuyRequests);
@@ -921,6 +1002,7 @@ export class Room extends DurableObject<Env> {
           this.log('table', `${host.name} approved ${target.name} for ${fmt(amount)} chips`);
         }
         s.game = game;
+        this.recordBuyIn(target.id, 'initial', amount);
         s.v += 1;
         this.commit();
         return;
@@ -1019,10 +1101,19 @@ export class Room extends DurableObject<Env> {
         if ((s.rebuyRequests ?? []).some((request) => request.playerId === msg.playerId && request.status === 'approved')) {
           deny('PHASE', 'Apply or undo the approved rebuy before changing this stack');
         }
+        const player = findPlayer(s.game, msg.playerId) ?? deny('INVALID', 'Unknown player');
+        const delta = msg.stack - player.stack;
         this.mutate(
           `${nameOf(msg.playerId)} set to ${fmt(msg.stack)}`,
           (g) => setStack(g, msg.playerId, msg.stack),
           'table',
+          false,
+          () => {
+            if (delta === 0) return;
+            const initial = (s.buyInEvents ?? []).find((entry) => entry.playerId === msg.playerId && entry.kind === 'initial');
+            if (s.game.handNo === 0 && initial) initial.amount += delta;
+            else this.recordBuyIn(msg.playerId, 'adjustment', delta);
+          },
         );
         return;
       }
@@ -1075,6 +1166,38 @@ export class Room extends DurableObject<Env> {
 
   // ---------- state changes ----------
 
+  private newSettlementState(): SettlementStateView {
+    const s = this.s as Stored;
+    return {
+      reviews: [],
+      entries: structuredClone(s.buyInEvents ?? []),
+      settledTransfers: [],
+      finalizedAt: null,
+      finalizedWithIssues: false,
+    };
+  }
+
+  private recordBuyIn(playerId: string, kind: SettlementEntryView['kind'], amount: number) {
+    const s = this.s as Stored;
+    (s.buyInEvents ??= []).push({ id: randomId(), playerId, kind, amount, at: Date.now() });
+  }
+
+  private requireOpenSettlement() {
+    const s = this.s as Stored;
+    if (!s.endedAt) deny('PHASE', 'End the game before settlement');
+    const settlement = (s.settlement ??= this.newSettlementState());
+    if (settlement.finalizedAt) deny('PHASE', 'The settlement record is final');
+    return settlement;
+  }
+
+  private settlementTransfers() {
+    const s = this.s as Stored;
+    const rows = ledger(s.game);
+    const cents = netsInCents(rows, s.game.settings.buyInPrice, s.game.settings.startingStack);
+    const useCash = s.game.settings.buyInPrice > 0;
+    return settleUp(rows.map((row) => ({ id: row.id, net: useCash ? (cents.get(row.id) ?? 0) : row.net })));
+  }
+
   private currentAwardPotIds() {
     const s = this.s as Stored;
     if (!s.game.runout) return s.game.pots.filter((pot) => !pot.paid).map((pot) => pot.id);
@@ -1118,6 +1241,7 @@ export class Room extends DurableObject<Env> {
     const breaksBefore = structuredClone(s.breaks ?? []);
     const leaveRequestsBefore = structuredClone(s.leaveRequests ?? []);
     const lateArrivalsBefore = structuredClone(s.lateArrivals ?? []);
+    const buyInEventsBefore = structuredClone(s.buyInEvents ?? []);
     const membersBefore = structuredClone(s.members);
     const controllerBefore = s.controllerId;
     const handStartBefore = s.handStart ? structuredClone(s.handStart) : null;
@@ -1132,6 +1256,7 @@ export class Room extends DurableObject<Env> {
       breaks: breaksBefore,
       leaveRequests: leaveRequestsBefore,
       lateArrivals: lateArrivalsBefore,
+      buyInEvents: buyInEventsBefore,
       handStart: handStartBefore,
       runoutPlan: s.runoutPlan ? structuredClone(s.runoutPlan) : null,
       awardProposal: s.awardProposal ? structuredClone(s.awardProposal) : null,
@@ -1211,6 +1336,7 @@ export class Room extends DurableObject<Env> {
     if (!s.endingAfterHand || game.phase !== 'done') return;
     s.endingAfterHand = false;
     s.endedAt = Date.now();
+    s.settlement = this.newSettlementState();
     this.undo = [];
     this.log('table', 'The game ended after the final hand');
   }
@@ -1221,6 +1347,7 @@ export class Room extends DurableObject<Env> {
     const approved = (s.rebuyRequests ?? []).filter((r) => r.status === 'approved');
     for (const request of approved) {
       s.game = addBuyIn(s.game, request.playerId, request.amount);
+      this.recordBuyIn(request.playerId, 'rebuy', request.amount);
       this.log('table', `${this.playerName(request.playerId)} added ${fmt(request.amount)} chips`);
     }
     if (approved.length > 0) {
@@ -1571,6 +1698,7 @@ export class Room extends DurableObject<Env> {
       } : null,
       awardProposal: s.awardProposal ?? null,
       overrideProposal: s.overrideProposal ?? null,
+      settlement: s.endedAt ? (s.settlement ?? this.newSettlementState()) : null,
       log: s.log.slice(-LOG_SEND),
       undoLabel: this.undo.at(-1)?.label ?? null,
       turnStartedAt: s.turnStartedAt,

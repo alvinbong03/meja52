@@ -155,3 +155,14 @@ Verification passed: 56 unit tests, 44 Worker integration tests, production buil
 - The same review gate applies to ordinary awards, ties, side pots and each physical runout.
 
 Verification passed: 57 unit tests, 45 Worker integration tests, production build, and 19 Playwright browser workflows. Browser coverage includes a three-device dispute where a folded player receives a conserved table override only after the second-player approval gate.
+
+### Governed cash settlement
+
+- Replaced the provisional ended-game ledger with the approved three-state portrait experience: personal result review, minimum transfers, and final record.
+- Settlement preserves structured initial entries, approved rebuys and host stack adjustments; legacy rooms fall back to the authoritative total entered.
+- Players can confirm their result or report a reasoned issue, then later resolve it by confirming the corrected result.
+- Only the debtor can mark their external transfer settled or undo that acknowledgement before finalisation.
+- The host explicitly finalises the record. A record with an unresolved issue requires a separate warning confirmation and retains a permanent issue marker; departed players never block closure.
+- MEJA52 does not move or verify money, and the interface states this directly.
+
+Verification passed: 57 unit tests, 47 Worker integration tests, production build, and 19 Playwright browser workflows. The settlement browser workflow covers two devices, an issue report and resolution, payer-only acknowledgement, host finalisation, a 320×568 viewport and 200% root text without horizontal overflow.

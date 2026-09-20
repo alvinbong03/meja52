@@ -38,6 +38,12 @@ describe('parseClientMessage', () => {
       type: 'proposeOverride', v: 17, reason: 'Table ruling', allocations: { abcdef01: 30 },
     });
     expect(parse({ type: 'approveOverride', v: 18 })).toEqual({ type: 'approveOverride', v: 18 });
+    expect(parse({ type: 'reviewSettlement', v: 19, status: 'correct' })).toEqual({ type: 'reviewSettlement', v: 19, status: 'correct' });
+    expect(parse({ type: 'reviewSettlement', v: 20, status: 'issue', reason: 'Missing rebuy' })).toEqual({
+      type: 'reviewSettlement', v: 20, status: 'issue', reason: 'Missing rebuy',
+    });
+    expect(parse({ type: 'setMyTransfersSettled', v: 21, settled: true })).toEqual({ type: 'setMyTransfersSettled', v: 21, settled: true });
+    expect(parse({ type: 'finalizeSettlement', v: 22, withIssues: false })).toEqual({ type: 'finalizeSettlement', v: 22, withIssues: false });
     expect(parse({ type: 'requestRebuy', amount: 100 })).toEqual({ type: 'requestRebuy', amount: 100 });
     expect(parse({ type: 'cancelRebuy', requestId: 'abcdef0123456789' })).toEqual({
       type: 'cancelRebuy',
@@ -91,6 +97,10 @@ describe('parseClientMessage', () => {
       { type: 'proposeOverride', v: 1, reason: '', allocations: { abcdef01: 30 } },
       { type: 'proposeOverride', v: 1, reason: 'Correction', allocations: { '<script>': 30 } },
       { type: 'proposeOverride', v: 1, reason: 'Correction', allocations: { abcdef01: 1.5 } },
+      { type: 'reviewSettlement', v: 1, status: 'issue', reason: '' },
+      { type: 'reviewSettlement', v: 1, status: 'maybe' },
+      { type: 'setMyTransfersSettled', v: 1, settled: 'yes' },
+      { type: 'finalizeSettlement', v: 1, withIssues: 'yes' },
       { type: 'chooseLateArrival', mode: 'later' },
       { type: 'resolveLateArrival', v: 1, requestId: 'abcdef0123456789', allow: true },
       { type: 'award', v: 1, winners: { x: ['abcdef01'] } },

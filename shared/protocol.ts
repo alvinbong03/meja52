@@ -43,6 +43,10 @@ export type ClientMessage =
   | { type: 'approveOverride'; v: number }
   | { type: 'cancelOverride'; v: number }
   | { type: 'confirmOverride'; v: number }
+  | { type: 'reviewSettlement'; v: number; status: 'correct' | 'issue'; reason?: string }
+  | { type: 'setTransferSettled'; v: number; transferIndex: number; settled: boolean }
+  | { type: 'setMyTransfersSettled'; v: number; settled: boolean }
+  | { type: 'finalizeSettlement'; v: number; withIssues: boolean }
   | { type: 'next'; v: number }
   | { type: 'undo'; v: number; mode?: 'return' | 'correct' }
   | { type: 'pauseHand'; v: number }
@@ -151,6 +155,29 @@ export interface OverrideProposalView {
   total: number;
 }
 
+export interface SettlementReviewView {
+  playerId: string;
+  status: 'correct' | 'issue';
+  reason: string | null;
+  reviewedAt: number;
+}
+
+export interface SettlementEntryView {
+  id: string;
+  playerId: string;
+  kind: 'initial' | 'rebuy' | 'adjustment';
+  amount: number;
+  at: number;
+}
+
+export interface SettlementStateView {
+  reviews: SettlementReviewView[];
+  entries: SettlementEntryView[];
+  settledTransfers: number[];
+  finalizedAt: number | null;
+  finalizedWithIssues: boolean;
+}
+
 export type LogKind = 'action' | 'hand' | 'win' | 'undo' | 'table';
 
 export interface LogEntry {
@@ -180,6 +207,7 @@ export interface RoomView {
   runoutPlan: RunoutPlanView | null;
   awardProposal: AwardProposalView | null;
   overrideProposal: OverrideProposalView | null;
+  settlement: SettlementStateView | null;
   log: LogEntry[];
   undoLabel: string | null;
   turnStartedAt: number | null;
@@ -273,6 +301,25 @@ export function parseClientMessage(raw: string): Envelope | null {
     case 'cancelOverride':
     case 'confirmOverride':
       return isNum(v) ? out({ type: m.type, v }) : null;
+    case 'reviewSettlement':
+      return isNum(v) && ['correct', 'issue'].includes(String(m.status)) &&
+        (m.status === 'correct' ? m.reason === undefined : isStr(m.reason, 160) && m.reason.trim().length > 0)
+        ? out(m.status === 'correct'
+            ? { type: 'reviewSettlement', v, status: 'correct' }
+            : { type: 'reviewSettlement', v, status: 'issue', reason: (m.reason as string).trim() })
+        : null;
+    case 'setTransferSettled':
+      return isNum(v) && isNum(m.transferIndex) && typeof m.settled === 'boolean'
+        ? out({ type: 'setTransferSettled', v, transferIndex: m.transferIndex, settled: m.settled })
+        : null;
+    case 'setMyTransfersSettled':
+      return isNum(v) && typeof m.settled === 'boolean'
+        ? out({ type: 'setMyTransfersSettled', v, settled: m.settled })
+        : null;
+    case 'finalizeSettlement':
+      return isNum(v) && typeof m.withIssues === 'boolean'
+        ? out({ type: 'finalizeSettlement', v, withIssues: m.withIssues })
+        : null;
     case 'chooseRunouts':
       return isNum(v) && isNum(m.count) && m.count >= 1 && m.count <= 4 && typeof m.agreed === 'boolean'
         ? out({ type: 'chooseRunouts', v, count: m.count, agreed: m.agreed })

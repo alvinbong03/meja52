@@ -9,7 +9,7 @@ import { LateArrival } from '../components/LateArrival';
 import { Seats } from '../components/Seats';
 import { Sheets, type SheetName } from '../components/Sheets';
 import { Stage } from '../components/Stage';
-import { Settlement } from '../components/Settlement';
+import { SettlementExperience } from '../components/SettlementExperience';
 import { turnAlert, unlockAudio, useWakeLock } from '../lib/device-features';
 import { chipLabel } from '../lib/chips';
 import { useTable } from '../lib/table';
@@ -40,17 +40,7 @@ export function Table({ onDisplay, onLeft }: { onDisplay: () => void; onLeft: ()
   if (room.endedAt) {
     return (
       <div className="table-shell final-settlement-shell" data-host={isHost || undefined} onPointerDown={unlockAudio}>
-        <main className="final-settlement">
-          <header className="final-settlement-head">
-            <span className="eyebrow">Room {room.code}</span>
-            <h1>Final settlement</h1>
-            <p>The game has ended. Balances are frozen.</p>
-          </header>
-          <section className="final-settlement-card" aria-label="Final balances">
-            <Settlement />
-          </section>
-          <button className="btn btn-primary btn-xl btn-block" onClick={onLeft}>Back to home</button>
-        </main>
+        <SettlementExperience onDone={onLeft} />
       </div>
     );
   }

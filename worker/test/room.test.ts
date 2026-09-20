@@ -303,6 +303,12 @@ describe('playing a hand', () => {
     playerState = await ben.settle();
     expect(playerState.room.rebuyRequests).toHaveLength(0);
     expect(playerState.room.game.players.find((p) => p.id === idOf(ben))).toMatchObject({ stack: 1145, buyIn: 1150 });
+    await ana.ok({ type: 'endGame', v: ana.state.v });
+    const entries = (await ben.settle()).room.settlement?.entries.filter((entry) => entry.playerId === idOf(ben));
+    expect(entries).toEqual(expect.arrayContaining([
+      expect.objectContaining({ kind: 'initial', amount: 1000 }),
+      expect.objectContaining({ kind: 'rebuy', amount: 150 }),
+    ]));
   });
 
   it('lets a player cancel and the host edit or reject a rebuy request', async () => {
@@ -425,6 +431,47 @@ describe('playing a hand', () => {
     await cam.ok({ type: 'endGame', v: cam.state.v });
     expect(cam.state.room.endingAfterHand).toBe(false);
     expect(cam.state.room.endedAt).toEqual(expect.any(Number));
+  });
+
+  it('reviews, acknowledges and explicitly finalises a frozen settlement record', async () => {
+    const { clients, idOf } = await table(['Ana', 'Ben']);
+    const [ana, ben] = clients;
+    await ana.ok({ type: 'start', v: ana.state.v });
+    await ana.ok({ type: 'act', v: ana.state.v, kind: 'fold' });
+    await ana.ok({ type: 'endGame', v: ana.state.v });
+    let state = await ben.settle();
+    expect(state.room.settlement).toMatchObject({ reviews: [], settledTransfers: [], finalizedAt: null });
+    expect(state.room.settlement?.entries.filter((entry) => entry.kind === 'initial')).toHaveLength(2);
+
+    await ana.ok({ type: 'reviewSettlement', v: ana.state.v, status: 'correct' });
+    await ben.ok({ type: 'reviewSettlement', v: ben.state.v, status: 'issue', reason: 'Check the final blind' });
+    expect(await ana.request({ type: 'finalizeSettlement', v: ana.state.v, withIssues: false })).toMatchObject({ code: 'INVALID' });
+    await ben.ok({ type: 'reviewSettlement', v: ben.state.v, status: 'correct' });
+
+    state = await ana.settle();
+    const debtorId = state.room.game.players.find((player) => player.stack - player.buyIn < 0)!.id;
+    const debtor = clients.find((client) => idOf(client) === debtorId)!;
+    const creditor = clients.find((client) => idOf(client) !== debtorId)!;
+    expect(await creditor.request({ type: 'setMyTransfersSettled', v: creditor.state.v, settled: true })).toMatchObject({ code: 'INVALID' });
+    await debtor.ok({ type: 'setMyTransfersSettled', v: debtor.state.v, settled: true });
+    expect((await ana.settle()).room.settlement?.settledTransfers).toEqual([0]);
+
+    await ana.ok({ type: 'finalizeSettlement', v: ana.state.v, withIssues: false });
+    expect(ana.state.room.settlement).toMatchObject({ finalizedAt: expect.any(Number), finalizedWithIssues: false });
+    expect(await ben.request({ type: 'reviewSettlement', v: ben.state.v, status: 'issue', reason: 'Too late' })).toMatchObject({ code: 'PHASE' });
+  });
+
+  it('allows the host to finalise deliberately with a permanent issue marker', async () => {
+    const { clients } = await table(['Ana', 'Ben']);
+    const [ana, ben] = clients;
+    await ana.ok({ type: 'start', v: ana.state.v });
+    await ana.ok({ type: 'act', v: ana.state.v, kind: 'fold' });
+    await ana.ok({ type: 'endGame', v: ana.state.v });
+    await ana.ok({ type: 'reviewSettlement', v: ana.state.v, status: 'correct' });
+    await ben.ok({ type: 'reviewSettlement', v: ben.state.v, status: 'issue', reason: 'Missing cash-out note' });
+    await ana.ok({ type: 'finalizeSettlement', v: ana.state.v, withIssues: true });
+    expect(ana.state.room.settlement).toMatchObject({ finalizedAt: expect.any(Number), finalizedWithIssues: true });
+    expect(ana.state.room.log.at(-1)?.text).toContain('with unresolved issues');
   });
 
   it('runs a full hand with turn enforcement, stale protection and awards', async () => {

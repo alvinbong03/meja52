@@ -95,6 +95,8 @@ Implement street advancement, showdown awards, ties, side pots, multiple physica
 
 Implement shared display, settlement, minimum transfers, history/export, retention and deletion.
 
+**Implemented in pass 11:** Ended cash games now freeze into the approved portrait settlement flow. Every connected player reviews a personal starting/rebuy/adjustment ledger and final result, can report or resolve an issue, and then sees the deterministic minimum-transfer plan. Only the debtor can acknowledge their own external transfer. The host explicitly finalises the record without waiting for departed players; unresolved issues require a deliberate warning step and remain permanently marked. The website records acknowledgements only and never claims to move or verify money. History export, private 30-day links and deliberate early deletion remain pending.
+
 ## Verification required for every slice
 
 - Write or update regression tests before changing behaviour.

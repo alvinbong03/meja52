@@ -171,11 +171,29 @@ test('the host ends after the current hand and everyone receives frozen settleme
 
   await ana.getByRole('button', { name: 'Fold' }).click();
   for (const page of [ana, ben]) {
-    await expect(page.getByRole('heading', { name: 'Final settlement' })).toBeVisible();
-    await expect(page.getByText('Balances are frozen.')).toBeVisible();
+    await expect(page.getByText('Your result', { exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: /Deal next hand/ })).toHaveCount(0);
-    await expect(page.getByRole('button', { name: 'Back to home' })).toBeVisible();
   }
+  await ana.getByRole('button', { name: 'Looks correct' }).click();
+  await ben.getByRole('button', { name: 'Report an issue' }).click();
+  await ben.getByLabel('What looks wrong?').fill('Please check the blind');
+  await ben.getByRole('button', { name: 'Report issue' }).click();
+  await expect(ana.getByText('1 unresolved issue')).toBeVisible();
+  await ben.getByRole('button', { name: 'Resolved — looks correct' }).click();
+  await expect(ana.getByText('2 of 2 players reviewed their result')).toBeVisible();
+  const anaSettle = ana.getByRole('button', { name: 'Mark my transfer settled' });
+  const benSettle = ben.getByRole('button', { name: 'Mark my transfer settled' });
+  if (await anaSettle.isVisible()) await anaSettle.click();
+  else await benSettle.click();
+  await ana.getByRole('button', { name: 'Finalize record' }).click();
+  for (const page of [ana, ben]) {
+    await expect(page.getByRole('heading', { name: 'Settlement complete' })).toBeVisible();
+    await expect(page.getByText('Results sum to zero')).toBeVisible();
+  }
+  await ana.setViewportSize({ width: 320, height: 568 });
+  expect(await ana.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await ana.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
+  expect(await ana.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 
 test('a player requests a rebuy and the host edits and approves it', async ({ browser }) => {
