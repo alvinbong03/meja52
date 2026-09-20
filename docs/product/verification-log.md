@@ -350,3 +350,5 @@ npm run build                             PASS
 manual landscape idle/staged/change       PASS
 git diff --check                          PASS
 ```
+
+Deployed to `https://meja52.meja52.workers.dev` as Worker version `ef8829e6-b7f1-4add-a2ec-ecda68516265`. The post-deploy two-device WebSocket smoke test passed with private balances, public pot state and the new private chip-inventory payload intact.
