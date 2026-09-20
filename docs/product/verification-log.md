@@ -415,3 +415,5 @@ npm run build                             PASS
 Impeccable layout detector                PASS (0 findings)
 git diff --check                          PASS
 ```
+
+Deployed to `https://meja52.meja52.workers.dev` as Worker version `26c782fd-811e-4f41-966c-ea9d3b179583`. The post-deploy two-device WebSocket smoke test passed with private balances and public pot state intact.
