@@ -457,3 +457,20 @@ git diff --check                          PASS
 ```
 
 Deployed to `https://meja52.meja52.workers.dev` as Worker version `ace3043a-cd3e-4981-a559-dedb6a1342b1`. The post-deploy two-device WebSocket smoke test passed with private balances and public pot state intact.
+
+### Coherent dealer and blind markers — 20 September 2026
+
+- Unified `D`, `SB` and `BB` as equal-sized outlined circular markers beside each player’s name.
+- Moved the standard player list’s blind markers from its secondary status line into the same position as the Dealer marker.
+- Preserved simultaneous heads-up `D` and `SB` markers and kept non-position statuses such as Folded or Away on the secondary line.
+
+Verification:
+
+```text
+npm run typecheck                         PASS
+blind-position browser workflow           PASS
+17×17 marker-coherence assertion          PASS
+npm run build                             PASS
+Impeccable layout detector                PASS (0 findings)
+git diff --check                          PASS
+```

@@ -67,7 +67,11 @@ export function Seats() {
           room.leaveRequests.find((request) => request.playerId === p.id)?.mode,
         );
         const acting = game.toActId === p.id;
-        const blind = hand ? (game.sbId === p.id ? 'SB' : game.bbId === p.id ? 'BB' : null) : null;
+        const positions = hand ? [
+          game.buttonId === p.id && { short: 'D', full: 'Dealer button' },
+          game.sbId === p.id && { short: 'SB', full: 'Small blind' },
+          game.bbId === p.id && { short: 'BB', full: 'Big blind' },
+        ].filter(Boolean) as { short: string; full: string }[] : [];
         const won = game.phase === 'done' ? game.results.filter((r) => r.id === p.id).reduce((s, r) => s + r.amount, 0) : 0;
         return (
           <li
@@ -83,18 +87,12 @@ export function Seats() {
             <div className="seat-who">
               <span className="seat-name">
                 {p.name}
-                {hand && game.buttonId === p.id && (
-                  <span className="dealer" title="Dealer button">
-                    D
-                  </span>
-                )}
+                {positions.map((position) => (
+                  <span key={position.short} className={`position-badge${position.short === 'D' ? ' dealer' : ''}`} data-position={position.short} title={position.full}>{position.short}</span>
+                ))}
                 {p.id === you.id && <span className="seat-you">you</span>}
               </span>
-              {(blind || status) && (
-                <span className="seat-meta">
-                  {[blind, status].filter(Boolean).join(' · ')}
-                </span>
-              )}
+              {status && <span className="seat-meta">{status}</span>}
             </div>
             <span className="seat-bet num">
               {hand ? (

@@ -1412,7 +1412,7 @@ body:has(.table-shell[data-turn]) {
   color: var(--ink-2);
 }
 
-.dealer {
+.position-badge {
   display: inline-grid;
   place-items: center;
   flex: none;
@@ -1429,6 +1429,8 @@ body:has(.table-shell[data-turn]) {
   align-self: center;
   animation: roll-in 360ms var(--ease-out);
 }
+.position-badge[data-position='SB'],
+.position-badge[data-position='BB'] { font-size: 0.5rem; }
 
 .bet-pop {
   display: inline-block;
@@ -2115,8 +2117,7 @@ button.chip-stack:active:not(:disabled) .poker-chip {
   .bet-rail-player { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 5px; }
   .bet-rail-name { min-width: 0; overflow: hidden; color: var(--ink-2); font-size: 0.72rem; text-overflow: ellipsis; white-space: nowrap; }
   .bet-rail-positions { display: inline-flex; flex: none; align-items: center; gap: 4px; }
-  .bet-position { color: var(--ink); font-size: 0.56rem; font-weight: 760; letter-spacing: 0.015em; line-height: 1; }
-  .bet-position[data-position='D'] { display: inline-grid; width: 15px; height: 15px; place-items: center; border: 1px solid currentColor; border-radius: 50%; }
+  .bet-position { display: inline-grid; width: 17px; height: 17px; place-items: center; border: 1px solid currentColor; border-radius: 50%; color: var(--ink); font-size: 0.48rem; font-weight: 760; letter-spacing: 0; line-height: 1; }
   .bet-rail-list li strong { font-size: 1rem; font-weight: 650; }
   .bet-rail-value { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; }
   .bet-rail-value em { color: var(--ink); font-size: 0.625rem; font-style: normal; font-weight: 650; letter-spacing: 0.02em; }

@@ -131,6 +131,10 @@ test('blinds post automatically and the public rail identifies dealer, small bli
   await expect(ana.getByRole('button', { name: 'Call 5' })).toBeVisible();
   await expect(ana.locator('.turn-metric').filter({ hasText: 'Balance' })).toContainText('995');
   await expect(ben.getByText('Ana to act · 5 to call')).toBeVisible();
+  const anaListSeat = ana.getByRole('listitem').filter({ hasText: 'Ana' });
+  await expect(anaListSeat.getByTitle('Dealer button')).toBeVisible();
+  await expect(anaListSeat.getByTitle('Small blind')).toBeVisible();
+  await expect(ana.getByRole('listitem').filter({ hasText: 'Ben' }).getByTitle('Big blind')).toBeVisible();
 
   await ana.setViewportSize({ width: 844, height: 390 });
   const rail = ana.getByRole('region', { name: 'Current street bets' });
@@ -140,6 +144,11 @@ test('blinds post automatically and the public rail identifies dealer, small bli
   await expect(anaSeat.getByText('5', { exact: true })).toBeVisible();
   await expect(benSeat.getByLabel('Big blind')).toBeVisible();
   await expect(benSeat.getByText('10', { exact: true })).toBeVisible();
+  const badgeSizes = await rail.locator('.bet-position').evaluateAll((badges) => badges.map((badge) => {
+    const box = badge.getBoundingClientRect();
+    return `${box.width}x${box.height}`;
+  }));
+  expect(new Set(badgeSizes)).toEqual(new Set(['17x17']));
 
   await ana.setViewportSize({ width: 390, height: 844 });
   await stageAndPlace(ana, 'Call 5', 5);
