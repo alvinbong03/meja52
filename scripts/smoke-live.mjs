@@ -52,7 +52,7 @@ guest.send(JSON.stringify({ type: 'join', name: 'Smoke Guest', seq: 1 }));
 await waitFor('host', (state) => state.room.members.length === 2);
 await waitFor('guest', (state) => state.room.members.length === 2);
 
-host.send(JSON.stringify({ type: 'start', v: latest.get('host').v, seq: 2 }));
+host.send(JSON.stringify({ type: 'start', v: latest.get('host').v, allowUnconfirmed: true, seq: 2 }));
 const hostState = await waitFor('host', (state) => state.room.game.phase === 'betting');
 const guestState = await waitFor('guest', (state) => state.room.game.phase === 'betting');
 

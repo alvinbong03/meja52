@@ -305,3 +305,5 @@ git diff --check                          PASS
 ```
 
 Browser coverage includes two independent player devices, neighbour confirmation and issue reporting, selected-dealer blind order, host/controller selection, full gameplay and settlement regressions, no horizontal overflow from 320 px to desktop, and a 15-player phone lobby plus scrollable 15-player landscape bet rail.
+
+Deployed to `https://meja52.meja52.workers.dev` as Worker version `dc32c77a-a246-4db0-b275-0948f06f0b02`. The live two-device WebSocket smoke test passed after updating the smoke client to exercise the host's explicit advisory-confirmation override; private balances and public pot state remained correct.
