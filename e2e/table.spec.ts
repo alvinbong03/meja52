@@ -645,6 +645,7 @@ test('desktop keyboard shortcuts drive the action bar', async ({ browser }) => {
   await expect(yourTurn(ana)).toBeVisible();
   await ana.keyboard.press('r');
   await expect(ana.getByText('Tap chips or choose a shortcut.')).toBeVisible();
+  await expect(ana.locator('.raise-section-divider')).toBeVisible();
   await ana.keyboard.press('ArrowUp');
   await expect(ana.getByRole('button', { name: 'Place 20' })).toBeVisible();
   await ana.keyboard.press('Enter');

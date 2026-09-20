@@ -458,6 +458,7 @@ function RaisePanel({ legal, pot, currentBet, bb, label, player, inventory, curr
         <span className="turn-title">{label === 'Bet' ? 'Bet' : 'Raise to'}</span>
         <span className="turn-sub">Any amount above {fmt(currentBet)}</span>
       </div>
+      <div className="raise-section-divider" aria-hidden="true" />
       {amount !== null && <StagedChips chips={stagedChips} currency={currency} onCommit={valid ? confirm : undefined} />}
       <div className="raise-utility">
         <button className="staged-clear" onClick={amount === null ? onBack : () => { setAmount(null); setText(''); setCustom(false); }}>{amount === null ? 'Back' : 'Clear'}</button>

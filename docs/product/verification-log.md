@@ -399,3 +399,19 @@ git diff --check                          PASS
 ```
 
 Deployed to `https://meja52.meja52.workers.dev` as Worker version `a44fee14-0110-4117-a24e-1372378cdcfc`. The post-deploy two-device WebSocket smoke test passed with private balances and public pot state intact.
+
+### Raise-builder hierarchy divider — 20 September 2026
+
+- Added one short centred hairline between the `Raise to / Any amount above…` requirement and the `Tap chips or choose a shortcut` instruction.
+- Kept it deliberately shorter than the control deck so it guides reading order without framing the action area or adding another container.
+- The divider follows the heading out of view after chips are staged, preserving the approved compact staged-wager state.
+
+Verification:
+
+```text
+npm run typecheck                         PASS
+focused raise-builder browser workflow   PASS
+npm run build                             PASS
+Impeccable layout detector                PASS (0 findings)
+git diff --check                          PASS
+```

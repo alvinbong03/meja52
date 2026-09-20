@@ -2007,6 +2007,13 @@ button.chip-stack:active:not(:disabled) .poker-chip {
   text-align: center;
 }
 
+.raise-section-divider {
+  width: min(112px, 28%);
+  height: 1px;
+  justify-self: center;
+  background: var(--line-strong);
+}
+
 .raise-utility {
   display: grid;
   grid-template-columns: 1fr 3fr 1fr;
@@ -2125,7 +2132,8 @@ button.chip-stack:active:not(:disabled) .poker-chip {
   .staged-chips { min-height: 86px; padding-block: 4px 8px; }
   .staged-chip { width: clamp(78px, 14vw, 104px); }
   .btn-turn { min-height: 48px; }
-  .dock-raise:has(.staged-chips) .raise-heading { display: none; }
+  .dock-raise:has(.staged-chips) .raise-heading,
+  .dock-raise:has(.staged-chips) .raise-section-divider { display: none; }
   .raise-heading .turn-title { font-size: 1.05rem; }
   .raise-utility { min-height: 36px; }
   .raise-presets .preset { min-height: 43px; }
