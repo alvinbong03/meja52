@@ -8,6 +8,8 @@ export const PING = 'ping';
 export const PONG = 'pong';
 /** A socket silent (no ping) for longer than this counts as away. */
 export const AWAY_AFTER_MS = 30_000;
+export const HOST_DISCONNECT_GRACE_MS = 60_000;
+export const HOST_TRANSFER_RESPONSE_MS = 30_000;
 
 export const CURRENCIES = ['MYR', 'SGD', 'USD', 'GBP', 'EUR'] as const;
 export type CurrencyCode = (typeof CURRENCIES)[number];
@@ -73,7 +75,11 @@ export type ClientMessage =
   | { type: 'seatOrder'; v: number; ids: string[] }
   | { type: 'kick'; playerId: string }
   | { type: 'transferHost'; playerId: string }
+  | { type: 'cancelHostTransfer' }
+  | { type: 'respondHostTransfer'; allow: boolean }
+  | { type: 'setBackupHost'; playerId?: string }
   | { type: 'transferController'; playerId: string }
+  /** Backwards-compatible accept action; valid only for the currently nominated recovery target. */
   | { type: 'takeHost' };
 
 export type Envelope = ClientMessage & { seq?: number };
@@ -112,6 +118,14 @@ export interface LeaveRequestView {
   playerId: string;
   mode: 'afterHand' | 'now';
   requestedAt: number;
+}
+
+export interface HostTransferView {
+  kind: 'planned' | 'recovery';
+  fromId: string | null;
+  targetId: string;
+  requestedAt: number;
+  expiresAt: number;
 }
 
 export interface LateArrivalView {
@@ -246,6 +260,9 @@ export interface RoomView {
   createdAt: number;
   hostId: string | null;
   hostTakeoverAt: number | null;
+  backupHostId: string | null;
+  hostTransfer: HostTransferView | null;
+  hostRecoveryAt: number | null;
   controllerId: string | null;
   currency: CurrencyCode;
   members: MemberView[];
@@ -321,8 +338,15 @@ export function parseClientMessage(raw: string): Envelope | null {
     case 'cancelClaim':
     case 'cancelLeave':
     case 'cancelLateArrival':
+    case 'cancelHostTransfer':
     case 'takeHost':
       return out({ type: m.type });
+    case 'respondHostTransfer':
+      return typeof m.allow === 'boolean' ? out({ type: 'respondHostTransfer', allow: m.allow }) : null;
+    case 'setBackupHost':
+      return optId(m.playerId)
+        ? out(m.playerId === undefined ? { type: 'setBackupHost' } : { type: 'setBackupHost', playerId: m.playerId as string })
+        : null;
     case 'requestLeave':
       return ['afterHand', 'now'].includes(String(m.mode))
         ? out({ type: 'requestLeave', mode: m.mode as 'afterHand' | 'now' })

@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { bySeat, handInProgress, LIMITS, physicalRunoutLimit, shareOut } from '../../shared/engine';
 import type { LateArrivalView } from '../../shared/protocol';
 import { setSoundEnabled, soundEnabled } from '../lib/device';
@@ -10,7 +10,7 @@ import { Invite } from './Invite';
 import { Sheet } from './Sheet';
 import { Settlement } from './Settlement';
 
-export type SheetName = 'menu' | 'invite' | 'settings' | 'players' | 'settle' | 'rebuy' | 'rebuyRequests' | 'lateArrivals' | 'break' | 'leave' | 'undo' | 'void' | 'runout' | 'override' | null;
+export type SheetName = 'menu' | 'invite' | 'settings' | 'players' | 'settle' | 'rebuy' | 'rebuyRequests' | 'lateArrivals' | 'break' | 'leave' | 'undo' | 'void' | 'runout' | 'override' | 'hostTransfer' | 'hostRequest' | 'backupHost' | null;
 
 interface Props {
   open: SheetName;
@@ -20,9 +20,26 @@ interface Props {
 }
 
 export function Sheets({ open, setOpen, onDisplay, onLeft }: Props) {
-  const { room, me } = useTable();
+  const { room, me, you } = useTable();
   const breakRecord = me ? room.breaks.find((record) => record.playerId === me.id) : undefined;
+  const requestForMe = !!you.id && room.hostTransfer?.targetId === you.id;
+  const prompted = useRef<string | null>(null);
   const close = () => setOpen(null);
+
+  useEffect(() => {
+    const key = requestForMe && room.hostTransfer ? `${room.hostTransfer.kind}:${room.hostTransfer.requestedAt}` : null;
+    if (key && prompted.current !== key) {
+      prompted.current = key;
+      setOpen('hostRequest');
+    } else if (!key && open === 'hostRequest') {
+      setOpen(null);
+    }
+  }, [open, requestForMe, room.hostTransfer, setOpen]);
+
+  useEffect(() => {
+    if (!you.isHost && (open === 'hostTransfer' || open === 'backupHost')) setOpen(null);
+  }, [open, setOpen, you.isHost]);
+
   return (
     <>
       <Sheet open={open === 'menu'} onClose={close} title="Table">
@@ -53,7 +70,7 @@ export function Sheets({ open, setOpen, onDisplay, onLeft }: Props) {
         <BreakFlow onDone={close} />
       </Sheet>
       <Sheet open={open === 'leave'} onClose={close} title="Leave the game">
-        <LeaveFlow onDone={close} onLeft={onLeft} onTransfer={() => setOpen('players')} />
+        <LeaveFlow onDone={close} onLeft={onLeft} onTransfer={() => setOpen('hostTransfer')} />
       </Sheet>
       <Sheet open={open === 'undo'} onClose={close} title="Undo last action">
         <UndoFlow onDone={close} />
@@ -67,17 +84,29 @@ export function Sheets({ open, setOpen, onDisplay, onLeft }: Props) {
       <Sheet open={open === 'override'} onClose={close} title="Table override">
         <OverrideFlow onDone={close} />
       </Sheet>
+      <Sheet open={open === 'hostTransfer'} onClose={close} title="Transfer hosting">
+        <HostTransferFlow mode="transfer" onDone={close} />
+      </Sheet>
+      <Sheet open={open === 'backupHost'} onClose={close} title="Backup host">
+        <HostTransferFlow mode="backup" onDone={close} />
+      </Sheet>
+      <Sheet
+        open={open === 'hostRequest'}
+        onClose={close}
+        title={room.hostTransfer?.kind === 'recovery' ? 'Hosting recovery' : 'Hosting request'}
+      >
+        <HostRequestFlow onDone={close} />
+      </Sheet>
     </>
   );
 }
 
 function Menu({ setOpen, onDisplay }: { setOpen: (s: SheetName) => void; onDisplay: () => void }) {
-  const { room, game, me, isHost, run, busy, v, away, serverNow } = useTable();
+  const { room, game, me, isHost, run, busy, v, nameOf, you } = useTable();
   const [sound, setSound] = useState(soundEnabled);
   const [confirmEnd, setConfirmEnd] = useState(false);
   const inHand = !!me?.inHand && handInProgress(game);
-  const hostAway =
-    !isHost && ((!!room.hostId && away(room.hostId)) || (!!room.hostTakeoverAt && serverNow >= room.hostTakeoverAt));
+  const hostingRequest = !!you.id && room.hostTransfer?.targetId === you.id;
   const myRebuy = me ? room.rebuyRequests.find((request) => request.playerId === me.id) : undefined;
   const pendingRebuys = room.rebuyRequests.filter((request) => request.status === 'pending');
   const pendingArrivals = room.lateArrivals.filter((request) => request.status === 'pending');
@@ -96,6 +125,11 @@ function Menu({ setOpen, onDisplay }: { setOpen: (s: SheetName) => void; onDispl
   return (
     <div className="menu">
       <ul className="menu-group">
+        {hostingRequest && item(
+          room.hostTransfer?.kind === 'recovery' ? 'Take over hosting' : 'Hosting request',
+          () => setOpen('hostRequest'),
+          { note: room.hostTransfer?.kind === 'recovery' ? 'The table nominated you' : `${nameOf(room.hostTransfer?.fromId)} asked you` },
+        )}
         {isHost && room.undoLabel && item('Undo last action', () => setOpen('undo'), { note: room.undoLabel })}
         {item('Invite players', () => setOpen('invite'), { note: room.code })}
         {item('Settle up', () => setOpen('settle'))}
@@ -119,10 +153,16 @@ function Menu({ setOpen, onDisplay }: { setOpen: (s: SheetName) => void; onDispl
         </ul>
       )}
 
-      {(isHost || hostAway) && (
+      {isHost && (
         <ul className="menu-group">
           {isHost && item('Game settings', () => setOpen('settings'))}
           {isHost && item('Players and stacks', () => setOpen('players'))}
+          {item('Transfer hosting', () => setOpen('hostTransfer'), {
+            note: room.hostTransfer?.kind === 'planned' ? `Waiting for ${nameOf(room.hostTransfer.targetId)}` : 'Recipient must accept',
+          })}
+          {item('Backup host', () => setOpen('backupHost'), {
+            note: room.backupHostId ? nameOf(room.backupHostId) : 'First asked if you disconnect',
+          })}
           {isHost && item('Rebuy requests', () => setOpen('rebuyRequests'), {
             note: pendingRebuys.length === 0 ? 'None pending' : `${pendingRebuys.length} pending`,
           })}
@@ -177,7 +217,6 @@ function Menu({ setOpen, onDisplay }: { setOpen: (s: SheetName) => void; onDispl
                 note: handInProgress(game) ? 'Finish this hand, then settle' : 'Freeze balances and settle',
               })
             ))}
-          {hostAway && item('Take over hosting', () => run({ type: 'takeHost' }))}
         </ul>
       )}
 
@@ -189,6 +228,89 @@ function Menu({ setOpen, onDisplay }: { setOpen: (s: SheetName) => void; onDispl
           })}
         </ul>
       )}
+    </div>
+  );
+}
+
+function HostTransferFlow({ mode, onDone }: { mode: 'transfer' | 'backup'; onDone: () => void }) {
+  const { room, game, isHost, run, busy, nameOf } = useTable();
+  const [selected, setSelected] = useState(mode === 'backup' ? (room.backupHostId ?? '') : '');
+  const candidates = game.players
+    .map((player) => ({ player, member: room.members.find((member) => member.id === player.id) }))
+    .filter(({ player, member }) => player.id !== room.hostId && !player.sittingOut && !player.leaving && player.stack > 0 &&
+      !!member && !member.manual && member.connections > 0);
+
+  if (!isHost) return <p className="muted">Only the current host can change hosting.</p>;
+
+  if (mode === 'transfer' && room.hostTransfer?.kind === 'planned') {
+    return (
+      <div className="authority-flow">
+        <span className="authority-mark" aria-hidden="true" />
+        <div className="authority-copy">
+          <span className="eyebrow">Request sent</span>
+          <h3>Waiting for {nameOf(room.hostTransfer.targetId)}</h3>
+          <p>You remain the host until they accept. Table Controller stays with {nameOf(room.controllerId)}.</p>
+        </div>
+        <button className="btn btn-quiet btn-lg btn-block" disabled={busy} onClick={async () => {
+          if (await run({ type: 'cancelHostTransfer' })) onDone();
+        }}>Cancel request</button>
+      </div>
+    );
+  }
+
+  if (candidates.length === 0) {
+    return <p className="muted">No connected player is available yet.</p>;
+  }
+
+  return (
+    <div className="authority-flow">
+      <p className="sheet-lead">
+        {mode === 'transfer'
+          ? 'Choose who to ask. You remain the host until they accept.'
+          : 'This player is asked first if you disconnect. You can leave this unset.'}
+      </p>
+      <div className="return-choices" role="radiogroup" aria-label={mode === 'transfer' ? 'New host' : 'Backup host'}>
+        {candidates.map(({ player }) => (
+          <button key={player.id} className="return-choice" role="radio" aria-checked={selected === player.id} onClick={() => setSelected(player.id)}>
+            <span className="choice-dot" aria-hidden="true" />
+            <span><strong>{player.name}</strong><small>{room.controllerId === player.id ? 'Table Controller · connected' : 'Connected at the table'}</small></span>
+          </button>
+        ))}
+      </div>
+      <button className="btn btn-primary btn-xl btn-block" disabled={busy || !selected} onClick={async () => {
+        const ok = mode === 'transfer'
+          ? await run({ type: 'transferHost', playerId: selected })
+          : await run({ type: 'setBackupHost', playerId: selected });
+        if (ok && mode === 'backup') onDone();
+      }}>{mode === 'transfer' ? 'Send hosting request' : 'Set backup host'}</button>
+      {mode === 'backup' && room.backupHostId && (
+        <button className="btn btn-quiet btn-lg btn-block" disabled={busy} onClick={async () => {
+          if (await run({ type: 'setBackupHost' })) onDone();
+        }}>Leave unset</button>
+      )}
+    </div>
+  );
+}
+
+function HostRequestFlow({ onDone }: { onDone: () => void }) {
+  const { room, run, busy, nameOf, you } = useTable();
+  const transfer = room.hostTransfer;
+  if (!transfer || transfer.targetId !== you.id) return <p className="muted">That hosting request is no longer available.</p>;
+  const recovery = transfer.kind === 'recovery';
+  return (
+    <div className="authority-flow">
+      <span className="authority-mark" aria-hidden="true" />
+      <div className="authority-copy">
+        <span className="eyebrow">{recovery ? 'Host unavailable' : `${nameOf(transfer.fromId)} asked you`}</span>
+        <h3>{recovery ? 'Take over hosting?' : 'Become the host?'}</h3>
+        <p>The host manages room settings, players and settlement. Table Controller stays with {nameOf(room.controllerId)}.</p>
+      </div>
+      <button className="btn btn-primary btn-xl btn-block" disabled={busy} onClick={async () => {
+        if (await run({ type: 'respondHostTransfer', allow: true })) onDone();
+      }}>{recovery ? 'Take over hosting' : 'Accept hosting'}</button>
+      <button className="btn btn-quiet btn-lg btn-block" disabled={busy} onClick={async () => {
+        if (await run({ type: 'respondHostTransfer', allow: false })) onDone();
+      }}>Decline</button>
     </div>
   );
 }
@@ -801,11 +923,6 @@ function Players() {
                   >
                     {breakRecord ? 'On break' : 'Put on break'}
                   </button>
-                  {m && !m.manual && room.hostId !== p.id && (
-                    <button className="btn btn-quiet btn-sm" disabled={busy} onClick={() => run({ type: 'transferHost', playerId: p.id })}>
-                      Make host
-                    </button>
-                  )}
                   {m && !m.manual && room.controllerId !== p.id && (
                     <button className="btn btn-quiet btn-sm" disabled={busy} onClick={() => run({ type: 'transferController', playerId: p.id })}>
                       Make controller

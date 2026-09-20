@@ -690,6 +690,27 @@ test('guests cannot take hosting while the unseated creator is connected or stil
   await expect(guest.getByRole('button', { name: 'Take over hosting' })).toHaveCount(0);
 });
 
+test('planned hosting transfer stays pending until the named player accepts', async ({ browser }) => {
+  const ana = await seat(browser, 'Ana');
+  const ben = await seat(browser, 'Ben', codeOf(ana));
+
+  await ana.getByRole('button', { name: 'Menu' }).click();
+  await ana.getByRole('button', { name: 'Transfer hosting' }).click();
+  await ana.getByRole('radio', { name: /Ben/ }).click();
+  await ana.getByRole('button', { name: 'Send hosting request' }).click();
+  await expect(ana.getByRole('dialog', { name: 'Transfer hosting' }).getByText('Waiting for Ben')).toBeVisible();
+
+  const request = ben.getByRole('dialog', { name: 'Hosting request' });
+  await expect(request.getByRole('heading', { name: 'Become the host?' })).toBeVisible();
+  await expect(request.getByText('Table Controller stays with Ana.')).toBeVisible();
+  await request.getByRole('button', { name: 'Accept hosting' }).click();
+
+  await expect(request).toBeHidden();
+  await expect(ana.getByRole('dialog', { name: 'Transfer hosting' })).toBeHidden();
+  await ben.getByRole('button', { name: 'Menu' }).click();
+  await expect(ben.getByRole('button', { name: 'Transfer hosting' })).toBeVisible();
+});
+
 test('unknown table codes and room pages explain themselves', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Join a table' }).click();

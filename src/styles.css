@@ -1135,6 +1135,43 @@ body:has(.table-shell[data-turn]) {
   font-weight: 650;
 }
 
+.host-recovery-band {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 10px var(--gutter) 0;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--brand-pewter) 38%, transparent);
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--brand-denim) 78%, var(--brand-indigo));
+  color: var(--brand-ivory);
+}
+
+.host-recovery-band > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.host-recovery-band strong {
+  font-size: 0.9375rem;
+  font-weight: 650;
+}
+
+.host-recovery-band span:last-child {
+  color: color-mix(in srgb, var(--brand-ivory) 72%, transparent);
+  font-size: 0.78rem;
+}
+
+.host-recovery-dot,
+.authority-mark {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--brand-hibiscus);
+}
+
 .void-review {
   display: flex;
   flex-wrap: wrap;
@@ -2648,6 +2685,32 @@ button.chip-stack:active:not(:disabled) .poker-chip {
   font-weight: 620;
 }
 
+.authority-flow {
+  display: grid;
+  gap: 18px;
+}
+
+.authority-flow > .authority-mark {
+  width: 10px;
+  height: 10px;
+}
+
+.authority-copy {
+  display: grid;
+  gap: 7px;
+}
+
+.authority-copy h3 {
+  color: var(--ink);
+  font-size: 1.7rem;
+  letter-spacing: -0.035em;
+}
+
+.authority-copy p {
+  color: var(--ink-2);
+  font-size: 0.9375rem;
+}
+
 .rebuy-after {
   display: flex;
   justify-content: space-between;
@@ -3493,6 +3556,7 @@ body:has(.display) {
   .offline,
   .claim,
   .final-hand-notice,
+  .host-recovery-band,
   .void-review {
     grid-column: 1 / -1;
   }

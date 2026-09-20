@@ -1,7 +1,7 @@
 import { env } from 'cloudflare:workers';
 import { evictDurableObject, runDurableObjectAlarm, runInDurableObject } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
-import { AWAY_AFTER_MS } from '../../shared/protocol';
+import { AWAY_AFTER_MS, HOST_DISCONNECT_GRACE_MS } from '../../shared/protocol';
 import { originAllowed, randomCode } from '../src/index';
 import { CREATOR_GRACE_MS, FINAL_TTL_MS } from '../src/room';
 import { api, Client, createRoom, table, tokenFor } from './client';
@@ -976,12 +976,72 @@ describe('seats and devices', () => {
       message: 'Transfer hosting before leaving',
     });
     await ana.ok({ type: 'transferHost', playerId: idOf(ben) });
+    expect((await ana.settle()).room.hostId).toBe(idOf(ana));
+    expect(ana.state.room.hostTransfer).toMatchObject({ kind: 'planned', targetId: idOf(ben) });
+    await ben.ok({ type: 'respondHostTransfer', allow: true });
     await ana.ok({ type: 'requestLeave', mode: 'now' });
     const s = await ben.settle();
     expect(s.room.hostId).toBe(idOf(ben));
     expect(s.you.isHost).toBe(true);
     expect(s.room.members.map((member) => member.name)).toEqual(['Ben']);
     expect(s.room.game.players.map((player) => player.name)).toEqual(['Ben']);
+  });
+
+  it('keeps a planned transfer with the host until the named player accepts', async () => {
+    const { clients, idOf } = await table(['Ana', 'Ben', 'Cat']);
+    const [ana, ben, cat] = clients;
+    const logBefore = ana.state.room.log.length;
+    await ana.ok({ type: 'transferHost', playerId: idOf(ben) });
+    expect(await cat.request({ type: 'respondHostTransfer', allow: true })).toMatchObject({ code: 'FORBIDDEN' });
+    expect((await ana.settle()).you.isHost).toBe(true);
+    await ben.ok({ type: 'respondHostTransfer', allow: false });
+    expect((await ana.settle()).room.hostTransfer).toBeNull();
+    expect(ana.state.room.log).toHaveLength(logBefore);
+
+    await ana.ok({ type: 'transferHost', playerId: idOf(cat) });
+    await ana.ok({ type: 'cancelHostTransfer' });
+    expect((await cat.settle()).room.hostTransfer).toBeNull();
+    expect(ana.state.you.isHost).toBe(true);
+  });
+
+  it('asks the configured backup first and leaves Table Controller unchanged', async () => {
+    const { code, clients, idOf } = await table(['Ana', 'Ben', 'Cat']);
+    const [ana, ben, cat] = clients;
+    await ana.ok({ type: 'setBackupHost', playerId: idOf(cat) });
+    expect((await ben.settle()).room.backupHostId).toBe(idOf(cat));
+    ana.ws.close(1000, 'bye');
+    await new Promise((r) => setTimeout(r, 50));
+    const stub = env.ROOMS.get(env.ROOMS.idFromName(code));
+    await runInDurableObject(stub, async (instance: unknown) => {
+      (instance as { s: { hostAwaySince: number } }).s.hostAwaySince = Date.now() - HOST_DISCONNECT_GRACE_MS - 1;
+    });
+    expect(await runDurableObjectAlarm(stub)).toBe(true);
+    await cat.settle();
+    expect(cat.state.room.hostTransfer).toMatchObject({ kind: 'recovery', targetId: idOf(cat) });
+    await cat.ok({ type: 'respondHostTransfer', allow: true });
+    expect(cat.state.you.isHost).toBe(true);
+    expect(cat.state.room.controllerId).toBe(idOf(ana));
+    expect(cat.state.room.log.at(-1)?.text).toBe('Cat is now the host');
+  });
+
+  it('cancels recovery when the original host reconnects before acceptance', async () => {
+    const { code, clients, idOf } = await table(['Ana', 'Ben']);
+    const [ana, ben] = clients;
+    ana.ws.close(1000, 'bye');
+    await new Promise((r) => setTimeout(r, 50));
+    const stub = env.ROOMS.get(env.ROOMS.idFromName(code));
+    await runInDurableObject(stub, async (instance: unknown) => {
+      (instance as { s: { hostAwaySince: number } }).s.hostAwaySince = Date.now() - HOST_DISCONNECT_GRACE_MS - 1;
+    });
+    expect(await runDurableObjectAlarm(stub)).toBe(true);
+    await ben.settle();
+    expect(ben.state.room.hostTransfer).toMatchObject({ kind: 'recovery', targetId: idOf(ben) });
+
+    const returned = await Client.connect(code, tokenFor(1));
+    await ben.settle();
+    expect(returned.state.you.id).toBe(idOf(ana));
+    expect(ben.state.room.hostTransfer).toBeNull();
+    expect(ben.state.room.hostId).toBe(idOf(ana));
   });
 
   it('lets a player finish the hand before leaving and keeps their result in settlement', async () => {
@@ -1047,12 +1107,21 @@ describe('seats and devices', () => {
     ]);
   });
 
-  it('host can be taken over only when the host is away', async () => {
-    const { clients } = await table(['Ana', 'Ben']);
+  it('offers recovery only after the host grace period and only the nominee can accept', async () => {
+    const { code, clients, idOf } = await table(['Ana', 'Ben', 'Cat']);
     const [ana, ben] = clients;
     expect(await ben.request({ type: 'takeHost' })).toMatchObject({ code: 'FORBIDDEN' });
     ana.ws.close(1000, 'bye');
     await new Promise((r) => setTimeout(r, 50));
+    expect((await ben.settle()).room.hostTransfer).toBeNull();
+    const stub = env.ROOMS.get(env.ROOMS.idFromName(code));
+    await runInDurableObject(stub, async (instance: unknown) => {
+      (instance as { s: { hostAwaySince: number } }).s.hostAwaySince = Date.now() - HOST_DISCONNECT_GRACE_MS - 1;
+    });
+    expect(await runDurableObjectAlarm(stub)).toBe(true);
+    await ben.settle();
+    expect(ben.state.room.hostTransfer).toMatchObject({ kind: 'recovery', targetId: idOf(ben) });
+    expect(await clients[2].request({ type: 'takeHost' })).toMatchObject({ code: 'FORBIDDEN' });
     await ben.ok({ type: 'takeHost' });
     expect(ben.state.you.isHost).toBe(true);
   });
@@ -1071,7 +1140,7 @@ describe('seats and devices', () => {
     expect(await guest.request({ type: 'takeHost' })).toMatchObject({
       type: 'err',
       code: 'FORBIDDEN',
-      message: 'The room creator is still connected',
+      message: 'Wait until the table nominates you',
     });
     expect(guest.state.room.hostTakeoverAt).toBeNull();
 
@@ -1087,6 +1156,7 @@ describe('seats and devices', () => {
     expect(await runDurableObjectAlarm(stub)).toBe(true);
     await guest.settle();
     expect(guest.state.room.hostTakeoverAt).not.toBeNull();
+    expect(guest.state.room.hostTransfer).toMatchObject({ kind: 'recovery', targetId: guest.state.you.id });
     await guest.ok({ type: 'takeHost' });
     expect(guest.state.you).toMatchObject({ isHost: true, isController: true });
     expect(guest.state.room.hostTakeoverAt).toBeNull();

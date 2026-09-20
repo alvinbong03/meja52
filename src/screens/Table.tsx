@@ -15,7 +15,7 @@ import { chipLabel } from '../lib/chips';
 import { useTable } from '../lib/table';
 
 export function Table({ onDisplay, onLeft }: { onDisplay: () => void; onLeft: () => void }) {
-  const { room, game, you, conn, isHost, run, busy, v } = useTable();
+  const { room, game, you, conn, isHost, run, busy, v, away, nameOf, serverNow } = useTable();
   const [sheet, setSheet] = useState<SheetName>(null);
   const myTurn = !!you.legal;
   const lateArrival = room.lateArrivals.find((request) => request.playerId === you.id);
@@ -45,10 +45,38 @@ export function Table({ onDisplay, onLeft }: { onDisplay: () => void; onLeft: ()
     );
   }
 
+  const hostMissing = room.hostId ? away(room.hostId) : !!room.hostRecoveryAt;
+  const recoveryTransfer = room.hostTransfer?.kind === 'recovery' ? room.hostTransfer : null;
+  const recoverySeconds = room.hostRecoveryAt ? Math.max(0, Math.ceil((room.hostRecoveryAt - serverNow) / 1000)) : 0;
+  const nextHostId = room.backupHostId ?? room.members.find((member) =>
+    member.id !== room.hostId && !member.manual && member.connections > 0 && game.players.some((player) => player.id === member.id && !player.sittingOut && !player.leaving && player.stack > 0),
+  )?.id;
+
   return (
     <div className="table-shell" data-turn={myTurn || undefined} data-host={isHost || undefined} data-phase={game.phase} onPointerDown={unlockAudio}>
       <Header onInvite={() => setSheet('invite')} onMenu={() => setSheet('menu')} />
       <Claims />
+      {hostMissing && (
+        <div className="host-recovery-band" role="status" aria-live="polite">
+          <span className="host-recovery-dot" aria-hidden="true" />
+          <div>
+            <strong>
+              {recoveryTransfer
+                ? `${nameOf(recoveryTransfer.targetId)} is being asked to host`
+                : recoverySeconds > 0
+                  ? `Host reconnecting · ${recoverySeconds}s`
+                  : 'Waiting for a host'}
+            </strong>
+            <span>
+              {recoveryTransfer
+                ? 'The table stays as it is until they accept.'
+                : recoverySeconds > 0
+                  ? `This hand can continue${nextHostId ? ` · ${nameOf(nextHostId)} will be asked next` : ''}.`
+                  : 'This hand is preserved. Host-only decisions will wait.'}
+            </span>
+          </div>
+        </div>
+      )}
       {room.endingAfterHand && (
         <div className="final-hand-notice" role="status">
           <strong>Final hand</strong>

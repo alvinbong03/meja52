@@ -260,3 +260,23 @@ Live per-recipient balance privacy       PASS
 ```
 
 The deployment is suitable for continued alpha testing. The approved host-transfer recovery, seating-lobby, tactile chip interaction, accessibility polish and long real-device soak gates remain outstanding before declaring public Release 1 complete.
+
+### Accepted host transfer and disconnect recovery — 20 September 2026
+
+- Replaced immediate host reassignment with a named, 30-second request that keeps the current host in authority until the recipient accepts. The host can cancel; the recipient can decline; only acceptance is written to the public table history.
+- Added an optional backup host, independent Table Controller authority, a 60-second disconnect grace period, deterministic longest-connected fallback nomination and explicit recovery acceptance. No player has a general-purpose takeover action.
+- A reconnecting original host cancels recovery before acceptance. Unavailable, declined or expired nominees advance to the next eligible active player; with nobody eligible, the room and current hand remain preserved while host-only decisions wait.
+- Added the four approved Impeccable states: pending transfer, recipient request, compact reconnecting status band and nominated recovery request. The controls use the existing Batik Indigo, Denim Lift, Batik Ivory and restrained Hibiscus system.
+- Marked the owner-approved comp and implementation brief as approved.
+
+Verification:
+
+```text
+npm run typecheck                         PASS
+npm test                                  PASS (66 unit, 56 Worker)
+npm run test:e2e                          PASS (20 existing workflows)
+planned transfer browser workflow         PASS
+npm run build                             PASS
+Impeccable detector                       PASS (0 findings)
+git diff --check                          PASS
+```

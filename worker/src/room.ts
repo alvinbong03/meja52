@@ -30,6 +30,8 @@ import { cleanName, sameName } from '../../shared/names';
 import { ledger, netsInCents, settleUp } from '../../shared/settle';
 import {
   AWAY_AFTER_MS,
+  HOST_DISCONNECT_GRACE_MS,
+  HOST_TRANSFER_RESPONSE_MS,
   MAX_MESSAGE_BYTES,
   parseClientMessage,
   PING,
@@ -41,6 +43,7 @@ import {
   type LogEntry,
   type LogKind,
   type LeaveRequestView,
+  type HostTransferView,
   type LateArrivalView,
   type VoidProposalView,
   type MemberView,
@@ -116,6 +119,10 @@ interface Stored {
   controllerId?: string | null;
   /** One-time bootstrap capability. Cleared as soon as the creator takes a seat. */
   hostTokenHash?: string | null;
+  backupHostId?: string | null;
+  hostTransfer?: HostTransferView | null;
+  hostAwaySince?: number | null;
+  hostRecoveryDeclinedIds?: string[];
   currency?: CurrencyCode;
   members: Member[];
   game: Game;
@@ -213,6 +220,10 @@ export class Room extends DurableObject<Env> {
         hostId: null,
         controllerId: null,
         hostTokenHash: await sha256(`${code}:${creatorToken}`),
+        backupHostId: null,
+        hostTransfer: null,
+        hostAwaySince: null,
+        hostRecoveryDeclinedIds: [],
         currency: currency ?? 'USD',
         members: [],
         game: createGame(settings ?? DEFAULT_SETTINGS),
@@ -348,9 +359,9 @@ export class Room extends DurableObject<Env> {
     const expiry = this.expiryAt();
     if (now < expiry) {
       this.alarmAt = null;
-      if (this.s.hostTokenHash && now >= this.s.createdAt + CREATOR_GRACE_MS && !this.creatorCapabilityPresent()) {
-        this.broadcast();
-      }
+      const changed = this.reconcileHostAuthority(now);
+      if (changed) this.persist();
+      this.broadcast();
       this.scheduleAlarm();
       return;
     }
@@ -365,7 +376,8 @@ export class Room extends DurableObject<Env> {
       att.tokenHash = await sha256(`${s.code}:${msg.token}`);
       att.memberId = s.members.find((m) => m.tokenHash === att.tokenHash)?.id ?? null;
       ws.serializeAttachment(att);
-      this.scheduleAlarm();
+      if (this.reconcileHostAuthority(Date.now())) this.persist();
+      else this.scheduleAlarm();
       this.broadcast();
       return;
     }
@@ -427,6 +439,9 @@ export class Room extends DurableObject<Env> {
           s.hostId = member.id;
           s.controllerId ??= member.id;
           s.hostTokenHash = null;
+          s.hostAwaySince = null;
+          s.hostTransfer = null;
+          s.hostRecoveryDeclinedIds = [];
         }
         if (s.game.phase === 'lobby') {
           s.game = addPlayer(s.game, member.id, name);
@@ -1147,11 +1162,54 @@ export class Room extends DurableObject<Env> {
       case 'transferHost': {
         const host = requireHost();
         const target = s.members.find((x) => x.id === msg.playerId) ?? deny('INVALID', 'Unknown player');
+        if (target.id === host.id) deny('INVALID', 'You are already the host');
         if (target.manual) deny('INVALID', 'That seat has no phone');
         if (!findPlayer(s.game, target.id)) deny('PHASE', 'That player is still waiting for a seat');
-        s.hostId = target.id;
-        s.hostTokenHash = null;
-        this.log('table', `${host.name} made ${target.name} the host`);
+        if (!this.hostCandidate(target)) deny('INVALID', `${target.name} is not available to host`);
+        const now = Date.now();
+        s.hostTransfer = { kind: 'planned', fromId: host.id, targetId: target.id, requestedAt: now, expiresAt: now + HOST_TRANSFER_RESPONSE_MS };
+        s.v += 1;
+        this.commit();
+        return;
+      }
+      case 'cancelHostTransfer': {
+        requireHost();
+        if (s.hostTransfer?.kind !== 'planned') deny('INVALID', 'There is no transfer request to cancel');
+        s.hostTransfer = null;
+        s.v += 1;
+        this.commit();
+        return;
+      }
+      case 'respondHostTransfer': {
+        const member = requireMember();
+        const transfer = s.hostTransfer ?? deny('INVALID', 'That hosting request is no longer available');
+        if (transfer.targetId !== member.id) deny('FORBIDDEN', 'That hosting request is for another player');
+        if (Date.now() >= transfer.expiresAt) {
+          this.expireHostTransfer(transfer);
+          this.commit();
+          deny('INVALID', 'That hosting request expired');
+        }
+        if (!msg.allow) {
+          this.declineHostTransfer(transfer, member.id);
+          s.v += 1;
+          this.commit();
+          return;
+        }
+        this.acceptHostTransfer(member, transfer);
+        this.commit();
+        return;
+      }
+      case 'setBackupHost': {
+        const host = requireHost();
+        if (msg.playerId === undefined) {
+          s.backupHostId = null;
+        } else {
+          const target = s.members.find((x) => x.id === msg.playerId) ?? deny('INVALID', 'Unknown player');
+          if (target.id === host.id) deny('INVALID', 'Choose another player');
+          if (!this.hostCandidate(target)) deny('INVALID', 'Choose an active player with a connected phone');
+          s.backupHostId = target.id;
+        }
+        s.v += 1;
         this.commit();
         return;
       }
@@ -1167,18 +1225,11 @@ export class Room extends DurableObject<Env> {
       }
       case 'takeHost': {
         const m = requireMember();
-        if (m.manual) deny('FORBIDDEN', 'Not allowed');
-        if (!findPlayer(s.game, m.id)) deny('FORBIDDEN', 'Join the table before taking over hosting');
-        if (s.hostTokenHash) {
-          if (this.creatorCapabilityPresent()) deny('FORBIDDEN', 'The room creator is still connected');
-          if (Date.now() < s.createdAt + CREATOR_GRACE_MS) deny('FORBIDDEN', 'The room creator still has time to join');
+        const transfer = s.hostTransfer ?? deny('FORBIDDEN', 'Wait until the table nominates you');
+        if (transfer.kind !== 'recovery' || transfer.targetId !== m.id) {
+          deny('FORBIDDEN', 'Wait until the table nominates you');
         }
-        const host = s.members.find((x) => x.id === s.hostId);
-        if (host && !this.isAway(host)) deny('FORBIDDEN', `${host.name} is still hosting`);
-        s.hostId = m.id;
-        s.controllerId ??= m.id;
-        s.hostTokenHash = null;
-        this.log('table', `${m.name} is now the host`);
+        this.acceptHostTransfer(m, transfer);
         this.commit();
         return;
       }
@@ -1535,6 +1586,8 @@ export class Room extends DurableObject<Env> {
     s.breaks = (s.breaks ?? []).filter((r) => r.playerId !== target.id);
     s.leaveRequests = (s.leaveRequests ?? []).filter((r) => r.playerId !== target.id);
     s.lateArrivals = (s.lateArrivals ?? []).filter((r) => r.playerId !== target.id);
+    if (s.backupHostId === target.id) s.backupHostId = null;
+    if (s.hostTransfer?.targetId === target.id) s.hostTransfer = null;
     if (s.controllerId === target.id) s.controllerId = s.hostId;
     if (!closeSocket) return;
     for (const ws of this.ctx.getWebSockets()) {
@@ -1600,11 +1653,152 @@ export class Room extends DurableObject<Env> {
     this.scheduleAlarm();
   }
 
+  private hostCandidate(member: Member) {
+    const s = this.s as Stored;
+    const player = findPlayer(s.game, member.id);
+    const leaving = (s.leaveRequests ?? []).some((request) => request.playerId === member.id);
+    return !member.manual && !!player && !player.sittingOut && !player.leaving && player.stack > 0 && !leaving && !this.isAway(member);
+  }
+
+  private hostRecoveryAt() {
+    const s = this.s as Stored;
+    if (s.hostId) return s.hostAwaySince ? s.hostAwaySince + HOST_DISCONNECT_GRACE_MS : null;
+    if (s.hostTokenHash) {
+      const lastSeen = this.creatorCapabilityLastSeen();
+      return Math.max(s.createdAt + CREATOR_GRACE_MS, lastSeen ? lastSeen + AWAY_AFTER_MS : 0);
+    }
+    return s.createdAt;
+  }
+
+  private nominateRecovery(now = Date.now()) {
+    const s = this.s as Stored;
+    const declined = new Set(s.hostRecoveryDeclinedIds ?? []);
+    const eligible = s.members
+      .filter((member) => member.id !== s.hostId && !declined.has(member.id) && this.hostCandidate(member))
+      .sort((a, b) => a.joinedAt - b.joinedAt);
+    const backup = s.backupHostId ? eligible.find((member) => member.id === s.backupHostId) : undefined;
+    const target = backup ?? eligible[0];
+    if (!target) {
+      s.hostTransfer = null;
+      return;
+    }
+    s.hostTransfer = {
+      kind: 'recovery',
+      fromId: s.hostId,
+      targetId: target.id,
+      requestedAt: now,
+      expiresAt: now + HOST_TRANSFER_RESPONSE_MS,
+    };
+  }
+
+  private declineHostTransfer(transfer: HostTransferView, memberId: string) {
+    const s = this.s as Stored;
+    s.hostTransfer = null;
+    if (transfer.kind === 'recovery') {
+      s.hostRecoveryDeclinedIds = [...new Set([...(s.hostRecoveryDeclinedIds ?? []), memberId])];
+      this.nominateRecovery();
+    }
+  }
+
+  private expireHostTransfer(transfer: HostTransferView) {
+    this.declineHostTransfer(transfer, transfer.targetId);
+  }
+
+  private acceptHostTransfer(member: Member, transfer: HostTransferView) {
+    const s = this.s as Stored;
+    if (!this.hostCandidate(member) || (transfer.kind === 'planned' && transfer.fromId !== s.hostId)) {
+      s.hostTransfer = null;
+      s.v += 1;
+      this.persist();
+      deny('INVALID', 'That hosting request is no longer available');
+    }
+    if (transfer.kind === 'recovery') {
+      const host = s.hostId ? s.members.find((candidate) => candidate.id === s.hostId) : undefined;
+      if ((host && !this.isAway(host)) || (!s.hostId && s.hostTokenHash && this.creatorCapabilityPresent())) {
+        s.hostTransfer = null;
+        s.hostAwaySince = null;
+        s.hostRecoveryDeclinedIds = [];
+        deny('INVALID', 'The host is back');
+      }
+    }
+    s.hostId = member.id;
+    s.controllerId ??= member.id;
+    s.hostTokenHash = null;
+    if (s.backupHostId === member.id) s.backupHostId = null;
+    s.hostTransfer = null;
+    s.hostAwaySince = null;
+    s.hostRecoveryDeclinedIds = [];
+    s.v += 1;
+    this.log('table', `${member.name} is now the host`);
+  }
+
+  private reconcileHostAuthority(now = Date.now()) {
+    const s = this.s as Stored;
+    let changed = false;
+    s.hostRecoveryDeclinedIds ??= [];
+
+    if (s.hostTransfer?.kind === 'planned') {
+      const target = s.members.find((member) => member.id === s.hostTransfer?.targetId);
+      if (!target || !this.hostCandidate(target) || now >= s.hostTransfer.expiresAt || s.hostTransfer.fromId !== s.hostId) {
+        s.hostTransfer = null;
+        changed = true;
+      }
+    }
+
+    const host = s.hostId ? s.members.find((member) => member.id === s.hostId) : undefined;
+    const hostPresent = host ? !this.isAway(host) : !!s.hostTokenHash && this.creatorCapabilityPresent();
+    if (hostPresent) {
+      if (s.hostAwaySince !== null && s.hostAwaySince !== undefined) changed = true;
+      s.hostAwaySince = null;
+      s.hostRecoveryDeclinedIds = [];
+      if (s.hostTransfer?.kind === 'recovery') {
+        s.hostTransfer = null;
+        changed = true;
+      }
+      return changed;
+    }
+
+    if (s.hostId && !s.hostAwaySince) {
+      s.hostAwaySince = now;
+      changed = true;
+    }
+
+    if (s.hostTransfer?.kind === 'recovery') {
+      const target = s.members.find((member) => member.id === s.hostTransfer?.targetId);
+      if (!target || !this.hostCandidate(target) || now >= s.hostTransfer.expiresAt) {
+        const expired = s.hostTransfer;
+        this.expireHostTransfer(expired);
+        changed = true;
+      }
+    }
+
+    const recoveryAt = this.hostRecoveryAt();
+    if (recoveryAt !== null && now >= recoveryAt && !s.hostTransfer) {
+      this.nominateRecovery(now);
+      changed = true;
+    }
+    return changed;
+  }
+
   private scheduleAlarm() {
     const s = this.s;
     if (!s) return;
     const now = Date.now();
     let deadline = this.expiryAt();
+    if (s.settlement?.finalizedAt) {
+      if (this.alarmAt === null || Math.abs(deadline - this.alarmAt) > 1000) {
+        this.alarmAt = deadline;
+        void this.ctx.storage.setAlarm(deadline);
+      }
+      return;
+    }
+    if (s.hostTransfer) deadline = Math.min(deadline, s.hostTransfer.expiresAt);
+    const recoveryAt = this.hostRecoveryAt();
+    if (recoveryAt && recoveryAt > now) deadline = Math.min(deadline, recoveryAt);
+    if (s.hostId && !s.hostAwaySince) {
+      const hostPresence = this.presence(s.hostId);
+      if (hostPresence.lastSeen > 0) deadline = Math.min(deadline, hostPresence.lastSeen + AWAY_AFTER_MS);
+    }
     if (s.hostTokenHash) {
       const lastSeen = this.creatorCapabilityLastSeen();
       const takeoverAt = Math.max(s.createdAt + CREATOR_GRACE_MS, lastSeen ? lastSeen + AWAY_AFTER_MS : 0);
@@ -1717,7 +1911,9 @@ export class Room extends DurableObject<Env> {
     this.lastMsg.delete(att.connId);
     const before = this.s.claims.length;
     this.s.claims = this.s.claims.filter((c) => c.connId !== att.connId);
-    if (before !== this.s.claims.length) this.persist();
+    const authorityChanged = this.reconcileHostAuthority(Date.now());
+    if (before !== this.s.claims.length || authorityChanged) this.persist();
+    else this.scheduleAlarm();
     this.broadcast(ws);
   }
 
@@ -1737,6 +1933,7 @@ export class Room extends DurableObject<Env> {
 
   private view(): RoomView {
     const s = this.s as Stored;
+    const recoveryAt = !s.hostId && s.hostTokenHash && this.creatorCapabilityPresent() ? null : this.hostRecoveryAt();
     const members: MemberView[] = s.members.map((m) => ({
       id: m.id,
       name: m.name,
@@ -1748,7 +1945,10 @@ export class Room extends DurableObject<Env> {
       code: s.code,
       createdAt: s.createdAt,
       hostId: s.hostId,
-      hostTakeoverAt: s.hostTokenHash && !this.creatorCapabilityPresent() ? s.createdAt + CREATOR_GRACE_MS : null,
+      hostTakeoverAt: recoveryAt,
+      backupHostId: s.backupHostId ?? null,
+      hostTransfer: s.hostTransfer ?? null,
+      hostRecoveryAt: recoveryAt,
       controllerId: s.controllerId ?? s.hostId,
       currency: s.currency ?? 'USD',
       members,

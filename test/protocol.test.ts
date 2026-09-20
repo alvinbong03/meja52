@@ -20,6 +20,10 @@ describe('parseClientMessage', () => {
       type: 'transferController',
       playerId: 'abcdef0123456789',
     });
+    expect(parse({ type: 'cancelHostTransfer' })).toEqual({ type: 'cancelHostTransfer' });
+    expect(parse({ type: 'respondHostTransfer', allow: true })).toEqual({ type: 'respondHostTransfer', allow: true });
+    expect(parse({ type: 'setBackupHost', playerId: 'abcdef0123456789' })).toEqual({ type: 'setBackupHost', playerId: 'abcdef0123456789' });
+    expect(parse({ type: 'setBackupHost' })).toEqual({ type: 'setBackupHost' });
     expect(parse({ type: 'endGame', v: 7 })).toEqual({ type: 'endGame', v: 7 });
     expect(parse({ type: 'cancelEndGame', v: 8 })).toEqual({ type: 'cancelEndGame', v: 8 });
     expect(parse({ type: 'undo', v: 8, mode: 'correct' })).toEqual({ type: 'undo', v: 8, mode: 'correct' });
@@ -88,6 +92,8 @@ describe('parseClientMessage', () => {
       { type: 'resolveRebuy', v: 1, requestId: 'abcdef0123456789', allow: true },
       { type: 'resolveRebuy', v: 1, requestId: 'abcdef0123456789', allow: false, amount: '100' },
       { type: 'requestLeave', mode: 'eventually' },
+      { type: 'respondHostTransfer', allow: 'yes' },
+      { type: 'setBackupHost', playerId: '<script>' },
       { type: 'undo', v: 1, mode: 'guess' },
       { type: 'previewVoid', v: 1, reason: '', advanceButton: false },
       { type: 'previewVoid', v: 1, reason: '   ', advanceButton: false },
