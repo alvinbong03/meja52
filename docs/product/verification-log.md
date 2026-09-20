@@ -145,3 +145,13 @@ Type checking, the production build, and the focused phone-landscape workflow pa
 - Runout choice, dealing completion and awards remain visible in public table state and audit history.
 
 Verification passed: 56 unit tests, 44 Worker integration tests, production build, and all 18 Playwright browser workflows. Coverage includes two physical runouts with a main pot, side pot, different eligibility, transferred Table Controller and exact final balances.
+
+### Award preview, dispute and governed table override
+
+- Winner selection now creates a public award preview; no stack changes until the Table Controller confirms it.
+- Any seated player can dispute the preview before confirmation. The host or Table Controller can return to normal eligible-winner selection.
+- A disputed result can instead use an explicitly labelled **Table override — not rules-validated** distribution, including otherwise ineligible or folded players.
+- Overrides must assign exactly the selected pot total, preserve the audit history, and receive approval from the Table Controller plus one other currently connected player before the host can confirm.
+- The same review gate applies to ordinary awards, ties, side pots and each physical runout.
+
+Verification passed: 57 unit tests, 45 Worker integration tests, production build, and 19 Playwright browser workflows. Browser coverage includes a three-device dispute where a folded player receives a conserved table override only after the second-player approval gate.

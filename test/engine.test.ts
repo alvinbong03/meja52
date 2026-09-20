@@ -10,6 +10,7 @@ import {
   LIMITS,
   potTotal,
   physicalRunoutLimit,
+  overridePots,
   rebuy,
   addBuyIn,
   returnWithPost,
@@ -306,6 +307,19 @@ describe('pots and showdown', () => {
     expect(g.pots.map((x) => [x.amount, x.eligible])).toEqual([[25, ['p0', 'p2']]]);
     g = award(g, { 0: ['p0', 'p2'] });
     expect(stacks(g)).toEqual({ p0: 1002, p1: 995, p2: 1003 });
+  });
+
+  it('a governed override can pay a folded player but must conserve every selected pot', () => {
+    let g = startHand(table([1000, 1000, 1000]));
+    g = call(g, 'p0');
+    g = fold(g, 'p1');
+    g = checkDown(check(g, 'p2'));
+    expect(g.pots[0].eligible).not.toContain('p1');
+    expect(() => overridePots(g, [g.pots[0].id], { p1: g.pots[0].amount - 1 })).toThrow(RuleError);
+    g = overridePots(g, [g.pots[0].id], { p1: g.pots[0].amount });
+    expect(g.phase).toBe('done');
+    expect(g.results).toContainEqual({ potId: 0, id: 'p1', amount: 25 });
+    expect(chipsInPlay(g)).toBe(3000);
   });
 
   it('three way tie with two odd chips pays clockwise from the button', () => {

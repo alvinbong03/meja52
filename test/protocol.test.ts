@@ -32,6 +32,12 @@ describe('parseClientMessage', () => {
     expect(parse({ type: 'confirmVoid', v: 12 })).toEqual({ type: 'confirmVoid', v: 12 });
     expect(parse({ type: 'chooseRunouts', v: 13, count: 2, agreed: true })).toEqual({ type: 'chooseRunouts', v: 13, count: 2, agreed: true });
     expect(parse({ type: 'completeRunout', v: 14 })).toEqual({ type: 'completeRunout', v: 14 });
+    expect(parse({ type: 'confirmAward', v: 15 })).toEqual({ type: 'confirmAward', v: 15 });
+    expect(parse({ type: 'disputeAward', v: 16 })).toEqual({ type: 'disputeAward', v: 16 });
+    expect(parse({ type: 'proposeOverride', v: 17, reason: 'Table ruling', allocations: { abcdef01: 30 } })).toEqual({
+      type: 'proposeOverride', v: 17, reason: 'Table ruling', allocations: { abcdef01: 30 },
+    });
+    expect(parse({ type: 'approveOverride', v: 18 })).toEqual({ type: 'approveOverride', v: 18 });
     expect(parse({ type: 'requestRebuy', amount: 100 })).toEqual({ type: 'requestRebuy', amount: 100 });
     expect(parse({ type: 'cancelRebuy', requestId: 'abcdef0123456789' })).toEqual({
       type: 'cancelRebuy',
@@ -82,6 +88,9 @@ describe('parseClientMessage', () => {
       { type: 'previewVoid', v: 1, reason: 'Misdeal', advanceButton: 'no' },
       { type: 'chooseRunouts', v: 1, count: 5, agreed: true },
       { type: 'chooseRunouts', v: 1, count: 2, agreed: 'yes' },
+      { type: 'proposeOverride', v: 1, reason: '', allocations: { abcdef01: 30 } },
+      { type: 'proposeOverride', v: 1, reason: 'Correction', allocations: { '<script>': 30 } },
+      { type: 'proposeOverride', v: 1, reason: 'Correction', allocations: { abcdef01: 1.5 } },
       { type: 'chooseLateArrival', mode: 'later' },
       { type: 'resolveLateArrival', v: 1, requestId: 'abcdef0123456789', allow: true },
       { type: 'award', v: 1, winners: { x: ['abcdef01'] } },

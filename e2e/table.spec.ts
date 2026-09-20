@@ -60,6 +60,11 @@ async function stageAndPlace(page: Page, action: string | RegExp, amount: number
   await page.getByRole('button', { name: `Place ${amount}` }).click();
 }
 
+async function confirmAward(page: Page) {
+  await expect(page.getByText('Award preview', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Confirm award' }).click();
+}
+
 test('three players play a hand from deal to payout', async ({ browser }) => {
   const ana = await seat(browser, 'Ana');
   const code = codeOf(ana);
@@ -89,6 +94,7 @@ test('three players play a hand from deal to payout', async ({ browser }) => {
   await expect(cat.getByText('Waiting for Ana to confirm the winner')).toBeVisible();
   await ana.locator('.win-row').filter({ hasText: 'Ben' }).click();
   await ana.getByRole('button', { name: 'Pay Ben 130' }).click();
+  await confirmAward(ana);
 
   await expect(ana.locator('.stage-line')).toHaveText('Ben takes it');
   await expect(stackOf(ana, 'Ben')).toHaveText('1,070');
@@ -104,6 +110,40 @@ test('three players play a hand from deal to payout', async ({ browser }) => {
   await ana.getByRole('button', { name: /Deal next hand/ }).click();
   await expect(ana.getByText('Hand 2', { exact: true })).toBeVisible();
   for (const p of [ana, ben, cat]) expect((p as Page & { errors: string[] }).errors).toEqual([]);
+});
+
+test('a disputed award is publicly reviewed before a governed table override', async ({ browser }) => {
+  const ana = await seat(browser, 'Ana');
+  const code = codeOf(ana);
+  const ben = await seat(browser, 'Ben', code);
+  const cat = await seat(browser, 'Cat', code);
+  await ana.getByRole('button', { name: 'Deal the first hand' }).click();
+  await ana.getByRole('button', { name: 'Raise' }).click();
+  await ana.getByRole('button', { name: /Custom/ }).click();
+  await ana.getByLabel('Custom amount').fill('60');
+  await ana.getByRole('button', { name: 'Place 60' }).click();
+  await stageAndPlace(ben, 'Call 55', 55);
+  await expect(yourTurn(cat)).toBeVisible();
+  await cat.getByRole('button', { name: 'Fold' }).click();
+  for (let i = 0; i < 6; i++) await actWhoeverIsUp([ana, ben], 'Check');
+
+  await ana.locator('.win-row').filter({ hasText: 'Ben' }).click();
+  await ana.getByRole('button', { name: 'Pay Ben 130' }).click();
+  await expect(cat.getByText('Award preview', { exact: true })).toBeVisible();
+  await cat.getByRole('button', { name: 'Dispute' }).click();
+  await expect(ben.getByText('Payout disputed')).toBeVisible();
+
+  await ana.getByRole('button', { name: 'Table override…' }).click();
+  await ana.getByLabel('Ana').fill('0');
+  await ana.getByLabel('Ben').fill('0');
+  await ana.getByLabel('Cat').fill('130');
+  await ana.getByRole('button', { name: 'Preview override' }).click();
+  await expect(cat.getByText('Not rules-validated')).toBeVisible();
+  await cat.getByRole('button', { name: 'Approve table ruling' }).click();
+  await expect(ana.getByRole('button', { name: 'Confirm override' })).toBeEnabled();
+  await ana.getByRole('button', { name: 'Confirm override' }).click();
+  await expect(stackOf(ana, 'Cat')).toHaveText('1,120');
+  for (const page of [ana, ben, cat]) expect((page as Page & { errors: string[] }).errors).toEqual([]);
 });
 
 test('the host ends after the current hand and everyone receives frozen settlement', async ({ browser }) => {
@@ -307,6 +347,7 @@ test('short stack all in creates a side pot that pays the right people', async (
     await main.getByRole('button', { name: 'Ben' }).click();
     await side.getByRole('button', { name: 'Cat' }).click();
     await ana.getByRole('button', { name: 'Pay out' }).click();
+    await confirmAward(ana);
   }
 
   await expect(stackOf(ana, 'Ben')).toHaveText('300');
@@ -350,6 +391,7 @@ test('two players with the same hand chop the pot', async ({ browser }) => {
   await expect(ana.getByText('Chopped two ways. 15 each.')).toBeVisible();
 
   await ana.getByRole('button', { name: 'Chop 30 two ways' }).click();
+  await confirmAward(ana);
   await expect(ben.locator('.stage-line')).toHaveText(/chop it/);
   await expect(stackOf(cat, 'Ana')).toHaveText('1,005');
   await expect(stackOf(cat, 'Ben')).toHaveText('1,005');

@@ -3,7 +3,6 @@ import {
   act,
   addBuyIn,
   addPlayer,
-  award,
   awardPots,
   bySeat,
   createGame,
@@ -13,6 +12,7 @@ import {
   legalActions,
   potTotal,
   physicalRunoutLimit,
+  overridePots,
   removePlayer,
   returnWithPost,
   RuleError,
@@ -46,6 +46,8 @@ import {
   type RoomView,
   type RebuyRequestView,
   type RunoutPlanView,
+  type AwardProposalView,
+  type OverrideProposalView,
   type ServerMessage,
   type CurrencyCode,
 } from '../../shared/protocol';
@@ -94,6 +96,8 @@ interface Snapshot {
   lateArrivals?: LateArrivalView[];
   handStart?: Game | null;
   runoutPlan?: StoredRunoutPlan | null;
+  awardProposal?: AwardProposalView | null;
+  overrideProposal?: OverrideProposalView | null;
 }
 
 interface Stored {
@@ -120,6 +124,8 @@ interface Stored {
   voidProposal?: VoidProposalView | null;
   correctionForId?: string | null;
   runoutPlan?: StoredRunoutPlan | null;
+  awardProposal?: AwardProposalView | null;
+  overrideProposal?: OverrideProposalView | null;
   turnStartedAt: number | null;
   turnId: string | null;
   endingAfterHand?: boolean;
@@ -211,6 +217,8 @@ export class Room extends DurableObject<Env> {
         voidProposal: null,
         correctionForId: null,
         runoutPlan: null,
+        awardProposal: null,
+        overrideProposal: null,
         turnStartedAt: null,
         turnId: null,
         endingAfterHand: false,
@@ -540,30 +548,108 @@ export class Room extends DurableObject<Env> {
       }
       case 'award': {
         if (s.paused) deny('PHASE', 'The hand is paused');
-        requireController();
+        const controller = requireController();
         checkV(msg.v);
-        if (s.game.runout) {
-          const plan = s.runoutPlan ?? deny('PHASE', 'The host must choose the runout count first');
-          if (plan.phase !== 'awarding') deny('PHASE', 'Complete this physical runout first');
-          const potIds = plan.boards[plan.current] ?? deny('INVALID', 'Runout state is invalid');
-          const finalBoard = plan.current === plan.count - 1;
-          this.mutate(
-            `Award runout ${plan.current + 1} of ${plan.count}`,
-            (g) => awardPots(g, msg.winners, potIds),
-            'win',
-            false,
-            () => {
-              if (finalBoard) s.runoutPlan = null;
-              else {
-                plan.current += 1;
-                plan.phase = 'dealing';
-                plan.potIds = plan.boards[plan.current] ?? [];
-              }
-            },
-          );
-        } else {
-          this.mutate('Award the pot', (g) => award(g, msg.winners));
-        }
+        if (s.awardProposal) deny('INVALID', 'An award is already under review');
+        const potIds = this.currentAwardPotIds();
+        awardPots(s.game, msg.winners, potIds);
+        s.awardProposal = {
+          winners: structuredClone(msg.winners),
+          potIds,
+          proposedBy: controller.id,
+          proposedAt: Date.now(),
+          disputedBy: null,
+        };
+        s.overrideProposal = null;
+        s.v += 1;
+        this.log('win', `${controller.name} proposed the award`);
+        this.commit();
+        return;
+      }
+      case 'confirmAward': {
+        const controller = requireController();
+        checkV(msg.v);
+        const proposal = s.awardProposal ?? deny('PHASE', 'There is no award to confirm');
+        if (proposal.disputedBy) deny('INVALID', 'Resolve the dispute before confirming');
+        this.applyAward(proposal.winners, proposal.potIds, `${controller.name} confirmed the award`);
+        return;
+      }
+      case 'disputeAward': {
+        const member = requireMember();
+        checkV(msg.v);
+        const proposal = s.awardProposal ?? deny('PHASE', 'There is no award to dispute');
+        if (proposal.disputedBy) deny('INVALID', 'This award is already disputed');
+        proposal.disputedBy = member.id;
+        s.v += 1;
+        this.log('table', `${member.name} disputed the proposed award`);
+        this.commit();
+        return;
+      }
+      case 'cancelAward': {
+        const member = requireMember();
+        checkV(msg.v);
+        if (member.id !== s.hostId && member.id !== (s.controllerId ?? s.hostId)) deny('FORBIDDEN', 'Only the host or Table Controller can revise the award');
+        if (!s.awardProposal) deny('PHASE', 'There is no award to revise');
+        s.awardProposal = null;
+        s.overrideProposal = null;
+        s.v += 1;
+        this.log('table', `${member.name} returned the award to winner selection`);
+        this.commit();
+        return;
+      }
+      case 'proposeOverride': {
+        const host = requireHost();
+        checkV(msg.v);
+        const awardProposal = s.awardProposal ?? deny('PHASE', 'There is no disputed award');
+        if (!awardProposal.disputedBy) deny('INVALID', 'A table override is available only after a dispute');
+        overridePots(s.game, awardProposal.potIds, msg.allocations);
+        const total = awardProposal.potIds.reduce((sum, id) => sum + (s.game.pots.find((pot) => pot.id === id)?.amount ?? 0), 0);
+        s.overrideProposal = {
+          reason: msg.reason.trim(),
+          allocations: structuredClone(msg.allocations),
+          approvals: [host.id],
+          proposedBy: host.id,
+          proposedAt: Date.now(),
+          total,
+        };
+        s.v += 1;
+        this.log('table', `${host.name} proposed a table override: ${msg.reason.trim()}`);
+        this.commit();
+        return;
+      }
+      case 'approveOverride': {
+        const member = requireMember();
+        checkV(msg.v);
+        const proposal = s.overrideProposal ?? deny('PHASE', 'There is no override to approve');
+        if (proposal.approvals.includes(member.id)) deny('INVALID', 'You already approved this override');
+        proposal.approvals.push(member.id);
+        s.v += 1;
+        this.log('table', `${member.name} approved the table override`);
+        this.commit();
+        return;
+      }
+      case 'cancelOverride': {
+        const host = requireHost();
+        checkV(msg.v);
+        if (!s.overrideProposal) deny('PHASE', 'There is no override to cancel');
+        s.overrideProposal = null;
+        s.v += 1;
+        this.log('table', `${host.name} cancelled the table override`);
+        this.commit();
+        return;
+      }
+      case 'confirmOverride': {
+        const host = requireHost();
+        checkV(msg.v);
+        const proposal = s.overrideProposal ?? deny('PHASE', 'There is no override to confirm');
+        const controllerId = s.controllerId ?? s.hostId ?? deny('INVALID', 'There is no Table Controller');
+        const connectedApprovals = proposal.approvals.filter((id) =>
+          s.members.some((member) => member.id === id) && this.presence(id).connections > 0,
+        );
+        if (!connectedApprovals.includes(controllerId)) deny('INVALID', 'The Table Controller must approve');
+        if (!connectedApprovals.some((id) => id !== controllerId)) deny('INVALID', 'One other connected player must approve');
+        const potIds = s.awardProposal?.potIds ?? deny('PHASE', 'The disputed award is missing');
+        this.applyOverride(proposal.allocations, potIds, `${host.name} confirmed the table override — not rules-validated`);
         return;
       }
       case 'chooseRunouts': {
@@ -620,6 +706,8 @@ export class Room extends DurableObject<Env> {
         if (snap.breaks) s.breaks = structuredClone(snap.breaks);
         s.correctionForId = msg.mode === 'correct' ? snap.game.toActId : null;
         s.runoutPlan = snap.runoutPlan ? structuredClone(snap.runoutPlan) : null;
+        s.awardProposal = snap.awardProposal ? structuredClone(snap.awardProposal) : null;
+        s.overrideProposal = snap.overrideProposal ? structuredClone(snap.overrideProposal) : null;
         s.v += 1;
         this.log('undo', `${m.name} undid: ${snap.label}`);
         this.commit();
@@ -689,6 +777,8 @@ export class Room extends DurableObject<Env> {
         s.voidProposal = null;
         s.correctionForId = null;
         s.runoutPlan = null;
+        s.awardProposal = null;
+        s.overrideProposal = null;
         this.undo = [];
         s.v += 1;
         this.log('table', `${host.name} voided Hand ${current.handNo}: ${proposal.reason}`);
@@ -985,6 +1075,36 @@ export class Room extends DurableObject<Env> {
 
   // ---------- state changes ----------
 
+  private currentAwardPotIds() {
+    const s = this.s as Stored;
+    if (!s.game.runout) return s.game.pots.filter((pot) => !pot.paid).map((pot) => pot.id);
+    const plan = s.runoutPlan ?? deny('PHASE', 'The host must choose the runout count first');
+    if (plan.phase !== 'awarding') deny('PHASE', 'Complete this physical runout first');
+    return [...(plan.boards[plan.current] ?? deny('INVALID', 'Runout state is invalid'))];
+  }
+
+  private finishAwardState() {
+    const s = this.s as Stored;
+    s.awardProposal = null;
+    s.overrideProposal = null;
+    const plan = s.runoutPlan;
+    if (!plan) return;
+    if (plan.current === plan.count - 1) s.runoutPlan = null;
+    else {
+      plan.current += 1;
+      plan.phase = 'dealing';
+      plan.potIds = plan.boards[plan.current] ?? [];
+    }
+  }
+
+  private applyAward(winners: Record<string, string[]>, potIds: number[], label: string) {
+    this.mutate(label, (game) => awardPots(game, winners, potIds), 'win', false, () => this.finishAwardState());
+  }
+
+  private applyOverride(allocations: Record<string, number>, potIds: number[], label: string) {
+    this.mutate(label, (game) => overridePots(game, potIds, allocations), 'win', false, () => this.finishAwardState());
+  }
+
   private mutate(
     label: string,
     fn: (g: Game) => Game,
@@ -1014,6 +1134,8 @@ export class Room extends DurableObject<Env> {
       lateArrivals: lateArrivalsBefore,
       handStart: handStartBefore,
       runoutPlan: s.runoutPlan ? structuredClone(s.runoutPlan) : null,
+      awardProposal: s.awardProposal ? structuredClone(s.awardProposal) : null,
+      overrideProposal: s.overrideProposal ? structuredClone(s.overrideProposal) : null,
     });
     if (this.undo.length > UNDO_DEPTH) this.undo.shift();
     s.game = after;
@@ -1447,6 +1569,8 @@ export class Room extends DurableObject<Env> {
         fromStreet: s.runoutPlan.fromStreet,
         potIds: s.runoutPlan.boards[s.runoutPlan.current] ?? [],
       } : null,
+      awardProposal: s.awardProposal ?? null,
+      overrideProposal: s.overrideProposal ?? null,
       log: s.log.slice(-LOG_SEND),
       undoLabel: this.undo.at(-1)?.label ?? null,
       turnStartedAt: s.turnStartedAt,

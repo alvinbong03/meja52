@@ -657,5 +657,30 @@ export function award(g0: Game, winners: Record<string, string[]>): Game {
   return awardPots(g0, winners, g0.pots.filter((pot) => !pot.paid).map((pot) => pot.id));
 }
 
+/** Explicit non-rules-validated distribution for a governed table ruling. */
+export function overridePots(g0: Game, potIds: number[], allocations: Record<string, number>): Game {
+  if (g0.phase !== 'showdown') fail('PHASE', 'Nothing to award');
+  const g = clone(g0);
+  const wanted = new Set(potIds);
+  const pots = g.pots.filter((pot) => !pot.paid && wanted.has(pot.id));
+  if (pots.length !== wanted.size) fail('INVALID', 'Unknown or already paid pot');
+  const total = pots.reduce((sum, pot) => sum + pot.amount, 0);
+  const allEntries = Object.entries(allocations);
+  if (allEntries.some(([id, amount]) => !findPlayer(g, id) || !Number.isSafeInteger(amount) || amount < 0)) {
+    fail('INVALID', 'Invalid override distribution');
+  }
+  const entries = allEntries.filter(([, amount]) => amount > 0);
+  if (entries.length === 0) fail('INVALID', 'Invalid override distribution');
+  if (entries.reduce((sum, [, amount]) => sum + amount, 0) !== total) fail('INVALID', 'Override must conserve the pot');
+  const resultPotId = pots[0].id;
+  for (const [id, amount] of entries) {
+    findPlayer(g, id)!.stack += amount;
+    g.results.push({ potId: resultPotId, id, amount });
+  }
+  for (const pot of pots) pot.paid = true;
+  if (g.pots.every((pot) => pot.paid)) finish(g);
+  return g;
+}
+
 /** Chips in play: stacks plus everything committed. Constant across betting and awards. */
 export const chipsInPlay = (g: Game) => g.players.reduce((s, p) => s + p.stack + p.committed, 0);

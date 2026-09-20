@@ -36,6 +36,13 @@ export type ClientMessage =
   | { type: 'start'; v: number }
   | { type: 'act'; v: number; kind: ActionKind; amount?: number; playerId?: string }
   | { type: 'award'; v: number; winners: Record<string, string[]> }
+  | { type: 'confirmAward'; v: number }
+  | { type: 'disputeAward'; v: number }
+  | { type: 'cancelAward'; v: number }
+  | { type: 'proposeOverride'; v: number; reason: string; allocations: Record<string, number> }
+  | { type: 'approveOverride'; v: number }
+  | { type: 'cancelOverride'; v: number }
+  | { type: 'confirmOverride'; v: number }
   | { type: 'next'; v: number }
   | { type: 'undo'; v: number; mode?: 'return' | 'correct' }
   | { type: 'pauseHand'; v: number }
@@ -127,6 +134,23 @@ export interface RunoutPlanView {
   potIds: number[];
 }
 
+export interface AwardProposalView {
+  winners: Record<string, string[]>;
+  potIds: number[];
+  proposedBy: string;
+  proposedAt: number;
+  disputedBy: string | null;
+}
+
+export interface OverrideProposalView {
+  reason: string;
+  allocations: Record<string, number>;
+  approvals: string[];
+  proposedBy: string;
+  proposedAt: number;
+  total: number;
+}
+
 export type LogKind = 'action' | 'hand' | 'win' | 'undo' | 'table';
 
 export interface LogEntry {
@@ -154,6 +178,8 @@ export interface RoomView {
   voidProposal: VoidProposalView | null;
   correctionForId: string | null;
   runoutPlan: RunoutPlanView | null;
+  awardProposal: AwardProposalView | null;
+  overrideProposal: OverrideProposalView | null;
   log: LogEntry[];
   undoLabel: string | null;
   turnStartedAt: number | null;
@@ -240,11 +266,23 @@ export function parseClientMessage(raw: string): Envelope | null {
     case 'cancelVoid':
     case 'confirmVoid':
     case 'completeRunout':
+    case 'confirmAward':
+    case 'disputeAward':
+    case 'cancelAward':
+    case 'approveOverride':
+    case 'cancelOverride':
+    case 'confirmOverride':
       return isNum(v) ? out({ type: m.type, v }) : null;
     case 'chooseRunouts':
       return isNum(v) && isNum(m.count) && m.count >= 1 && m.count <= 4 && typeof m.agreed === 'boolean'
         ? out({ type: 'chooseRunouts', v, count: m.count, agreed: m.agreed })
         : null;
+    case 'proposeOverride': {
+      if (!isNum(v) || !isStr(m.reason, 80) || m.reason.trim().length === 0 || !isObj(m.allocations)) return null;
+      const entries = Object.entries(m.allocations);
+      if (entries.length === 0 || entries.length > MAX_PLAYERS || entries.some(([id, amount]) => !isId(id) || !isNum(amount))) return null;
+      return out({ type: 'proposeOverride', v, reason: m.reason, allocations: Object.fromEntries(entries) as Record<string, number> });
+    }
     case 'previewVoid':
       return isNum(v) && isStr(m.reason, 80) && m.reason.trim().length > 0 && typeof m.advanceButton === 'boolean'
         ? out({ type: 'previewVoid', v, reason: m.reason, advanceButton: m.advanceButton })

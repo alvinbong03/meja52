@@ -472,6 +472,10 @@ describe('playing a hand', () => {
     expect(bad).toMatchObject({ code: 'INVALID' });
     await ana.ok({ type: 'award', v: s.v, winners: { [pot.id]: [idOf(cat)] } });
     s = await ana.settle();
+    expect(s.room.awardProposal).toMatchObject({ disputedBy: null });
+    expect(s.room.game.phase).toBe('showdown');
+    await ana.ok({ type: 'confirmAward', v: s.v });
+    s = await ana.settle();
     expect(s.room.game.phase).toBe('done');
     expect(s.room.game.players.find((p) => p.id === idOf(cat))?.stack).toBe(1080);
     expect(s.room.log.at(-1)?.text).toBe('Cat wins 120');
@@ -579,12 +583,16 @@ describe('playing a hand', () => {
     const first = s.room.runoutPlan!.potIds;
     await ben.ok({ type: 'award', v: s.v, winners: Object.fromEntries(first.map((id) => [id, [idOf(ana)]])) });
     s = await ben.settle();
+    await ben.ok({ type: 'confirmAward', v: s.v });
+    s = await ben.settle();
     expect(s.room.game.phase).toBe('showdown');
     expect(s.room.runoutPlan).toMatchObject({ current: 1, phase: 'dealing' });
     await ben.ok({ type: 'completeRunout', v: s.v });
     s = await ben.settle();
     const second = s.room.runoutPlan!.potIds;
     await ben.ok({ type: 'award', v: s.v, winners: Object.fromEntries(second.map((id) => [id, [idOf(ben)]])) });
+    s = await ben.settle();
+    await ben.ok({ type: 'confirmAward', v: s.v });
     s = await ben.settle();
     expect(s.room.game.phase).toBe('done');
     expect(s.room.runoutPlan).toBeNull();
@@ -594,6 +602,45 @@ describe('playing a hand', () => {
       'Ben completed runout 1 of 2',
       'Ben completed runout 2 of 2',
     ]));
+  });
+
+  it('holds a disputed award and requires governed approval for a conserved table override', async () => {
+    const { clients, idOf } = await table(['Ana', 'Ben', 'Cat']);
+    const [ana] = clients;
+    await ana.ok({ type: 'start', v: ana.state.v });
+    const folded = clients.find((client) => idOf(client) === ana.state.room.game.toActId)!;
+    await folded.ok({ type: 'act', v: folded.state.v, kind: 'fold' });
+
+    while (ana.state.room.game.phase === 'betting') {
+      const actor = clients.find((client) => idOf(client) === ana.state.room.game.toActId)!;
+      const legal = actor.state.you.legal!;
+      await actor.ok({ type: 'act', v: actor.state.v, kind: legal.canCheck ? 'check' : 'call' });
+      await ana.settle();
+    }
+
+    const pot = ana.state.room.game.pots.find((candidate) => !candidate.paid)!;
+    await ana.ok({ type: 'award', v: ana.state.v, winners: { [pot.id]: [pot.eligible[0]] } });
+    const approver = clients.find((client) => idOf(client) !== idOf(ana))!;
+    await approver.ok({ type: 'disputeAward', v: approver.state.v });
+    expect(await ana.request({ type: 'confirmAward', v: ana.state.v })).toMatchObject({ code: 'INVALID' });
+    expect(await ana.request({
+      type: 'proposeOverride',
+      v: ana.state.v,
+      reason: 'Table-agreed correction',
+      allocations: { [idOf(folded)]: pot.amount - 1 },
+    })).toMatchObject({ code: 'INVALID' });
+    await ana.ok({
+      type: 'proposeOverride',
+      v: ana.state.v,
+      reason: 'Table-agreed correction',
+      allocations: { [idOf(folded)]: pot.amount },
+    });
+    expect(await ana.request({ type: 'confirmOverride', v: ana.state.v })).toMatchObject({ code: 'INVALID' });
+    await approver.ok({ type: 'approveOverride', v: approver.state.v });
+    await ana.ok({ type: 'confirmOverride', v: ana.state.v });
+    expect(ana.state.room.game.phase).toBe('done');
+    expect(ana.state.room.game.results).toContainEqual({ potId: pot.id, id: idOf(folded), amount: pot.amount });
+    expect(ana.state.room.log.some((entry) => entry.text.includes('not rules-validated'))).toBe(true);
   });
 
   it('undo never removes someone who joined afterwards', async () => {
@@ -670,6 +717,7 @@ describe('seats and devices', () => {
     await new Promise((resolve) => setTimeout(resolve, 50));
     await ana.ok({ type: 'transferController', playerId: idOf(cat) });
     await cat.ok({ type: 'award', v: cat.state.v, winners: { [pot.id]: [idOf(ben)] } });
+    await cat.ok({ type: 'confirmAward', v: cat.state.v });
     expect(cat.state.room.game.phase).toBe('done');
     expect(cat.state.room.game.results.some((result) => result.id === idOf(ben))).toBe(true);
   });

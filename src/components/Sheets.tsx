@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { bySeat, handInProgress, LIMITS, physicalRunoutLimit, potTotal } from '../../shared/engine';
+import { bySeat, handInProgress, LIMITS, physicalRunoutLimit, potTotal, shareOut } from '../../shared/engine';
 import type { LateArrivalView } from '../../shared/protocol';
 import { setSoundEnabled, soundEnabled } from '../lib/device';
 import { fmt } from '../lib/format';
@@ -10,7 +10,7 @@ import { Invite } from './Invite';
 import { Sheet } from './Sheet';
 import { Settlement } from './Settlement';
 
-export type SheetName = 'menu' | 'invite' | 'settings' | 'players' | 'settle' | 'rebuy' | 'rebuyRequests' | 'lateArrivals' | 'break' | 'leave' | 'undo' | 'void' | 'runout' | null;
+export type SheetName = 'menu' | 'invite' | 'settings' | 'players' | 'settle' | 'rebuy' | 'rebuyRequests' | 'lateArrivals' | 'break' | 'leave' | 'undo' | 'void' | 'runout' | 'override' | null;
 
 interface Props {
   open: SheetName;
@@ -63,6 +63,9 @@ export function Sheets({ open, setOpen, onDisplay, onLeft }: Props) {
       </Sheet>
       <Sheet open={open === 'runout'} onClose={close} title="Run remaining board">
         <RunoutFlow onDone={close} />
+      </Sheet>
+      <Sheet open={open === 'override'} onClose={close} title="Table override">
+        <OverrideFlow onDone={close} />
       </Sheet>
     </>
   );
@@ -286,6 +289,66 @@ function RunoutFlow({ onDone }: { onDone: () => void }) {
       }}>{count === 1 ? 'Keep one board' : `Run it ${count} times`}</button>
       <p className="hint centre">The same count applies to every pot.</p>
     </div>
+  );
+}
+
+function OverrideFlow({ onDone }: { onDone: () => void }) {
+  const { game, room, run, busy, v } = useTable();
+  const proposal = room.awardProposal;
+  const expected = proposal?.potIds.reduce((sum, id) => sum + (game.pots.find((pot) => pot.id === id)?.amount ?? 0), 0) ?? 0;
+  const seed = () => {
+    const amounts: Record<string, string> = Object.fromEntries(game.players.map((player) => [player.id, '0']));
+    if (!proposal) return amounts;
+    for (const potId of proposal.potIds) {
+      const pot = game.pots.find((item) => item.id === potId);
+      if (!pot) continue;
+      for (const result of shareOut(game, pot.amount, proposal.winners[String(potId)] ?? [])) {
+        amounts[result.id] = String(Number(amounts[result.id] ?? 0) + result.amount);
+      }
+    }
+    return amounts;
+  };
+  const [amounts, setAmounts] = useState<Record<string, string>>(seed);
+  const [reason, setReason] = useState('Table-agreed correction');
+  if (!proposal?.disputedBy) return <p className="muted">An award must be disputed before the host can create an override.</p>;
+  const allocations = Object.fromEntries(Object.entries(amounts).map(([id, amount]) => [id, Number(amount || 0)]));
+  const allocated = Object.values(allocations).reduce((sum, amount) => sum + amount, 0);
+  const valid = reason.trim().length > 0 && allocated === expected && Object.values(allocations).every(Number.isSafeInteger);
+  return (
+    <form className="override-flow" onSubmit={async (event) => {
+      event.preventDefault();
+      if (valid && await run({ type: 'proposeOverride', v, reason, allocations })) onDone();
+    }}>
+      <p className="sheet-lead">Use only for a table-agreed ruling that normal winner selection cannot represent. Every chip must still be assigned.</p>
+      <div className="override-total" data-valid={allocated === expected || undefined}>
+        <span>Allocated</span>
+        <strong className="num">{fmt(allocated)} / {fmt(expected)}</strong>
+      </div>
+      <div className="override-allocations">
+        {bySeat(game).map((player) => (
+          <NumberField
+            key={player.id}
+            id={`override-${player.id}`}
+            label={player.name}
+            value={amounts[player.id] ?? '0'}
+            onChange={(value) => setAmounts((current) => ({ ...current, [player.id]: value }))}
+            hint={player.folded ? 'Folded · allowed only in this governed override' : undefined}
+          />
+        ))}
+      </div>
+      <div className="field">
+        <label className="field-label" htmlFor="override-reason">Reason</label>
+        <select id="override-reason" className="text-input" value={reason} onChange={(event) => setReason(event.target.value)}>
+          <option>Table-agreed correction</option>
+          <option>Incorrect contribution</option>
+          <option>Incorrect eligibility</option>
+          <option>Dead hand ruling</option>
+          <option>Other table ruling</option>
+        </select>
+      </div>
+      <button className="btn btn-primary btn-xl btn-block" disabled={busy || !valid}>Preview override</button>
+      <p className="hint centre">The Table Controller and one other connected player must approve before it can be confirmed.</p>
+    </form>
   );
 }
 

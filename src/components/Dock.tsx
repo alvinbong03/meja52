@@ -19,16 +19,16 @@ import { Num } from './Num';
 
 const ACT_FOR_AFTER_MS = 15_000;
 
-export function Dock({ onRebuy, onRunout }: { onRebuy: () => void; onRunout: () => void }) {
+export function Dock({ onRebuy, onRunout, onOverride }: { onRebuy: () => void; onRunout: () => void; onOverride: () => void }) {
   const shaking = useShake();
   return (
     <div className="dock-shake" data-shake={shaking || undefined}>
-      <DockBody onRebuy={onRebuy} onRunout={onRunout} />
+      <DockBody onRebuy={onRebuy} onRunout={onRunout} onOverride={onOverride} />
     </div>
   );
 }
 
-function DockBody({ onRebuy, onRunout }: { onRebuy: () => void; onRunout: () => void }) {
+function DockBody({ onRebuy, onRunout, onOverride }: { onRebuy: () => void; onRunout: () => void; onOverride: () => void }) {
   const { game, you, me, room, serverNow, away, member, isHost } = useTable();
   const [actingFor, setActingFor] = useState<string | null>(null);
 
@@ -47,6 +47,8 @@ function DockBody({ onRebuy, onRunout }: { onRebuy: () => void; onRunout: () => 
   }
 
   if (game.phase === 'showdown') {
+    if (room.overrideProposal) return <OverrideReview />;
+    if (room.awardProposal) return <AwardPreview onOverride={onOverride} />;
     if (game.runout && !room.runoutPlan) return <RunoutGate onRunout={onRunout} />;
     if (room.runoutPlan?.phase === 'dealing') return <RunoutDealPanel />;
     return <AwardPanel />;
@@ -407,6 +409,104 @@ function RaisePanel({ legal, pot, currentBet, bb, label, player, currency, busy,
 }
 
 // ---------------- showdown ----------------
+
+function useProposedAwards() {
+  const { game, room } = useTable();
+  const proposal = room.awardProposal;
+  if (!proposal) return [];
+  return proposal.potIds.flatMap((potId) => {
+    const pot = game.pots.find((item) => item.id === potId);
+    const winners = proposal.winners[String(potId)] ?? [];
+    return pot ? shareOut(game, pot.amount, winners) : [];
+  }).reduce<{ id: string; amount: number }[]>((rows, item) => {
+    const existing = rows.find((row) => row.id === item.id);
+    if (existing) existing.amount += item.amount;
+    else rows.push({ ...item });
+    return rows;
+  }, []);
+}
+
+function AwardPreview({ onOverride }: { onOverride: () => void }) {
+  const { room, me, isHost, isController, nameOf, run, busy, v } = useTable();
+  const proposal = room.awardProposal!;
+  const awards = useProposedAwards();
+  const disputed = !!proposal.disputedBy;
+  const canRevise = isHost || isController;
+  return (
+    <div className="dock dock-award-review" role="status">
+      <div className="award-review-head">
+        <div>
+          <span className="label">Award preview</span>
+          <strong>{disputed ? 'Payout disputed' : 'Check the result together'}</strong>
+        </div>
+        <span className="award-state" data-disputed={disputed || undefined}>{disputed ? 'On hold' : 'Preview'}</span>
+      </div>
+      <div className="award-lines">
+        {awards.map((award) => (
+          <div className="award-line" key={award.id}>
+            <span>{nameOf(award.id)}</span>
+            <span className="num">+{fmt(award.amount)}</span>
+          </div>
+        ))}
+      </div>
+      <p className="award-note">
+        {disputed ? `${nameOf(proposal.disputedBy!)} asked the table to review this award.` : 'No chips move until the Table Controller confirms.'}
+      </p>
+      {disputed ? (
+        <div className="award-actions">
+          {canRevise && <button className="btn btn-quiet btn-lg" disabled={busy} onClick={() => run({ type: 'cancelAward', v })}>Choose winners again</button>}
+          {isHost && <button className="btn btn-primary btn-lg" onClick={onOverride}>Table override…</button>}
+        </div>
+      ) : (
+        <div className="award-actions">
+          {me && <button className="btn btn-quiet btn-lg" disabled={busy} onClick={() => run({ type: 'disputeAward', v })}>Dispute</button>}
+          {isController && <button className="btn btn-primary btn-lg" disabled={busy} onClick={() => run({ type: 'confirmAward', v })}>Confirm award</button>}
+        </div>
+      )}
+      {!isController && !disputed && <small className="centre muted">Waiting for {nameOf(room.controllerId)} to confirm</small>}
+    </div>
+  );
+}
+
+function OverrideReview() {
+  const { room, me, isHost, nameOf, run, busy, v } = useTable();
+  const proposal = room.overrideProposal!;
+  const controllerId = room.controllerId ?? room.hostId;
+  const approved = new Set(proposal.approvals);
+  const connected = new Set(room.members.filter((member) => member.connections > 0).map((member) => member.id));
+  const controllerApproved = !!controllerId && approved.has(controllerId) && connected.has(controllerId);
+  const secondApproved = [...approved].some((id) => id !== controllerId && connected.has(id));
+  const ready = controllerApproved && secondApproved;
+  return (
+    <div className="dock dock-override-review" role="status">
+      <div className="award-review-head">
+        <div>
+          <span className="label">Table override</span>
+          <strong>Not rules-validated</strong>
+        </div>
+        <span className="award-state" data-disputed>Review</span>
+      </div>
+      <p className="override-reason">{proposal.reason}</p>
+      <div className="award-lines">
+        {Object.entries(proposal.allocations).filter(([, amount]) => amount > 0).map(([id, amount]) => (
+          <div className="award-line" key={id}><span>{nameOf(id)}</span><span className="num">+{fmt(amount)}</span></div>
+        ))}
+      </div>
+      <div className="approval-line"><span>Table Controller</span><strong>{controllerApproved ? 'Approved' : 'Waiting'}</strong></div>
+      <div className="approval-line"><span>One other connected player</span><strong>{secondApproved ? 'Approved' : 'Waiting'}</strong></div>
+      {me && !approved.has(me.id) && (
+        <button className="btn btn-primary btn-lg btn-block" disabled={busy} onClick={() => run({ type: 'approveOverride', v })}>Approve table ruling</button>
+      )}
+      {isHost && (
+        <div className="award-actions">
+          <button className="btn btn-quiet btn-lg" disabled={busy} onClick={() => run({ type: 'cancelOverride', v })}>Cancel</button>
+          <button className="btn btn-primary btn-lg" disabled={busy || !ready} onClick={() => run({ type: 'confirmOverride', v })}>Confirm override</button>
+        </div>
+      )}
+      {!ready && <small className="centre muted">Confirmation unlocks after both approvals are present.</small>}
+    </div>
+  );
+}
 
 function AwardPanel() {
   const { game, run, busy, v, nameOf, isController, room } = useTable();
