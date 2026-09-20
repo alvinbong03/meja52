@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { bySeat } from '../../shared/engine';
-import { fmt, STREET_NAMES } from '../lib/format';
+import { fmt, NEXT_CARDS, STREET_NAMES } from '../lib/format';
 import { useTable } from '../lib/table';
 
 export function BetRail() {
@@ -8,14 +8,22 @@ export function BetRail() {
   const hand = game.phase === 'betting' || game.phase === 'showdown';
   const seats = useMemo(() => bySeat(game).filter((player) => player.inHand), [game]);
   const street = game.phase === 'showdown' ? 'Showdown' : STREET_NAMES[game.street];
+  const freshStreet =
+    game.phase === 'betting' && game.street > 0 && game.players.every((player) => !player.acted) && game.currentBet === 0;
+  const dealCue = freshStreet ? NEXT_CARDS[game.street] : '';
 
   if (!hand) return null;
 
   return (
     <section className="landscape-bet-rail" aria-label="Current street bets">
-      <div className="bet-rail-street" aria-label={`Hand ${game.handNo}, ${street}`}>
-        <span>Hand {game.handNo}</span>
+      <div
+        className="bet-rail-street"
+        aria-label={`Hand ${game.handNo}, ${street}${dealCue ? `. ${dealCue}` : ''}`}
+        aria-live="polite"
+      >
+        <span className="bet-rail-hand">Hand {game.handNo}</span>
         <strong>{street}</strong>
+        {dealCue && <span className="bet-rail-deal" key={dealCue}>{dealCue}</span>}
       </div>
       <div className="bet-rail-scroll">
         {seats.length > 0 ? (

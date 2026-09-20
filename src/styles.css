@@ -2070,7 +2070,7 @@ button.chip-stack:active:not(:disabled) .poker-chip {
   .table-shell:not([data-phase='lobby']) .table-main { display: none; }
   .landscape-bet-rail {
     display: grid;
-    grid-template-columns: clamp(82px, 15vw, 96px) minmax(0, 1fr);
+    grid-template-columns: clamp(108px, 18vw, 120px) minmax(0, 1fr);
     min-height: 60px;
     border-bottom: 1px solid var(--line);
     background: var(--bg);
@@ -2083,7 +2083,7 @@ button.chip-stack:active:not(:disabled) .poker-chip {
     padding: 0 12px 0 max(12px, var(--safe-left));
     border-right: 1px solid var(--line);
   }
-  .bet-rail-street span {
+  .bet-rail-hand {
     overflow: hidden;
     color: var(--ink-2);
     font-size: 0.58rem;
@@ -2098,6 +2098,15 @@ button.chip-stack:active:not(:disabled) .poker-chip {
     font-size: 0.78rem;
     font-weight: 680;
     letter-spacing: -0.01em;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .bet-rail-deal {
+    overflow: hidden;
+    color: var(--ink);
+    font-size: 0.56rem;
+    font-weight: 650;
+    letter-spacing: 0;
     text-overflow: ellipsis;
     white-space: nowrap;
   }

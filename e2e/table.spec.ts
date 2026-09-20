@@ -226,23 +226,29 @@ test('three players play a hand from deal to payout', async ({ browser }) => {
   await ana.setViewportSize({ width: 844, height: 390 });
   const streetRail = ana.getByRole('region', { name: 'Current street bets' });
   await expect(streetRail.locator('.bet-rail-street')).toContainText('Flop');
+  await expect(streetRail.locator('.bet-rail-deal')).toHaveText('Deal the flop');
+  await ben.setViewportSize({ width: 844, height: 390 });
+  await expect(ben.locator('.bet-rail-deal')).toHaveText('Deal the flop');
   const foldedRailSeat = streetRail.getByRole('listitem').filter({ hasText: 'Cat' });
   await expect(foldedRailSeat).toHaveAttribute('data-folded', 'true');
   await expect(foldedRailSeat.getByText('Folded', { exact: true })).toBeVisible();
   await expect(foldedRailSeat.getByText('0', { exact: true })).toBeVisible();
   await ana.setViewportSize({ width: 390, height: 844 });
+  await ben.setViewportSize({ width: 390, height: 844 });
 
-  await expect(ana.getByText('Deal the flop')).toBeVisible();
+  await expect(ana.getByRole('region', { name: 'Pot' }).getByText('Deal the flop')).toBeVisible();
   await expect(ana.locator('.pot-amount')).toHaveText('130');
 
   for (let i = 0; i < 2; i++) await actWhoeverIsUp([ana, ben], 'Check');
   await ana.setViewportSize({ width: 844, height: 390 });
   await expect(ana.locator('.bet-rail-street')).toContainText('Turn');
+  await expect(ana.locator('.bet-rail-deal')).toHaveText('Deal the turn');
   await ana.setViewportSize({ width: 390, height: 844 });
 
   for (let i = 0; i < 2; i++) await actWhoeverIsUp([ana, ben], 'Check');
   await ana.setViewportSize({ width: 844, height: 390 });
   await expect(ana.locator('.bet-rail-street')).toContainText('River');
+  await expect(ana.locator('.bet-rail-deal')).toHaveText('Deal the river');
   await ana.setViewportSize({ width: 390, height: 844 });
 
   for (let i = 0; i < 2; i++) await actWhoeverIsUp([ana, ben], 'Check');
@@ -618,7 +624,7 @@ test('the host can act for a seat without a phone, and undo rolls it back', asyn
   await ana.getByRole('button', { name: 'Act for Gran' }).click();
   await expect(ana.getByText('Acting for Gran')).toBeVisible();
   await ana.getByRole('button', { name: 'Check' }).click();
-  await expect(ana.getByText('Deal the flop')).toBeVisible();
+  await expect(ana.getByRole('region', { name: 'Pot' }).getByText('Deal the flop')).toBeVisible();
 
   await ben.getByRole('button', { name: 'Menu' }).click();
   await expect(ben.getByRole('button', { name: /^Undo/ })).toHaveCount(0);
@@ -693,7 +699,7 @@ test('recovers after losing the connection', async ({ browser }) => {
   await ben.evaluate(() => window.dispatchEvent(new Event('online')));
   await expect(yourTurn(ben)).toBeVisible({ timeout: 20_000 });
   await ben.getByRole('button', { name: 'Check' }).click();
-  await expect(ana.getByText('Deal the flop')).toBeVisible();
+  await expect(ana.getByRole('region', { name: 'Pot' }).getByText('Deal the flop')).toBeVisible();
 });
 
 test('desktop keyboard shortcuts drive the action bar', async ({ browser }) => {

@@ -524,3 +524,24 @@ git diff --check                          PASS
 ```
 
 Deployed to `https://meja52.meja52.workers.dev` as Worker version `77dbeb41-2dfb-416c-89fe-c3458bcb4f88`. The post-deploy two-device WebSocket smoke test passed with private balances and public pot state intact.
+
+### Shared landscape dealing cues — 20 September 2026
+
+- Added **Deal the flop**, **Deal the turn** and **Deal the river** to the fixed landscape Hand/Street marker at the start of each new street.
+- The cue is shared across every player device, uses the same server-authoritative fresh-street condition and wording as portrait and the table display, and disappears after the first action while the street name remains.
+- Kept the instruction inside the existing fixed marker rather than adding another banner, preserving gameplay height and independent scrolling for the 10–15 player bet rail.
+
+Verification:
+
+```text
+npm run typecheck                         PASS
+cross-device Flop cue                     PASS
+Flop → Turn → River cue sequence          PASS
+focused gameplay/15-player workflows      PASS (4/4)
+complete browser workflow set             PASS (25 direct + 1 isolated retry)
+npm run build                             PASS
+Impeccable detector                       PASS (0 findings)
+git diff --check                          PASS
+```
+
+The first complete-suite run timed out while creating the overflow test's setup room; its isolated rerun passed in 10.8 seconds. No assertion, rendering or gameplay failure occurred.
