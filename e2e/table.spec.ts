@@ -503,6 +503,13 @@ test('live play keeps balances private and exposes current bets in phone landsca
   await expect(rail.getByRole('listitem').filter({ hasText: 'Ana' })).toContainText('11');
   await expect(rail).toContainText('Ben');
   await expect(rail).toContainText('Cat');
+
+  // A wide emulated phone must not inherit the desktop side-column layout.
+  await ana.setViewportSize({ width: 1024, height: 500 });
+  const dockBox = await ana.locator('.dock-wrap').boundingBox();
+  expect(dockBox?.x).toBeLessThanOrEqual(1);
+  expect(dockBox?.width).toBeGreaterThanOrEqual(1023);
+  await expect(ana.locator('.table-controls-handle')).toBeInViewport();
 });
 
 test('no horizontal overflow from small phones to desktops', async ({ browser }) => {

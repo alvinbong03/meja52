@@ -112,3 +112,11 @@ Browser coverage included the full phone workflow, governed undo, pause/void con
 - Private balances and total hand contributions remain hidden from other players.
 
 Type checking, all 55 unit tests, all 43 Worker integration tests, the production build, and the focused portrait/landscape Playwright workflow passed.
+
+### Wide phone-landscape breakpoint correction
+
+- Corrected the collision where a wide emulated phone could activate both the compact landscape layout and desktop side-column layout.
+- At phone-height landscape viewports, the current-bet rail stays across the top and the private action surface now fills the full width beneath it.
+- Added a 1024×500 regression check confirming the dock begins at the left edge, spans the viewport, and keeps Table Controls visible.
+
+Type checking, the production build, and the focused landscape Playwright workflow passed.

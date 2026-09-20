@@ -3076,6 +3076,38 @@ body:has(.display) {
   }
 }
 
+/* Phone emulation can exceed the desktop width breakpoint in landscape.
+   Keep the approved edge-to-edge table controls whenever vertical space is phone-sized. */
+@media (orientation: landscape) and (max-height: 600px) {
+  .table-shell {
+    display: flex;
+    flex-direction: column;
+    max-width: none;
+    padding: 0;
+  }
+
+  .landscape-bet-rail,
+  .dock-wrap {
+    width: 100%;
+  }
+
+  .dock-wrap {
+    flex: 1;
+    height: auto;
+    padding: 0;
+    overflow-y: auto;
+  }
+
+  .dock,
+  .reconnect-panel {
+    height: 100%;
+    padding: 10px var(--gutter) calc(var(--safe-bottom) + 8px);
+    border: 0;
+    border-top: 1px solid var(--private-line);
+    border-radius: 0;
+  }
+}
+
 /* ---------- motion ---------- */
 
 @keyframes rise {
