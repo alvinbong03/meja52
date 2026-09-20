@@ -3,7 +3,7 @@ import { evictDurableObject, runDurableObjectAlarm, runInDurableObject } from 'c
 import { describe, expect, it } from 'vitest';
 import { AWAY_AFTER_MS } from '../../shared/protocol';
 import { originAllowed, randomCode } from '../src/index';
-import { CREATOR_GRACE_MS } from '../src/room';
+import { CREATOR_GRACE_MS, FINAL_TTL_MS } from '../src/room';
 import { api, Client, createRoom, table, tokenFor } from './client';
 
 describe('http api', () => {
@@ -445,7 +445,7 @@ describe('playing a hand', () => {
 
     await ana.ok({ type: 'reviewSettlement', v: ana.state.v, status: 'correct' });
     await ben.ok({ type: 'reviewSettlement', v: ben.state.v, status: 'issue', reason: 'Check the final blind' });
-    expect(await ana.request({ type: 'finalizeSettlement', v: ana.state.v, withIssues: false })).toMatchObject({ code: 'INVALID' });
+    expect(await ana.request({ type: 'finalizeSettlement', v: ana.state.v, withIssues: false, recordToken: tokenFor(501) })).toMatchObject({ code: 'INVALID' });
     await ben.ok({ type: 'reviewSettlement', v: ben.state.v, status: 'correct' });
 
     state = await ana.settle();
@@ -456,7 +456,7 @@ describe('playing a hand', () => {
     await debtor.ok({ type: 'setMyTransfersSettled', v: debtor.state.v, settled: true });
     expect((await ana.settle()).room.settlement?.settledTransfers).toEqual([0]);
 
-    await ana.ok({ type: 'finalizeSettlement', v: ana.state.v, withIssues: false });
+    await ana.ok({ type: 'finalizeSettlement', v: ana.state.v, withIssues: false, recordToken: tokenFor(501) });
     expect(ana.state.room.settlement).toMatchObject({ finalizedAt: expect.any(Number), finalizedWithIssues: false });
     expect(await ben.request({ type: 'reviewSettlement', v: ben.state.v, status: 'issue', reason: 'Too late' })).toMatchObject({ code: 'PHASE' });
   });
@@ -469,9 +469,41 @@ describe('playing a hand', () => {
     await ana.ok({ type: 'endGame', v: ana.state.v });
     await ana.ok({ type: 'reviewSettlement', v: ana.state.v, status: 'correct' });
     await ben.ok({ type: 'reviewSettlement', v: ben.state.v, status: 'issue', reason: 'Missing cash-out note' });
-    await ana.ok({ type: 'finalizeSettlement', v: ana.state.v, withIssues: true });
+    await ana.ok({ type: 'finalizeSettlement', v: ana.state.v, withIssues: true, recordToken: tokenFor(502) });
     expect(ana.state.room.settlement).toMatchObject({ finalizedAt: expect.any(Number), finalizedWithIssues: true });
     expect(ana.state.room.log.at(-1)?.text).toContain('with unresolved issues');
+  });
+
+  it('keeps a private final record for 30 days and only lets the host delete it early', async () => {
+    const { code, clients } = await table(['Ana', 'Ben']);
+    const [ana] = clients;
+    const recordToken = tokenFor(503);
+    await ana.ok({ type: 'start', v: ana.state.v });
+    await ana.ok({ type: 'act', v: ana.state.v, kind: 'fold' });
+    await ana.ok({ type: 'endGame', v: ana.state.v });
+    await ana.ok({ type: 'reviewSettlement', v: ana.state.v, status: 'correct' });
+    await ana.ok({ type: 'finalizeSettlement', v: ana.state.v, withIssues: false, recordToken });
+
+    expect((await api(`/api/records/${code}/${tokenFor(504)}`)).status).toBe(404);
+    const guestResponse = await api(`/api/records/${code}/${recordToken}`, { headers: { 'x-device-token': tokenFor(2) } });
+    expect(guestResponse.status).toBe(200);
+    const guestBody = await guestResponse.json() as { canDelete: boolean; record: Record<string, unknown> };
+    expect(guestBody.canDelete).toBe(false);
+    expect(guestBody.record).toMatchObject({ code, handCount: 1, finalizedWithIssues: false });
+    expect(JSON.stringify(guestBody)).not.toContain(recordToken);
+    expect(JSON.stringify(guestBody)).not.toContain(tokenFor(1));
+
+    const hostResponse = await api(`/api/records/${code}/${recordToken}`, { headers: { 'x-device-token': tokenFor(1) } });
+    const hostBody = await hostResponse.json() as { canDelete: boolean; record: { finalizedAt: number; expiresAt: number } };
+    expect(hostBody.canDelete).toBe(true);
+    expect(hostBody.record.expiresAt - hostBody.record.finalizedAt).toBe(FINAL_TTL_MS);
+    const stub = env.ROOMS.get(env.ROOMS.idFromName(code));
+    const alarm = await runInDurableObject(stub, (_, state) => state.storage.getAlarm());
+    expect(Math.abs((alarm ?? 0) - hostBody.record.expiresAt)).toBeLessThan(1000);
+
+    expect((await api(`/api/records/${code}/${recordToken}`, { method: 'DELETE', headers: { 'x-device-token': tokenFor(2) } })).status).toBe(403);
+    expect((await api(`/api/records/${code}/${recordToken}`, { method: 'DELETE', headers: { 'x-device-token': tokenFor(1) } })).status).toBe(204);
+    expect((await api(`/api/rooms/${code}`)).status).toBe(404);
   });
 
   it('runs a full hand with turn enforcement, stale protection and awards', async () => {

@@ -166,3 +166,13 @@ Verification passed: 57 unit tests, 45 Worker integration tests, production buil
 - MEJA52 does not move or verify money, and the interface states this directly.
 
 Verification passed: 57 unit tests, 47 Worker integration tests, production build, and 19 Playwright browser workflows. The settlement browser workflow covers two devices, an issue report and resolution, payer-only acknowledgement, host finalisation, a 320×568 viewport and 200% root text without horizontal overflow.
+
+### Private history, export and 30-day retention
+
+- Finalising settlement now creates a separate 256-bit private record capability; only its room-salted SHA-256 hash is stored, and neither the capability nor any device token appears in room state or the returned record.
+- The compact record includes final player results, transfer acknowledgements, issue reviews and the meaningful session timeline while excluding connection state and other live-room internals.
+- The approved portrait surfaces provide a final summary, filtered timeline, screenshot-ready PNG, ledger CSV, full JSON, and copyable private link.
+- Final records expire 30 days after finalisation rather than extending on access. A host can delete one sooner only from the original host device and only after typing the room code; a holder of the private link alone cannot delete it.
+- API responses carry `no-store`, `no-referrer` and `noindex, nofollow` controls, and the application sets a no-referrer document policy.
+
+Verification passed: 57 unit tests, 48 Worker integration tests, production build, and all 19 Playwright browser workflows. The settlement browser workflow now also opens the private record, checks the timeline, downloads CSV, verifies the disabled destructive action before confirmation, and deletes the record. Manual browser inspection covered the summary, history, room-data and deletion views at a 515×779 phone viewport; the accessible filter label remains available to assistive technology without disturbing layout, and all primary/destructive actions use the approved Indigo/Ivory/Hibiscus hierarchy.

@@ -51,6 +51,7 @@ import {
   type OverrideProposalView,
   type SettlementStateView,
   type SettlementEntryView,
+  type SettlementRecord,
   type ServerMessage,
   type CurrencyCode,
 } from '../../shared/protocol';
@@ -58,9 +59,10 @@ import type { Env } from './index';
 
 export const DEFAULT_SETTINGS: Settings = { sb: 5, bb: 10, startingStack: 1000, buyInPrice: 0 };
 export const IDLE_TTL_MS = 12 * 60 * 60 * 1000;
+export const FINAL_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 export const CREATOR_GRACE_MS = 2 * 60 * 1000;
 const UNDO_DEPTH = 30;
-const LOG_KEEP = 100;
+const LOG_KEEP = 5000;
 const LOG_SEND = 40;
 const MAX_SOCKETS = 40;
 const RATE_PER_SEC = 8;
@@ -137,6 +139,8 @@ interface Stored {
   turnId: string | null;
   endingAfterHand?: boolean;
   endedAt?: number | null;
+  /** Hash of the separate private record capability; never sent in live room state. */
+  settlementTokenHash?: string | null;
 }
 
 interface Attachment {
@@ -232,6 +236,7 @@ export class Room extends DurableObject<Env> {
         turnId: null,
         endingAfterHand: false,
         endedAt: null,
+        settlementTokenHash: null,
       };
       this.undo = [];
       this.persist();
@@ -239,6 +244,20 @@ export class Room extends DurableObject<Env> {
     }
 
     if (!this.s) return new Response('not found', { status: 404 });
+
+    if (route === 'record') {
+      if (request.method !== 'GET' && request.method !== 'DELETE') return new Response('method not allowed', { status: 405 });
+      const token = request.headers.get('x-record-token') ?? '';
+      const valid = /^[a-f0-9]{64}$/.test(token) && this.s.settlementTokenHash === await sha256(`${this.s.code}:settlement:${token}`);
+      if (!valid || !this.s.settlement?.finalizedAt) return new Response('not found', { status: 404 });
+      const deviceToken = request.headers.get('x-device-token') ?? '';
+      const host = this.s.members.find((member) => member.id === this.s?.hostId);
+      const canDelete = /^[a-f0-9]{64}$/.test(deviceToken) && host?.tokenHash === await sha256(`${this.s.code}:${deviceToken}`);
+      if (request.method === 'GET') return Response.json({ record: this.record(), canDelete });
+      if (!canDelete) return new Response('forbidden', { status: 403 });
+      await this.destroy();
+      return new Response(null, { status: 204 });
+    }
 
     if (route === 'info') {
       return Response.json({
@@ -318,7 +337,7 @@ export class Room extends DurableObject<Env> {
   async alarm() {
     if (!this.s) return;
     const now = Date.now();
-    const expiry = this.s.lastActivity + IDLE_TTL_MS;
+    const expiry = this.expiryAt();
     if (now < expiry) {
       this.alarmAt = null;
       if (this.s.hostTokenHash && now >= this.s.createdAt + CREATOR_GRACE_MS && !this.creatorCapabilityPresent()) {
@@ -327,18 +346,7 @@ export class Room extends DurableObject<Env> {
       this.scheduleAlarm();
       return;
     }
-    for (const ws of this.ctx.getWebSockets()) {
-      this.send(ws, { type: 'closed', reason: 'expired' });
-      try {
-        ws.close(4004, 'Room expired');
-      } catch {
-        // already closed
-      }
-    }
-    this.s = null;
-    this.undo = [];
-    this.alarmAt = null;
-    await this.ctx.storage.deleteAll();
+    await this.destroy();
   }
 
   // ---------- dispatch ----------
@@ -602,6 +610,7 @@ export class Room extends DurableObject<Env> {
         if (!hasIssues && msg.withIssues) deny('INVALID', 'There are no unresolved issues');
         settlement.finalizedAt = Date.now();
         settlement.finalizedWithIssues = hasIssues;
+        s.settlementTokenHash = await sha256(`${s.code}:settlement:${msg.recordToken}`);
         s.v += 1;
         this.log('table', `${host.name} finalised the settlement${hasIssues ? ' with unresolved issues' : ''}`);
         this.commit();
@@ -1583,7 +1592,7 @@ export class Room extends DurableObject<Env> {
     const s = this.s;
     if (!s) return;
     const now = Date.now();
-    let deadline = s.lastActivity + IDLE_TTL_MS;
+    let deadline = this.expiryAt();
     if (s.hostTokenHash) {
       const lastSeen = this.creatorCapabilityLastSeen();
       const takeoverAt = Math.max(s.createdAt + CREATOR_GRACE_MS, lastSeen ? lastSeen + AWAY_AFTER_MS : 0);
@@ -1593,6 +1602,57 @@ export class Room extends DurableObject<Env> {
       this.alarmAt = deadline;
       void this.ctx.storage.setAlarm(deadline);
     }
+  }
+
+  private expiryAt() {
+    const s = this.s as Stored;
+    return s.settlement?.finalizedAt ? s.settlement.finalizedAt + FINAL_TTL_MS : s.lastActivity + IDLE_TTL_MS;
+  }
+
+  private record(): SettlementRecord {
+    const s = this.s as Stored;
+    const settlement = s.settlement as SettlementStateView & { finalizedAt: number };
+    const rows = ledger(s.game);
+    const cents = netsInCents(rows, s.game.settings.buyInPrice, s.game.settings.startingStack);
+    const useCash = s.game.settings.buyInPrice > 0;
+    const transfers = settleUp(rows.map((row) => ({ id: row.id, net: useCash ? (cents.get(row.id) ?? 0) : row.net })));
+    return {
+      code: s.code,
+      createdAt: s.createdAt,
+      endedAt: s.endedAt ?? settlement.finalizedAt,
+      finalizedAt: settlement.finalizedAt,
+      expiresAt: settlement.finalizedAt + FINAL_TTL_MS,
+      currency: s.currency ?? 'USD',
+      handCount: s.game.handNo,
+      settings: s.game.settings,
+      players: rows.map((row) => ({
+        id: row.id,
+        name: row.name,
+        totalEntered: row.buyIn,
+        finalBalance: row.stack,
+        net: useCash ? (cents.get(row.id) ?? 0) : row.net,
+        leftEarly: row.departed,
+      })),
+      transfers: transfers.map((transfer, index) => ({ ...transfer, settled: settlement.settledTransfers.includes(index) })),
+      reviews: structuredClone(settlement.reviews),
+      finalizedWithIssues: settlement.finalizedWithIssues,
+      history: structuredClone(s.log),
+    };
+  }
+
+  private async destroy() {
+    for (const ws of this.ctx.getWebSockets()) {
+      this.send(ws, { type: 'closed', reason: 'expired' });
+      try {
+        ws.close(4004, 'Room expired');
+      } catch {
+        // already closed
+      }
+    }
+    this.s = null;
+    this.undo = [];
+    this.alarmAt = null;
+    await this.ctx.storage.deleteAll();
   }
 
   // ---------- presence ----------

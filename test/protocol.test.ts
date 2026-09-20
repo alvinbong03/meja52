@@ -43,7 +43,7 @@ describe('parseClientMessage', () => {
       type: 'reviewSettlement', v: 20, status: 'issue', reason: 'Missing rebuy',
     });
     expect(parse({ type: 'setMyTransfersSettled', v: 21, settled: true })).toEqual({ type: 'setMyTransfersSettled', v: 21, settled: true });
-    expect(parse({ type: 'finalizeSettlement', v: 22, withIssues: false })).toEqual({ type: 'finalizeSettlement', v: 22, withIssues: false });
+    expect(parse({ type: 'finalizeSettlement', v: 22, withIssues: false, recordToken: token })).toEqual({ type: 'finalizeSettlement', v: 22, withIssues: false, recordToken: token });
     expect(parse({ type: 'requestRebuy', amount: 100 })).toEqual({ type: 'requestRebuy', amount: 100 });
     expect(parse({ type: 'cancelRebuy', requestId: 'abcdef0123456789' })).toEqual({
       type: 'cancelRebuy',
@@ -101,6 +101,7 @@ describe('parseClientMessage', () => {
       { type: 'reviewSettlement', v: 1, status: 'maybe' },
       { type: 'setMyTransfersSettled', v: 1, settled: 'yes' },
       { type: 'finalizeSettlement', v: 1, withIssues: 'yes' },
+      { type: 'finalizeSettlement', v: 1, withIssues: false, recordToken: 'short' },
       { type: 'chooseLateArrival', mode: 'later' },
       { type: 'resolveLateArrival', v: 1, requestId: 'abcdef0123456789', allow: true },
       { type: 'award', v: 1, winners: { x: ['abcdef01'] } },

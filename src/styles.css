@@ -3124,6 +3124,139 @@ body:has(.final-settlement-shell) { background: var(--brand-ivory); }
   .settlement-page { padding-inline: 26px; }
 }
 
+/* ---------- private record ---------- */
+
+body:has(.record-page),
+body:has(.record-loading) { background: var(--brand-ivory); }
+
+.record-page {
+  color-scheme: light;
+  --bg: var(--brand-ivory);
+  --surface: #e9e4da;
+  --surface-2: #ded9cf;
+  --ink: var(--brand-indigo);
+  --ink-2: var(--brand-muted-batik);
+  --ink-3: #707787;
+  --line: rgb(32 53 84 / 0.14);
+  --line-strong: rgb(32 53 84 / 0.28);
+  --danger: var(--brand-hibiscus-ink);
+  --good: #2f6b54;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 28px;
+  width: min(100%, 560px);
+  min-height: 100dvh;
+  margin: 0 auto;
+  padding: max(18px, calc(var(--safe-top) + 10px)) 18px max(20px, calc(var(--safe-bottom) + 14px));
+  background: var(--brand-ivory);
+  color: var(--brand-indigo);
+}
+
+.record-nav {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
+  min-height: 62px;
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  text-align: center;
+}
+.record-nav > div { display: grid; line-height: 1.2; }
+.record-nav strong { font-size: 1.0625rem; font-weight: 650; }
+.record-nav span { color: var(--ink-2); font-family: var(--font-mono); font-size: 0.78rem; letter-spacing: 0.1em; }
+.record-nav .icon-btn { justify-self: start; }
+.record-page > footer { padding-top: 18px; border-top: 1px solid var(--line); color: var(--ink-2); font-size: 0.78rem; text-align: center; }
+
+.record-summary,
+.record-history,
+.record-data,
+.record-delete { display: grid; align-content: start; gap: 24px; }
+
+.record-title { display: grid; gap: 5px; padding: 12px 0 22px; text-align: center; }
+.record-title > span { color: var(--ink-2); font-size: 0.78rem; font-weight: 640; letter-spacing: 0.09em; text-transform: uppercase; }
+.record-title h1 { font-size: clamp(2rem, 8vw, 2.75rem); letter-spacing: -0.045em; line-height: 1.06; }
+.record-title p { max-width: 38ch; margin-inline: auto; color: var(--ink-2); line-height: 1.45; }
+.record-title-left { text-align: left; }
+.record-title-left p { margin-inline: 0; }
+
+.record-player-list { display: grid; border-top: 1px solid var(--line); }
+.record-player-list > div { display: flex; min-height: 62px; align-items: center; justify-content: space-between; gap: 20px; border-bottom: 1px solid var(--line); }
+.record-player-list span { display: grid; font-weight: 560; }
+.record-player-list small { color: var(--ink-2); font-size: 0.74rem; font-weight: 430; }
+.record-player-list strong { font-size: 1.08rem; }
+.record-player-list [data-sign='1'] { color: var(--good); }
+.record-player-list [data-sign='-1'] { color: var(--danger); }
+
+.record-actions { display: grid; gap: 8px; }
+.record-row-button {
+  display: flex;
+  min-height: 68px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+.record-row-button > span { display: grid; gap: 3px; }
+.record-row-button small { color: var(--ink-2); font-size: 0.8rem; }
+.record-row-button svg { color: var(--ink-2); }
+
+.record-section-head { display: flex; align-items: end; justify-content: space-between; gap: 16px; }
+.record-section-head h1 { font-size: 1.8rem; letter-spacing: -0.035em; }
+.record-section-head p { margin-top: 4px; color: var(--ink-2); font-size: 0.86rem; }
+.record-section-head select { min-height: 42px; padding: 0 34px 0 12px; border: 1px solid var(--line-strong); border-radius: 10px; background: transparent; color: inherit; font: inherit; }
+
+.history-list { display: grid; margin: 0; padding: 0; border-top: 1px solid var(--line); list-style: none; }
+.history-list li { display: grid; grid-template-columns: 62px 10px minmax(0, 1fr); min-height: 62px; align-items: center; gap: 12px; border-bottom: 1px solid var(--line); }
+.history-list time { color: var(--ink-2); font-family: var(--font-mono); font-size: 0.74rem; }
+.history-list li > span { width: 7px; height: 7px; border-radius: 50%; background: var(--line-strong); }
+.history-list li > span[data-kind='win'] { background: var(--good); }
+.history-list li > span[data-kind='undo'] { background: var(--danger); }
+.history-list p { line-height: 1.35; }
+.history-list .history-empty { display: block; padding: 24px 0; color: var(--ink-2); }
+.record-export-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+.record-facts { display: grid; margin: 0; border-top: 1px solid var(--line); }
+.record-facts > div { display: flex; min-height: 58px; align-items: center; justify-content: space-between; gap: 20px; border-bottom: 1px solid var(--line); }
+.record-facts dt { color: var(--ink-2); }
+.record-facts dd { margin: 0; font-weight: 610; text-align: right; }
+.record-delete-link,
+.record-export-before { justify-self: center; padding: 8px; border: 0; background: transparent; color: var(--danger); font: inherit; font-weight: 570; }
+.record-export-before { color: var(--brand-indigo); text-decoration: underline; text-underline-offset: 4px; }
+
+.record-delete { justify-items: stretch; }
+.record-delete-mark { display: grid; place-items: center; width: 58px; height: 58px; margin: 10px auto 0; border: 1px solid color-mix(in srgb, var(--danger) 28%, transparent); border-radius: 50%; color: var(--danger); }
+.record-delete label { font-size: 0.88rem; }
+.record-delete .text-input { min-height: 54px; font-family: var(--font-mono); font-size: 1.15rem; letter-spacing: 0.18em; text-align: center; text-transform: uppercase; }
+.record-delete-actions { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.45fr); gap: 8px; }
+
+.record-loading { display: grid; min-height: 100dvh; place-content: center; gap: 8px; background: var(--brand-ivory); color: var(--brand-indigo); text-align: center; }
+.record-loading strong { font-family: var(--font-mono); font-size: 1.35rem; letter-spacing: 0.14em; }
+.record-loading span { color: var(--ink-2); }
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (min-width: 680px) {
+  .record-page { padding-inline: 26px; }
+}
+
+@media (max-width: 380px) {
+  .record-section-head { align-items: stretch; flex-direction: column; }
+  .record-section-head select { width: 100%; }
+}
+
 /* ---------- toasts ---------- */
 
 .toaster {

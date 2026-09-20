@@ -11,7 +11,11 @@ export interface Env {
 }
 
 const json = (body: unknown, status = 200) =>
-  Response.json(body, { status, headers: { 'cache-control': 'no-store' } });
+  Response.json(body, { status, headers: {
+    'cache-control': 'no-store',
+    'referrer-policy': 'no-referrer',
+    'x-robots-tag': 'noindex, nofollow',
+  } });
 
 export function randomCode() {
   const out: string[] = [];
@@ -112,6 +116,23 @@ export default {
         if (res.status === 404) return json({ error: 'No table with that code' }, 404);
         return res;
       }
+    }
+
+    if (parts[1] === 'records' && parts.length === 4) {
+      const code = parts[2].toUpperCase();
+      const token = parts[3];
+      if (!isRoomCode(code) || !/^[a-f0-9]{64}$/.test(token)) return json({ error: 'Not found' }, 404);
+      if (request.method !== 'GET' && request.method !== 'DELETE') return json({ error: 'Method not allowed' }, 405);
+      const res = await stub(env, code).fetch('https://room/record', {
+        method: request.method,
+        headers: {
+          'x-record-token': token,
+          'x-device-token': request.headers.get('x-device-token') ?? '',
+        },
+      });
+      if (res.status === 204) return new Response(null, { status: 204, headers: { 'cache-control': 'no-store' } });
+      if (!res.ok) return json({ error: res.status === 403 ? 'Only the host can delete this record' : 'Record not found' }, res.status);
+      return json(await res.json());
     }
 
     return json({ error: 'Not found' }, 404);

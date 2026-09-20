@@ -194,6 +194,24 @@ test('the host ends after the current hand and everyone receives frozen settleme
   expect(await ana.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await ana.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
   expect(await ana.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await ana.evaluate(() => { document.documentElement.style.fontSize = ''; });
+  await ana.getByRole('link', { name: 'Open private record' }).click();
+  await expect(ana).toHaveURL(/\/record\/[A-Z]{4}\/[a-f0-9]{64}$/);
+  await expect(ana.getByRole('heading', { name: 'Settlement complete' })).toBeVisible();
+  await ana.getByRole('button', { name: /Session history/ }).click();
+  await expect(ana.getByRole('heading', { name: 'Table timeline' })).toBeVisible();
+  await expect(ana.locator('.history-list li')).not.toHaveCount(0);
+  await ana.getByRole('button', { name: 'Back' }).click();
+  await ana.getByRole('button', { name: /Room data & exports/ }).click();
+  await expect(ana.getByRole('heading', { name: 'Available for 30 days' })).toBeVisible();
+  const csv = ana.waitForEvent('download');
+  await ana.getByRole('button', { name: 'Export ledger CSV' }).click();
+  expect((await csv).suggestedFilename()).toMatch(/^meja52-[A-Z]{4}-ledger\.csv$/);
+  await ana.getByRole('button', { name: 'Delete room early' }).click();
+  await expect(ana.getByRole('button', { name: 'Delete permanently' })).toBeDisabled();
+  await ana.getByLabel(/Type .* to confirm/).fill(codeOf(ben));
+  await ana.getByRole('button', { name: 'Delete permanently' }).click();
+  await expect(ana).toHaveURL('/');
 });
 
 test('a player requests a rebuy and the host edits and approves it', async ({ browser }) => {

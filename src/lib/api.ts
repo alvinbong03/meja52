@@ -1,4 +1,4 @@
-import type { RoomConfig } from '../../shared/protocol';
+import type { RoomConfig, SettlementRecordResponse } from '../../shared/protocol';
 import { deviceToken } from './device';
 
 export interface RoomInfo {
@@ -23,4 +23,22 @@ export async function roomInfo(code: string): Promise<RoomInfo | null> {
   if (res.status === 404) return null;
   if (!res.ok) throw new Error('Could not reach the table');
   return (await res.json()) as RoomInfo;
+}
+
+export async function settlementRecord(code: string, token: string): Promise<SettlementRecordResponse | null> {
+  const res = await fetch(`/api/records/${code}/${token}`, { headers: { 'x-device-token': deviceToken() } });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error('Could not load this record');
+  return (await res.json()) as SettlementRecordResponse;
+}
+
+export async function deleteSettlementRecord(code: string, token: string) {
+  const res = await fetch(`/api/records/${code}/${token}`, {
+    method: 'DELETE',
+    headers: { 'x-device-token': deviceToken() },
+  });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error ?? 'Could not delete this record');
+  }
 }

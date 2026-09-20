@@ -46,7 +46,7 @@ export type ClientMessage =
   | { type: 'reviewSettlement'; v: number; status: 'correct' | 'issue'; reason?: string }
   | { type: 'setTransferSettled'; v: number; transferIndex: number; settled: boolean }
   | { type: 'setMyTransfersSettled'; v: number; settled: boolean }
-  | { type: 'finalizeSettlement'; v: number; withIssues: boolean }
+  | { type: 'finalizeSettlement'; v: number; withIssues: boolean; recordToken: string }
   | { type: 'next'; v: number }
   | { type: 'undo'; v: number; mode?: 'return' | 'correct' }
   | { type: 'pauseHand'; v: number }
@@ -187,6 +187,44 @@ export interface LogEntry {
   text: string;
 }
 
+export interface SettlementRecordPlayer {
+  id: string;
+  name: string;
+  totalEntered: number;
+  finalBalance: number;
+  net: number;
+  leftEarly: boolean;
+}
+
+export interface SettlementRecordTransfer {
+  from: string;
+  to: string;
+  amount: number;
+  settled: boolean;
+}
+
+/** Compact, private post-game record. It intentionally excludes device data and live game state. */
+export interface SettlementRecord {
+  code: string;
+  createdAt: number;
+  endedAt: number;
+  finalizedAt: number;
+  expiresAt: number;
+  currency: CurrencyCode;
+  handCount: number;
+  settings: Settings;
+  players: SettlementRecordPlayer[];
+  transfers: SettlementRecordTransfer[];
+  reviews: SettlementReviewView[];
+  finalizedWithIssues: boolean;
+  history: LogEntry[];
+}
+
+export interface SettlementRecordResponse {
+  record: SettlementRecord;
+  canDelete: boolean;
+}
+
 export interface RoomView {
   code: string;
   createdAt: number;
@@ -317,8 +355,8 @@ export function parseClientMessage(raw: string): Envelope | null {
         ? out({ type: 'setMyTransfersSettled', v, settled: m.settled })
         : null;
     case 'finalizeSettlement':
-      return isNum(v) && typeof m.withIssues === 'boolean'
-        ? out({ type: 'finalizeSettlement', v, withIssues: m.withIssues })
+      return isNum(v) && typeof m.withIssues === 'boolean' && typeof m.recordToken === 'string' && /^[a-f0-9]{64}$/.test(m.recordToken)
+        ? out({ type: 'finalizeSettlement', v, withIssues: m.withIssues, recordToken: m.recordToken })
         : null;
     case 'chooseRunouts':
       return isNum(v) && isNum(m.count) && m.count >= 1 && m.count <= 4 && typeof m.agreed === 'boolean'

@@ -1,6 +1,6 @@
 # MEJA52 — Release 1 Implementation Gap Map
 
-Status: Foundation pass 1, Slice 1 entry flow and Slice 2 tactile-betting pass 1 implemented and verified locally; remaining continuity and governance work is pending
+Status: Release 1 implementation complete through the approved private-record, export and retention checkpoint; final release/publishing review remains
 Working branch: `codex/meja52-release1`
 Upstream baseline: `7867414` (`origin/main` at audit time)
 
@@ -52,7 +52,7 @@ The inherited project is functional and well tested. It is a useful foundation, 
 | Corrections | Generic undo history | Short redo window, governed ledger override, public preview, reason and audit history | Slice 4 |
 | Physical runouts | Single boolean “run out the board” prompt | Host selects supported count; Table Controller completes each named runout; pot portions remain exact | Slice 4 |
 | Settlement | Basic ledger and minimum transfers | Approved portrait settlement, early leavers, confirmations, exports and exact currency conversion | Slice 5 |
-| History and retention | Short in-room log and 12-hour expiry | Session history/export, 30-day retention and deliberate early deletion | Slice 5 |
+| History and retention | Short in-room log and 12-hour expiry | **Implemented:** private session history, CSV/JSON/image exports, 30-day final-record retention and deliberate host-only early deletion | Slice 5 |
 | Digital cards | Not implemented | Visible as `Later release`; implement only under the future-release handoff | Deferred |
 
 ## Implementation sequence
@@ -95,7 +95,7 @@ Implement street advancement, showdown awards, ties, side pots, multiple physica
 
 Implement shared display, settlement, minimum transfers, history/export, retention and deletion.
 
-**Implemented in pass 11:** Ended cash games now freeze into the approved portrait settlement flow. Every connected player reviews a personal starting/rebuy/adjustment ledger and final result, can report or resolve an issue, and then sees the deterministic minimum-transfer plan. Only the debtor can acknowledge their own external transfer. The host explicitly finalises the record without waiting for departed players; unresolved issues require a deliberate warning step and remain permanently marked. The website records acknowledgements only and never claims to move or verify money. History export, private 30-day links and deliberate early deletion remain pending.
+**Implemented in passes 11–12:** Ended cash games now freeze into the approved portrait settlement flow. Every connected player reviews a personal starting/rebuy/adjustment ledger and final result, can report or resolve an issue, and then sees the deterministic minimum-transfer plan. Only the debtor can acknowledge their own external transfer. The host explicitly finalises the record without waiting for departed players; unresolved issues require a deliberate warning step and remain permanently marked. Finalisation creates a separate private record capability whose hash alone is stored server-side. The compact record contains the ledger, transfer acknowledgements, reviews and meaningful table timeline while excluding device identity and live room state. It remains available for 30 days, supports image/CSV/JSON export, and can be deleted early only by the host after typing the room code. The website records acknowledgements only and never claims to move or verify money.
 
 ## Verification required for every slice
 

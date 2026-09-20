@@ -1,6 +1,7 @@
 import { useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import { ledger, netsInCents, settleUp } from '../../shared/settle';
 import { fmt } from '../lib/format';
+import { createRecordToken, savedRecordToken } from '../lib/device';
 import { useTable } from '../lib/table';
 import { Icon } from './Icon';
 
@@ -43,6 +44,7 @@ export function SettlementExperience({ onDone }: { onDone: () => void }) {
         issues={settlement.reviews.filter((review) => review.status === 'issue')}
         withIssues={settlement.finalizedWithIssues}
         net={(id) => useCash ? signedCash(room.currency, cents.get(id) ?? 0) : signedChips(rows.find((row) => row.id === id)?.net ?? 0)}
+        recordHref={isHost && savedRecordToken(room.code) ? `/record/${room.code}/${savedRecordToken(room.code)}` : null}
         onDone={onDone}
       />
     );
@@ -111,7 +113,7 @@ export function SettlementExperience({ onDone }: { onDone: () => void }) {
             issues={issues.length}
             busy={busy}
             dominant={ownTransferIndexes.length === 0 || ownSettled}
-            onFinalise={(withIssues) => run({ type: 'finalizeSettlement', v, withIssues })}
+            onFinalise={(withIssues) => run({ type: 'finalizeSettlement', v, withIssues, recordToken: createRecordToken(room.code) })}
           />
         )}
       </section>
@@ -228,13 +230,14 @@ function HostFinalise({ issues, busy, dominant, onFinalise }: { issues: number; 
   return <button className={`btn ${issues ? 'btn-danger-quiet' : dominant ? 'btn-primary' : 'btn-quiet'} btn-xl btn-block`} disabled={busy} onClick={() => issues ? setConfirming(true) : onFinalise(false)}>{issues ? 'Finalize with issue' : 'Finalize record'}</button>;
 }
 
-function FinalRecord({ rows, transfers, settled, issues, withIssues, net, onDone }: {
+function FinalRecord({ rows, transfers, settled, issues, withIssues, net, recordHref, onDone }: {
   rows: ReturnType<typeof ledger>;
   transfers: ReturnType<typeof settleUp>;
   settled: number[];
   issues: NonNullable<ReturnType<typeof useTable>['room']['settlement']>['reviews'];
   withIssues: boolean;
   net: (id: string) => string;
+  recordHref: string | null;
   onDone: () => void;
 }) {
   const unsettled = transfers.length - settled.length;
@@ -250,7 +253,8 @@ function FinalRecord({ rows, transfers, settled, issues, withIssues, net, onDone
         <div className="final-result-list">
           {rows.map((row) => <div key={row.id} data-sign={Math.sign(row.net)}><span>{row.name}{row.departed && <small>Left early</small>}</span><strong className="num">{net(row.id)}</strong></div>)}
         </div>
-        <button className="btn btn-primary btn-xl btn-block" onClick={onDone}>Done</button>
+        {recordHref && <a className="btn btn-primary btn-xl btn-block" href={recordHref}>Open private record</a>}
+        <button className={`btn ${recordHref ? 'btn-quiet btn-lg' : 'btn-primary btn-xl'} btn-block`} onClick={onDone}>Done</button>
       </section>
     </SettlementFrame>
   );

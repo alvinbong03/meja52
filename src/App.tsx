@@ -5,11 +5,13 @@ import { Home } from './screens/Home';
 import { InviteRoom } from './screens/InviteRoom';
 import { JoinCode } from './screens/JoinCode';
 import { Room } from './screens/Room';
+import { Record } from './screens/Record';
 import { Setup } from './screens/Setup';
 
 type Route =
   | { screen: 'home' | 'setup' | 'join' }
   | { screen: 'invite'; code: string }
+  | { screen: 'record'; code: string; token: string }
   | { screen: 'room'; code: string; display: boolean };
 
 function parse(url: string): Route | null {
@@ -21,6 +23,8 @@ function parse(url: string): Route | null {
   if (invite && isRoomCode(invite)) return { screen: 'invite', code: invite };
   const room = pathname.match(/^\/t\/([A-Za-z]{4})\/?$/)?.[1].toUpperCase();
   if (room && isRoomCode(room)) return { screen: 'room', code: room, display: searchParams.get('view') === 'display' };
+  const record = pathname.match(/^\/record\/([A-Za-z]{4})\/([a-f0-9]{64})\/?$/);
+  if (record && isRoomCode(record[1].toUpperCase())) return { screen: 'record', code: record[1].toUpperCase(), token: record[2] };
   return null;
 }
 
@@ -45,6 +49,7 @@ export function App() {
       {route.screen === 'join' && <JoinCode navigate={navigate} />}
       {route.screen === 'invite' && <InviteRoom code={route.code} navigate={navigate} />}
       {route.screen === 'room' && <Room key={route.code} code={route.code} display={route.display} navigate={navigate} />}
+      {route.screen === 'record' && <Record code={route.code} token={route.token} navigate={navigate} />}
       <Toaster />
     </>
   );
