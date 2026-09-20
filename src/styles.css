@@ -1643,6 +1643,11 @@ body:has(.table-shell[data-turn]) {
   grid-template-columns: 1fr 1.35fr 1fr;
 }
 
+.dock-action-scroll {
+  display: grid;
+  gap: 14px;
+}
+
 .btn-turn {
   min-height: 64px;
   padding: 0 10px;
@@ -2195,6 +2200,32 @@ button.chip-stack:active:not(:disabled) .poker-chip {
     color: var(--ink-2);
     transform: translateX(-50%);
   }
+}
+
+@media (orientation: landscape) and (max-height: 380px) and (any-pointer: coarse) {
+  .dock-wrap { overflow: hidden; }
+  .dock-turn {
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    align-content: stretch;
+    overflow: hidden;
+  }
+  .dock-action-scroll {
+    min-height: 0;
+    align-content: start;
+    gap: 7px;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    scrollbar-width: thin;
+    scrollbar-color: var(--line-strong) transparent;
+  }
+  .dock-turn > .chip-rack-wrap {
+    z-index: 1;
+    flex: none;
+    padding-top: 2px;
+    background: var(--private-surface);
+  }
+  .dock-turn > .chip-rack-wrap .chip-stack { min-height: 58px; }
+  .dock-turn > .chip-rack-wrap .poker-chip { width: clamp(62px, 10vw, 76px); }
 }
 
 .dock-award {

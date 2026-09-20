@@ -568,3 +568,27 @@ git diff --check                          PASS
 ```
 
 Deployed to `https://meja52.meja52.workers.dev` as Worker version `2356032f-22a5-40af-a312-033608a7f6c8`. The post-deploy two-device WebSocket smoke test passed with private balances and public pot state intact.
+
+### Consistent Raise control and short-landscape rack — 20 September 2026
+
+- Confirmed that the apparently missing Raise action was a terminology mismatch rather than a rules or synchronisation failure: MEJA52 changed the legal control to **Bet** when a new post-flop street had no existing wager.
+- Kept the player-facing action labelled **Raise** whenever increasing the wager is legal, including the first and subsequent players on Flop, Turn and River. The same server-authoritative `current bet + 1` minimum remains unchanged.
+- On touch landscape viewports no taller than 380 px, separated the action deck into a scrollable middle and a non-shrinking bottom chip rack. Ordinary portrait, desktop, taller landscape and foldable layouts retain their existing sizing and composition.
+- Preserved the approved larger staged-chip visuals; only the bottom rack uses a bounded 62–76 px size on those unusually short screens.
+- The approach follows MDN guidance on dynamic/visual mobile viewports, flex items with explicit shrinking behaviour, and constrained overflow regions.
+
+Verification:
+
+```text
+npm run typecheck                         PASS
+opening-street Raise, first player        PASS
+opening-street Raise, second player       PASS
+780×220 fixed rack + scrolling middle     PASS
+focused rack/gameplay workflows           PASS (3/3)
+complete browser workflow set             PASS (25 direct + 1 isolated retry)
+npm run build                             PASS
+Impeccable detector                       PASS (0 findings)
+git diff --check                          PASS
+```
+
+The complete-suite run's desktop-keyboard workflow timed out while creating its setup room; the isolated workflow passed in 1.6 seconds. No action, layout or keyboard assertion failed.

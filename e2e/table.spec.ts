@@ -240,8 +240,12 @@ test('three players play a hand from deal to payout', async ({ browser }) => {
 
   await expect(ana.getByRole('region', { name: 'Pot' }).getByText('Deal the flop')).toBeVisible();
   await expect(ana.locator('.pot-amount')).toHaveText('130');
+  const firstPostflop = await yourTurn(ana).isVisible() ? ana : ben;
+  await expect(firstPostflop.getByRole('button', { name: 'Raise' })).toBeVisible();
 
   await actWhoeverIsUp([ana, ben], 'Check');
+  const secondPostflop = await yourTurn(ana).isVisible() ? ana : ben;
+  await expect(secondPostflop.getByRole('button', { name: 'Raise' })).toBeVisible();
   await ana.setViewportSize({ width: 844, height: 390 });
   await expect(ana.locator('.landscape-hand-status')).toContainText('Flop');
   await expect(ana.locator('.landscape-deal-cue')).toHaveCount(0);
@@ -735,7 +739,15 @@ test('live play keeps balances private and exposes current bets in phone landsca
 
   await startFirstHand(ana);
   await expect(yourTurn(ana)).toBeVisible();
+  await ana.setViewportSize({ width: 780, height: 220 });
+  await expect(ana.locator('.chip-rack-wrap')).toBeInViewport({ ratio: 1 });
+  const shortLandscapeMiddle = await ana.locator('.dock-action-scroll').evaluate((element) => ({
+    clientHeight: element.clientHeight,
+    scrollHeight: element.scrollHeight,
+  }));
+  expect(shortLandscapeMiddle.scrollHeight).toBeGreaterThan(shortLandscapeMiddle.clientHeight);
   await ana.setViewportSize({ width: 568, height: 320 });
+  await expect(ana.locator('.chip-rack-wrap')).toBeInViewport();
   const compactStatus = await ana.locator('.landscape-hand-status').boundingBox();
   const compactTitle = await ana.locator('.dock-turn .turn-title').first().evaluate((element) => {
     const range = document.createRange();

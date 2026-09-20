@@ -299,7 +299,7 @@ Contextual quick actions remain available:
 
 - **Check** when nothing is owed.
 - **Call RM10** stages the exact amount; it does not commit immediately.
-- **Bet** or **Raise to** with minimum, half-pot, pot and all-in presets where legal.
+- **Raise** opens the wager builder whenever increasing the street wager is legal, including the first wager on a post-flop street; this consistent player-facing label avoids making the available action appear to disappear when the formal poker term changes from raise to bet. The builder retains next-amount, half-pot, pot and all-in presets.
 - **Custom** opens direct numeric entry as a secondary method. The input and numeric keypad appear only after Custom is selected, so the default wager builder remains chip-first.
 - **Fold** through a deliberate short slide to reduce accidental folds.
 

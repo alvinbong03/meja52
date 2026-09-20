@@ -197,7 +197,6 @@ function ActionPanel({ legal, player, actingFor, correcting, onCancel }: ActionP
   const [staged, setStaged] = useState<ChipCount[]>(emptyInventory());
   const [changing, setChanging] = useState(false);
   const pot = room.potTotal;
-  const openLabel = game.currentBet === 0 ? 'Bet' : 'Raise';
   const inventory = you.chipInventoryPlayerId === player.id && you.chipInventory ? you.chipInventory : composeChips(player.stack);
   const stagedAmount = inventoryTotal(staged);
   const available = inventory.map((chip) => ({ ...chip, count: Math.max(0, chip.count - (staged.find((row) => row.value === chip.value)?.count ?? 0)) }));
@@ -233,7 +232,6 @@ function ActionPanel({ legal, player, actingFor, correcting, onCancel }: ActionP
         pot={pot}
         currentBet={game.currentBet}
         bb={game.settings.bb}
-        label={openLabel}
         player={player}
         inventory={inventory}
         currency={room.currency}
@@ -252,7 +250,7 @@ function ActionPanel({ legal, player, actingFor, correcting, onCancel }: ActionP
   const stagedStatus = stagesCall
     ? stagedAllIn ? `All in ${fmt(stagedAmount)}` : `Calling ${fmt(stagedAmount)}`
     : stagesRaise
-      ? stagedAllIn ? `All in to ${fmt(raiseTo)}` : `${openLabel === 'Bet' ? 'Betting' : 'Raising'} to ${fmt(raiseTo)}`
+      ? stagedAllIn ? `All in to ${fmt(raiseTo)}` : `Raising to ${fmt(raiseTo)}`
       : raiseTo > game.currentBet
         ? `Raise to ${fmt(raiseTo)}`
         : `${fmt(Math.max(0, legal.callAmount - stagedAmount))} more to call`;
@@ -281,7 +279,7 @@ function ActionPanel({ legal, player, actingFor, correcting, onCancel }: ActionP
     legal.canCheck
       ? { key: 'check', label: 'Check', hint: 'C', cls: 'btn-turn-main', onClick: () => act('check') }
       : { key: 'call', label: callText, hint: 'C', cls: 'btn-turn-main', onClick: () => act('call') },
-    legal.canRaise && { key: 'raise', label: openLabel, hint: 'R', cls: 'btn-turn-quiet', onClick: () => setRaising(true) },
+    legal.canRaise && { key: 'raise', label: 'Raise', hint: 'R', cls: 'btn-turn-quiet', onClick: () => setRaising(true) },
   ].filter(Boolean) as { key: string; label: string; hint: string; cls: string; onClick: () => void }[];
 
   return (
@@ -299,41 +297,49 @@ function ActionPanel({ legal, player, actingFor, correcting, onCancel }: ActionP
           </button>
         )}
       </div>
-      {stagedAmount > 0 && <StagedChips chips={staged} currency={room.currency} onCommit={stagedValid ? place : undefined} onReturnOne={returnOne} />}
-      {stagedAmount > 0 ? (
-        <div className="staged-actions">
-          <button className="staged-clear" onClick={() => setStaged(emptyInventory())}>Clear</button>
-          <span className="staged-status"><i aria-hidden="true" />{stagedStatus}</span>
-          <button className="btn btn-turn btn-turn-main staged-place" onClick={place} disabled={!stagedValid || busy}>
-            {stagedValid ? `Place ${fmt(stagedAmount)}` : 'Add chips'}
-          </button>
-        </div>
-      ) : (
-        <div className="turn-buttons" data-count={buttons.length}>
-          {buttons.map((b) => (
-            <button key={b.key} className={`btn btn-turn ${b.cls}`} onClick={b.key === 'call' ? () => stageExact(legal.callAmount) : b.onClick} disabled={busy}>
-              {b.label}
-              <kbd className="kbd">{b.hint}</kbd>
+      <div className="dock-action-scroll">
+        {stagedAmount > 0 && <StagedChips chips={staged} currency={room.currency} onCommit={stagedValid ? place : undefined} onReturnOne={returnOne} />}
+        {stagedAmount > 0 ? (
+          <div className="staged-actions">
+            <button className="staged-clear" onClick={() => setStaged(emptyInventory())}>Clear</button>
+            <span className="staged-status"><i aria-hidden="true" />{stagedStatus}</span>
+            <button className="btn btn-turn btn-turn-main staged-place" onClick={place} disabled={!stagedValid || busy}>
+              {stagedValid ? `Place ${fmt(stagedAmount)}` : 'Add chips'}
             </button>
-          ))}
-        </div>
-      )}
-      {!actingFor && (
-        <div className="private-hand-total">
-          <span>In this hand</span>
-          <Num value={player.committed} />
-        </div>
-      )}
-      {changing ? (
-        <ChangeChipPanel
+          </div>
+        ) : (
+          <div className="turn-buttons" data-count={buttons.length}>
+            {buttons.map((b) => (
+              <button key={b.key} className={`btn btn-turn ${b.cls}`} onClick={b.key === 'call' ? () => stageExact(legal.callAmount) : b.onClick} disabled={busy}>
+                {b.label}
+                <kbd className="kbd">{b.hint}</kbd>
+              </button>
+            ))}
+          </div>
+        )}
+        {!actingFor && (
+          <div className="private-hand-total">
+            <span>In this hand</span>
+            <Num value={player.committed} />
+          </div>
+        )}
+        {changing && (
+          <ChangeChipPanel
+            inventory={available}
+            currency={room.currency}
+            busy={busy}
+            onCancel={() => setChanging(false)}
+            onConfirm={(value, into) => void run({ type: 'changeChip', v, value, into, ...(actingFor ? { playerId: player.id } : {}) })}
+          />
+        )}
+      </div>
+      {!changing && (
+        <ChipRack
           inventory={available}
           currency={room.currency}
-          busy={busy}
-          onCancel={() => setChanging(false)}
-          onConfirm={(value, into) => void run({ type: 'changeChip', v, value, into, ...(actingFor ? { playerId: player.id } : {}) })}
+          onChip={addChip}
+          onMakeChange={available.some((chip) => chip.value > 1 && chip.count > 0) ? () => setChanging(true) : undefined}
         />
-      ) : (
-        <ChipRack inventory={available} currency={room.currency} onChip={addChip} onMakeChange={available.some((chip) => chip.value > 1 && chip.count > 0) ? () => setChanging(true) : undefined} />
       )}
     </div>
   );
@@ -400,7 +406,6 @@ interface RaiseProps {
   pot: number;
   currentBet: number;
   bb: number;
-  label: string;
   player: Player;
   inventory: ChipCount[];
   currency: string;
@@ -409,7 +414,7 @@ interface RaiseProps {
   onConfirm: (amount: number, chips: ChipCount[]) => void;
 }
 
-function RaisePanel({ legal, pot, currentBet, bb, label, player, inventory, currency, busy, onBack, onConfirm }: RaiseProps) {
+function RaisePanel({ legal, pot, currentBet, bb, player, inventory, currency, busy, onBack, onConfirm }: RaiseProps) {
   const min = legal.minRaiseTo;
   const max = legal.maxRaiseTo;
   const [amount, setAmount] = useState<number | null>(null);
@@ -468,39 +473,41 @@ function RaisePanel({ legal, pot, currentBet, bb, label, player, inventory, curr
         <span className="turn-metric"><small>Pot</small><Num value={pot} /></span>
         <span className="turn-metric"><small>Balance</small><Num value={player.stack} /></span>
       </div>
-      <div className="raise-heading">
-        <span className="turn-title">{label === 'Bet' ? 'Bet' : 'Raise to'}</span>
-        <span className="turn-sub">Any amount above {fmt(currentBet)}</span>
-      </div>
-      <div className="raise-section-divider" aria-hidden="true" />
-      {amount !== null && <StagedChips chips={stagedChips} currency={currency} onCommit={valid ? confirm : undefined} />}
-      <div className="raise-utility">
-        <button className="staged-clear" onClick={amount === null ? onBack : () => { setAmount(null); setText(''); setCustom(false); }}>{amount === null ? 'Back' : 'Clear'}</button>
-        <span>{amount === null ? 'Tap chips or choose a shortcut.' : `${label === 'Bet' ? 'Betting' : 'Raising'} to ${fmt(final)}`}</span>
-      </div>
-      {custom && (
-        <label className="raise-amount custom-amount">
-          <span className="turn-sub">Custom amount</span>
-          <input ref={inputRef} className="raise-input num" inputMode="numeric" pattern="[0-9]*" value={text} aria-invalid={text.length > 0 && !valid} autoFocus
-            onChange={(e) => { const digits = e.target.value.replace(/\D/g, '').slice(0, 10); setText(digits); const n = Number(digits); setAmount(digits ? Math.min(max, n) : null); }} />
-        </label>
-      )}
-      {amount !== null && (
-        <button className="btn btn-turn btn-turn-main staged-place" onClick={confirm} disabled={!valid || busy}>
-          {allIn ? `Place all in ${fmt(max)}` : `Place ${fmt(final)}`}
-        </button>
-      )}
-      <div className="presets raise-presets">
-        {presets.map((p) => (
-          <button key={p.label} className="preset" data-on={(amount !== null && final === p.value) || undefined} onClick={() => set(p.value)}>
-            <span>{p.label}</span><strong>{fmt(p.value)}</strong>
+      <div className="dock-action-scroll">
+        <div className="raise-heading">
+          <span className="turn-title">Raise to</span>
+          <span className="turn-sub">Any amount above {fmt(currentBet)}</span>
+        </div>
+        <div className="raise-section-divider" aria-hidden="true" />
+        {amount !== null && <StagedChips chips={stagedChips} currency={currency} onCommit={valid ? confirm : undefined} />}
+        <div className="raise-utility">
+          <button className="staged-clear" onClick={amount === null ? onBack : () => { setAmount(null); setText(''); setCustom(false); }}>{amount === null ? 'Back' : 'Clear'}</button>
+          <span>{amount === null ? 'Tap chips or choose a shortcut.' : `Raising to ${fmt(final)}`}</span>
+        </div>
+        {custom && (
+          <label className="raise-amount custom-amount">
+            <span className="turn-sub">Custom amount</span>
+            <input ref={inputRef} className="raise-input num" inputMode="numeric" pattern="[0-9]*" value={text} aria-invalid={text.length > 0 && !valid} autoFocus
+              onChange={(e) => { const digits = e.target.value.replace(/\D/g, '').slice(0, 10); setText(digits); const n = Number(digits); setAmount(digits ? Math.min(max, n) : null); }} />
+          </label>
+        )}
+        {amount !== null && (
+          <button className="btn btn-turn btn-turn-main staged-place" onClick={confirm} disabled={!valid || busy}>
+            {allIn ? `Place all in ${fmt(max)}` : `Place ${fmt(final)}`}
           </button>
-        ))}
-        <button className="preset" data-on={custom || undefined} onClick={() => { setCustom(true); setAmount(null); setText(''); }}><span>Custom</span><strong>Type amount</strong></button>
-      </div>
-      <div className="private-hand-total">
-        <span>In this hand</span>
-        <Num value={player.committed} />
+        )}
+        <div className="presets raise-presets">
+          {presets.map((p) => (
+            <button key={p.label} className="preset" data-on={(amount !== null && final === p.value) || undefined} onClick={() => set(p.value)}>
+              <span>{p.label}</span><strong>{fmt(p.value)}</strong>
+            </button>
+          ))}
+          <button className="preset" data-on={custom || undefined} onClick={() => { setCustom(true); setAmount(null); setText(''); }}><span>Custom</span><strong>Type amount</strong></button>
+        </div>
+        <div className="private-hand-total">
+          <span>In this hand</span>
+          <Num value={player.committed} />
+        </div>
       </div>
       <ChipRack
         inventory={stagedResult?.remaining ?? inventory}
