@@ -8,7 +8,7 @@ import {
   type Legal,
   type Player,
 } from '../../shared/engine';
-import { fmt } from '../lib/format';
+import { fmt, NEXT_CARDS, STREET_NAMES } from '../lib/format';
 import { CHIP_VALUES, chipLabel, composeChips, emptyInventory, inventoryTotal, takeExact, type ChipCount, type ChipValue } from '../lib/chips';
 import { useTable } from '../lib/table';
 import { useShake } from '../lib/motion';
@@ -23,7 +23,21 @@ export function Dock({ onRebuy, onRunout, onOverride }: { onRebuy: () => void; o
   const shaking = useShake();
   return (
     <div className="dock-shake" data-shake={shaking || undefined}>
+      <LandscapeHandStatus />
       <DockBody onRebuy={onRebuy} onRunout={onRunout} onOverride={onOverride} />
+    </div>
+  );
+}
+
+function LandscapeHandStatus() {
+  const { game } = useTable();
+  if (game.phase !== 'betting') return null;
+  const freshStreet = game.street > 0 && game.players.every((player) => !player.acted) && game.currentBet === 0;
+  const dealCue = freshStreet ? NEXT_CARDS[game.street] : '';
+  return (
+    <div className="landscape-hand-status" aria-live="polite">
+      <span>Hand {game.handNo} · {STREET_NAMES[game.street]}</span>
+      {dealCue && <strong className="landscape-deal-cue" key={dealCue}>{dealCue}</strong>}
     </div>
   );
 }

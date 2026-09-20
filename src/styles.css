@@ -1465,6 +1465,10 @@ body:has(.table-shell[data-turn]) {
   display: none;
 }
 
+.landscape-hand-status {
+  display: none;
+}
+
 /* ---------- dock ---------- */
 
 .dock-wrap {
@@ -2069,46 +2073,10 @@ button.chip-stack:active:not(:disabled) .poker-chip {
   .table-shell:not([data-phase='lobby']) .topbar,
   .table-shell:not([data-phase='lobby']) .table-main { display: none; }
   .landscape-bet-rail {
-    display: grid;
-    grid-template-columns: clamp(108px, 18vw, 120px) minmax(0, 1fr);
+    display: block;
     min-height: 60px;
     border-bottom: 1px solid var(--line);
     background: var(--bg);
-  }
-  .bet-rail-street {
-    display: grid;
-    min-width: 0;
-    align-content: center;
-    gap: 2px;
-    padding: 0 12px 0 max(12px, var(--safe-left));
-    border-right: 1px solid var(--line);
-  }
-  .bet-rail-hand {
-    overflow: hidden;
-    color: var(--ink-2);
-    font-size: 0.58rem;
-    font-weight: 560;
-    letter-spacing: 0.025em;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .bet-rail-street strong {
-    overflow: hidden;
-    color: var(--ink);
-    font-size: 0.78rem;
-    font-weight: 680;
-    letter-spacing: -0.01em;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .bet-rail-deal {
-    overflow: hidden;
-    color: var(--ink);
-    font-size: 0.56rem;
-    font-weight: 650;
-    letter-spacing: 0;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
   .bet-rail-scroll {
     width: 100%;
@@ -2124,7 +2092,7 @@ button.chip-stack:active:not(:disabled) .poker-chip {
     display: flex;
     min-width: max-content;
     margin: 0;
-    padding: 0 var(--safe-right) 0 0;
+    padding: 0 var(--safe-right) 0 var(--safe-left);
     list-style: none;
   }
   .bet-rail-list li {
@@ -2164,8 +2132,36 @@ button.chip-stack:active:not(:disabled) .poker-chip {
   .dock-shake,
   .dock { min-height: 0; }
   .dock-wrap { flex: 1; height: auto; overflow-y: auto; }
+  .dock-shake { position: relative; }
   .dock-shake,
   .dock { height: 100%; }
+  .landscape-hand-status {
+    position: absolute;
+    z-index: 2;
+    top: 11px;
+    left: 50%;
+    display: grid;
+    max-width: 150px;
+    justify-items: center;
+    gap: 1px;
+    overflow: hidden;
+    color: var(--ink-2);
+    font-size: 0.62rem;
+    font-weight: 560;
+    letter-spacing: 0.01em;
+    line-height: 1.2;
+    pointer-events: none;
+    text-align: center;
+    text-overflow: ellipsis;
+    transform: translateX(-50%);
+    white-space: nowrap;
+  }
+  .landscape-deal-cue {
+    color: var(--ink);
+    font-size: 0.56rem;
+    font-weight: 650;
+    letter-spacing: 0;
+  }
   .dock { align-content: space-between; gap: 7px; padding-top: 10px; padding-bottom: calc(var(--safe-bottom) + 8px); }
   .turn-overview { min-height: 46px; }
   .turn-title { font-size: 1.16rem; }

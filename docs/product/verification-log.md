@@ -547,3 +547,22 @@ git diff --check                          PASS
 The first complete-suite run timed out while creating the overflow test's setup room; its isolated rerun passed in 10.8 seconds. No assertion, rendering or gameplay failure occurred.
 
 Deployed to `https://meja52.meja52.workers.dev` as Worker version `4b4ff34e-5fa4-4d56-847d-015534fcccc9`. The post-deploy two-device WebSocket smoke test passed with private balances and public pot state intact.
+
+### Uncluttered landscape hand status — 20 September 2026
+
+- Returned the full top landscape rail to player names, positions and current-street bets only; all 120 px player cells now share the entire scrollable width.
+- Moved **Hand N · Preflop/Flop/Turn/River** into a small, centred status in the same private header row as Pot and Balance.
+- Kept **Deal the flop/turn/river** directly beneath that status only until the first action of the new street, on every player device.
+- Added a 568×320 geometry regression confirming the centred status does not collide with the left turn copy or right Pot metric.
+
+Verification:
+
+```text
+npm run typecheck                         PASS
+npm run test:e2e                          PASS (26 workflows)
+568×320 status/metric collision check      PASS
+15-player full-width rail check           PASS
+npm run build                             PASS
+Impeccable detector                       PASS (0 findings)
+git diff --check                          PASS
+```
