@@ -501,3 +501,5 @@ git diff --check                          PASS
 ```
 
 Automated Release 1 certification passes. Physical iPhone/Android play, a longer home-network soak, rollback rehearsal and explicit owner approval to merge/tag remain open.
+
+Deployed the certified dependency/toolchain state to `https://meja52.meja52.workers.dev` as Worker version `f9c79791-6b0d-4611-a7b7-971b711ac644`. The post-deploy two-device WebSocket smoke test and API security-header check passed.

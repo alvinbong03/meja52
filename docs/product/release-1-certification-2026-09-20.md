@@ -43,6 +43,7 @@ The full browser run covers complete hands and settlement, privacy, tactile chip
 ## Live evidence
 
 - Deployment: `https://meja52.meja52.workers.dev`
+- Certified Worker version: `f9c79791-6b0d-4611-a7b7-971b711ac644`.
 - Homepage and `/api/health`: HTTP 200.
 - Static response: CSP, HSTS, frame denial, no-sniff, restrictive permissions and referrer policy present.
 - API response: `no-store`, `no-referrer`, `noindex, nofollow` present.
