@@ -397,3 +397,5 @@ phone-landscape composer overflow check  PASS
 Impeccable detector                       PASS (0 findings)
 git diff --check                          PASS
 ```
+
+Deployed to `https://meja52.meja52.workers.dev` as Worker version `a44fee14-0110-4117-a24e-1372378cdcfc`. The post-deploy two-device WebSocket smoke test passed with private balances and public pot state intact.
