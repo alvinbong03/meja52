@@ -77,7 +77,7 @@ This slice establishes MEJA52's production tokens, typography, brand application
 
 Implement the approved waiting, active-turn, preselection, staged-call, raise builder, custom amount, chip-change and portrait fallback comps.
 
-**Implemented in pass 1 and refined in pass 7:** responsive portrait/landscape table-edge presentation, deterministic RM1/RM5/RM25/RM100 visual chip composition, tappable chip racks, two-stage Call → Place workflow, Clear, chip-first raise staging, approved shortcuts and secondary Custom amount entry. Every active player now retains one visible current-street bet beside their name—including `0`—in both the standard table and compact landscape rail, without exposing private balances or total hand contributions. Manual persisted chip change and denomination settings remain pending.
+**Implemented in pass 1 and refined in passes 7–8:** responsive portrait/landscape table-edge presentation, deterministic RM1/RM5/RM25/RM100 visual chip composition, tappable chip racks, two-stage Call → Place workflow, Clear, chip-first raise staging, approved shortcuts and secondary Custom amount entry. Every active player now retains one visible current-street bet beside their name—including `0`—in both the standard table and compact landscape rail, without exposing private balances or total hand contributions. The landscape rail is reserved exclusively for player bets, uses 120 px minimum player cells and scrolls independently for 10–15 players; Pot remains in the private action header beside Balance. Landscape chip targets and staged-chip visuals are enlarged for tactile interaction. Manual persisted chip change and denomination settings remain pending.
 
 ### Slice 3 — table continuity
 

@@ -1940,36 +1940,20 @@ button.chip-stack:active:not(:disabled) .poker-chip {
   .topbar,
   .table-main { display: none; }
   .landscape-bet-rail {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    min-height: 52px;
-    align-items: center;
+    display: block;
+    min-height: 60px;
     border-bottom: 1px solid var(--line);
     background: var(--bg);
   }
-  .bet-rail-pot {
-    display: grid;
-    min-width: 84px;
-    min-height: 51px;
-    align-content: center;
-    padding: 4px 16px;
-    border: 0;
-    border-right: 1px solid var(--line);
-    background: transparent;
-    text-align: left;
-  }
-  .bet-rail-pot span:first-child,
-  .bet-rail-hint {
-    color: var(--ink-2);
-    font-size: 0.68rem;
-    letter-spacing: 0.035em;
-  }
-  .bet-rail-pot .num { font-size: 1.1rem; font-weight: 680; }
   .bet-rail-scroll {
+    width: 100%;
     min-width: 0;
     overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x proximity;
     scrollbar-width: thin;
     scrollbar-color: var(--line-strong) transparent;
+    -webkit-overflow-scrolling: touch;
   }
   .bet-rail-list {
     display: flex;
@@ -1981,12 +1965,14 @@ button.chip-stack:active:not(:disabled) .poker-chip {
   .bet-rail-list li {
     position: relative;
     display: grid;
-    min-width: 88px;
-    min-height: 36px;
+    width: 120px;
+    min-width: 120px;
+    min-height: 59px;
     align-content: center;
-    gap: 1px;
-    padding: 0 14px;
+    gap: 2px;
+    padding: 0 18px;
     border-right: 1px solid var(--line);
+    scroll-snap-align: start;
   }
   .bet-rail-list li[data-acting]::before {
     content: '';
@@ -1999,10 +1985,9 @@ button.chip-stack:active:not(:disabled) .poker-chip {
     background: var(--ink);
     transform: translateY(-50%);
   }
-  .bet-rail-list li span { max-width: 9rem; overflow: hidden; color: var(--ink-2); font-size: 0.7rem; text-overflow: ellipsis; white-space: nowrap; }
-  .bet-rail-list li strong { font-size: 0.92rem; font-weight: 650; }
+  .bet-rail-list li span { max-width: 100%; overflow: hidden; color: var(--ink-2); font-size: 0.72rem; text-overflow: ellipsis; white-space: nowrap; }
+  .bet-rail-list li strong { font-size: 1rem; font-weight: 650; }
   .bet-rail-empty { padding: 0 14px; color: var(--ink-2); font-size: 0.78rem; }
-  .bet-rail-hint { padding: 0 14px; white-space: nowrap; }
   .dock-wrap,
   .dock-shake,
   .dock { min-height: 0; }
@@ -2014,10 +1999,11 @@ button.chip-stack:active:not(:disabled) .poker-chip {
   .turn-title { font-size: 1.16rem; }
   .turn-sub { font-size: 0.78rem; }
   .turn-metric { font-size: 1.35rem; }
-  .chip-stack { min-height: 50px; }
-  .poker-chip { width: clamp(58px, 9vw, 76px); }
-  .staged-chips { min-height: 52px; padding-block: 2px 6px; }
-  .staged-chip { width: 54px; }
+  .chip-stack { min-height: 64px; }
+  .poker-chip { width: clamp(68px, 12vw, 92px); }
+  .poker-chip > span { font-size: clamp(0.72rem, 2.4vw, 0.86rem); }
+  .staged-chips { min-height: 62px; padding-block: 2px 6px; }
+  .staged-chip { width: 64px; }
   .btn-turn { min-height: 48px; }
   .dock-raise:has(.staged-chips) .raise-heading { display: none; }
   .raise-heading .turn-title { font-size: 1.05rem; }

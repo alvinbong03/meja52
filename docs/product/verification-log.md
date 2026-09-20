@@ -120,3 +120,12 @@ Type checking, all 55 unit tests, all 43 Worker integration tests, the productio
 - Added a 1024×500 regression check confirming the dock begins at the left edge, spans the viewport, and keeps Table Controls visible.
 
 Type checking, the production build, and the focused landscape Playwright workflow passed.
+
+### Dedicated landscape bet rail
+
+- Removed Pot and helper copy from the top landscape rail; Pot remains beside Balance in the private action header.
+- The rail now contains only player names and current-street bets, with a 120 px minimum cell and independent horizontal scrolling.
+- Enlarged the landscape chip rack and staged-chip visuals while preserving the approved controls and table hierarchy.
+- A 15-player browser regression confirms all players remain present, cell width never compresses below 120 px, and the rail scrolls instead of overflowing the page.
+
+Type checking, the production build, and focused 3-player and 15-player landscape browser workflows passed.

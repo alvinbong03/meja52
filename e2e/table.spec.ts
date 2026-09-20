@@ -500,6 +500,7 @@ test('live play keeps balances private and exposes current bets in phone landsca
   const rail = ana.getByRole('region', { name: 'Current street bets' });
   await expect(rail).toBeVisible();
   await expect(rail.getByRole('listitem')).toHaveCount(3);
+  await expect(rail.getByText('Pot', { exact: true })).toHaveCount(0);
   await expect(rail.getByRole('listitem').filter({ hasText: 'Ana' })).toContainText('11');
   await expect(rail).toContainText('Ben');
   await expect(rail).toContainText('Cat');
@@ -540,6 +541,18 @@ test('a full fifteen-player lobby remains usable on a phone', async ({ browser }
   expect(overflow).toBeLessThanOrEqual(0);
   await host.getByRole('button', { name: 'Manage' }).click();
   await expect(host.getByRole('dialog', { name: 'Players' }).getByText('Player 15', { exact: true })).toBeVisible();
+  await host.keyboard.press('Escape');
+  await host.getByRole('button', { name: 'Deal the first hand' }).click();
+  await host.setViewportSize({ width: 844, height: 390 });
+  const rail = host.getByRole('region', { name: 'Current street bets' });
+  await expect(rail.getByRole('listitem')).toHaveCount(15);
+  const railMetrics = await rail.locator('.bet-rail-scroll').evaluate((element) => ({
+    clientWidth: element.clientWidth,
+    scrollWidth: element.scrollWidth,
+    minimumCell: (element.querySelector('li') as HTMLElement | null)?.getBoundingClientRect().width ?? 0,
+  }));
+  expect(railMetrics.scrollWidth).toBeGreaterThan(railMetrics.clientWidth);
+  expect(railMetrics.minimumCell).toBeGreaterThanOrEqual(120);
 });
 
 test('guests cannot take hosting while the unseated creator is connected or still in the grace period', async ({ browser }) => {
