@@ -10,7 +10,9 @@ describe('parseClientMessage', () => {
     expect(parse({ type: 'hello', token, seq: 1 })).toEqual({ type: 'hello', token, seq: 1 });
     expect(parse({ type: 'act', v: 3, kind: 'raise', amount: 60 })).toEqual({ type: 'act', v: 3, kind: 'raise', amount: 60 });
     expect(parse({ type: 'act', v: 3, kind: 'call', chips: [{ value: 5, count: 2 }] })).toEqual({ type: 'act', v: 3, kind: 'call', chips: [{ value: 5, count: 2 }] });
-    expect(parse({ type: 'changeChip', v: 3, value: 50 })).toEqual({ type: 'changeChip', v: 3, value: 50 });
+    expect(parse({ type: 'changeChip', v: 3, value: 50, into: [{ value: 1, count: 20 }, { value: 5, count: 6 }] })).toEqual({
+      type: 'changeChip', v: 3, value: 50, into: [{ value: 1, count: 20 }, { value: 5, count: 6 }],
+    });
     expect(parse({ type: 'act', v: 3, kind: 'fold', playerId: 'abcdef0123456789' })).toMatchObject({ playerId: 'abcdef0123456789' });
     expect(parse({ type: 'award', v: 9, winners: { 0: ['abcdef01', 'abcdef02'] } })).toEqual({
       type: 'award',
@@ -97,6 +99,8 @@ describe('parseClientMessage', () => {
       { type: 'act', v: 1, kind: 'call', chips: [{ value: 25, count: 1 }] },
       { type: 'act', v: 1, kind: 'call', chips: [{ value: 5, count: -1 }] },
       { type: 'changeChip', v: 1, value: 25 },
+      { type: 'changeChip', v: 1, value: 50 },
+      { type: 'changeChip', v: 1, value: 50, into: [] },
       { type: 'resolveRebuy', v: 1, requestId: 'abcdef0123456789', allow: true },
       { type: 'resolveRebuy', v: 1, requestId: 'abcdef0123456789', allow: false, amount: '100' },
       { type: 'requestLeave', mode: 'eventually' },

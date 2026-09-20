@@ -38,7 +38,7 @@ export type ClientMessage =
   | { type: 'resolveClaim'; claimId: string; allow: boolean }
   | { type: 'start'; v: number; allowUnconfirmed?: boolean }
   | { type: 'act'; v: number; kind: ActionKind; amount?: number; playerId?: string; chips?: ChipCount[] }
-  | { type: 'changeChip'; v: number; value: ChipValue; playerId?: string }
+  | { type: 'changeChip'; v: number; value: ChipValue; into: ChipCount[]; playerId?: string }
   | { type: 'award'; v: number; winners: Record<string, string[]> }
   | { type: 'confirmAward'; v: number }
   | { type: 'disputeAward'; v: number }
@@ -458,12 +458,13 @@ export function parseClientMessage(raw: string): Envelope | null {
       if (chips) msg.chips = chips;
       return out(msg);
     }
-    case 'changeChip':
-      return isNum(v) && isChipValue(m.value) && optId(m.playerId)
-        ? out(m.playerId === undefined
-            ? { type: 'changeChip', v, value: m.value }
-            : { type: 'changeChip', v, value: m.value, playerId: m.playerId as string })
-        : null;
+    case 'changeChip': {
+      const into = parseChips(m.into);
+      if (!isNum(v) || !isChipValue(m.value) || !optId(m.playerId) || !into || into.length === 0) return null;
+      return out(m.playerId === undefined
+        ? { type: 'changeChip', v, value: m.value, into }
+        : { type: 'changeChip', v, value: m.value, into, playerId: m.playerId as string });
+    }
     case 'award': {
       if (!isNum(v) || !isObj(m.winners)) return null;
       const winners: Record<string, string[]> = {};

@@ -1,4 +1,4 @@
-export { CHIP_VALUES, breakChip, composeChips, emptyInventory, inventoryTotal, normalizeInventory, reconcileInventory, takeExact } from '../../shared/chips';
+export { CHIP_VALUES, breakChip, breakChipInto, composeChips, emptyInventory, inventoryTotal, normalizeInventory, reconcileInventory, takeExact } from '../../shared/chips';
 export type { ChipCount, ChipValue, TakeResult } from '../../shared/chips';
 
 export function chipLabel(currency: string, value: number) {

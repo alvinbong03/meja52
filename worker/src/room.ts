@@ -28,7 +28,7 @@ import {
   type Settings,
 } from '../../shared/engine';
 import { cleanName, sameName } from '../../shared/names';
-import { breakChip, inventoryTotal, normalizeInventory, reconcileInventory, takeExact, type ChipCount } from '../../shared/chips';
+import { breakChipInto, inventoryTotal, normalizeInventory, reconcileInventory, takeExact, type ChipCount } from '../../shared/chips';
 import { ledger, netsInCents, settleUp } from '../../shared/settle';
 import {
   AWAY_AFTER_MS,
@@ -696,8 +696,8 @@ export class Room extends DurableObject<Env> {
           }
         }
         const player = findPlayer(s.game, playerId) ?? deny('INVALID', 'Unknown player');
-        const changed = breakChip(this.inventoryFor(playerId, player.stack), msg.value);
-        if (!changed) return deny('INVALID', msg.value === 1 ? 'RM1 is already the smallest chip' : `No RM${msg.value} chip is available`);
+        const changed = breakChipInto(this.inventoryFor(playerId, player.stack), msg.value, msg.into);
+        if (!changed) return deny('INVALID', 'Choose smaller chips whose total exactly matches the chip being broken');
         (s.chipInventories ??= {})[playerId] = changed;
         s.v += 1;
         this.commit();

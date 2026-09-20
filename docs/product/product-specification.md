@@ -320,8 +320,10 @@ Visual chip composition persists between actions. The app makes change only when
 ### Manual change
 
 - A visible **Make Change** control appears beside the chip rack.
-- Tap it and select a chip to preview an equal-value breakdown: `RM50 → RM20 + RM20 + RM10`, `RM20 → 2 × RM10`, `RM10 → 2 × RM5`, or `RM5 → 5 × RM1`.
-- Confirm **Break Chip** to animate the exchange.
+- Tap it to open a focused change window, then select one owned chip from the familiar visual rack.
+- Build the replacement from any smaller denominations by tapping chips or typing quantities. For example, an RM50 chip may become `20 × RM1 + 6 × RM5`.
+- A running total shows the replacement amount and the amount remaining. **Break Chip** stays disabled until the replacement exactly equals the selected source chip.
+- Confirm **Break Chip** to animate the exchange. The server rejects non-exact totals, duplicate denominations, larger replacement chips, and unavailable source chips.
 - Direct shortcut: drag a chip onto the **Make Change** target.
 - The preview explains that the player's balance stays the same.
 - Making change does not alter balance and may be done before or during a turn.

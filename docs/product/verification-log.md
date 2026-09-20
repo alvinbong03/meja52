@@ -375,3 +375,25 @@ git diff --check                          PASS
 ```
 
 Deployed to `https://meja52.meja52.workers.dev` as Worker version `18959d91-bed8-40c5-b50f-fb79a2096056`. The post-deploy two-device WebSocket smoke test passed with private balances and public pot state intact.
+
+### Custom player-composed chip change — 20 September 2026
+
+- Replaced the fixed Make Change preview with a focused two-step composer: select one owned source chip, then build the replacement from smaller denominations.
+- Kept the approved tactile rack language. Players can tap replacement chips or type exact quantities; the running total shows progress and **Break chip** remains disabled until the values match exactly.
+- Added authoritative Worker validation for source ownership, exact value, positive unique counts and smaller replacement denominations. Numeric balance never changes and private inventory remains private.
+- Preserved the automatic deterministic change chain used by exact Calls and wagers; only the manual Make Change workflow became custom.
+- Checked the interaction against the approved Apple, Porsche, Bang & Olufsen and Linear principles: one contained surface, clear sequence, familiar chip objects, restrained hierarchy and no additional card stack or decorative treatment.
+
+Verification:
+
+```text
+npm run typecheck                         PASS
+npm run test:unit                         PASS (71 tests)
+npm run test:worker                       PASS (58 tests)
+npm run test:e2e                          PASS (25 workflows)
+npm run build                             PASS
+custom RM50 → 20×RM1 + 6×RM5 workflow    PASS
+phone-landscape composer overflow check  PASS
+Impeccable detector                       PASS (0 findings)
+git diff --check                          PASS
+```

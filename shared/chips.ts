@@ -73,6 +73,24 @@ export function breakChip(chips: readonly ChipCount[], value: ChipValue): ChipCo
   return next;
 }
 
+/** Replaces one owned chip with a player-chosen, exact-value mix of smaller chips. */
+export function breakChipInto(chips: readonly ChipCount[], value: ChipValue, into: readonly ChipCount[]): ChipCount[] | null {
+  if (value === 1 || into.length === 0 || into.length > CHIP_VALUES.length) return null;
+  const seen = new Set<ChipValue>();
+  for (const chip of into) {
+    if (seen.has(chip.value) || chip.value >= value || !Number.isSafeInteger(chip.count) || chip.count <= 0) return null;
+    seen.add(chip.value);
+  }
+  if (inventoryTotal(into) !== value) return null;
+
+  const next = normalizeInventory(chips);
+  const source = next.find((chip) => chip.value === value);
+  if (!source || source.count < 1) return null;
+  source.count -= 1;
+  for (const part of into) next.find((chip) => chip.value === part.value)!.count += part.count;
+  return next;
+}
+
 export interface TakeResult {
   remaining: ChipCount[];
   taken: ChipCount[];

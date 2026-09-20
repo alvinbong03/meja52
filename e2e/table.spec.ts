@@ -92,7 +92,7 @@ test('room setup preferences have accessible controls', async ({ page }) => {
   await expect.poll(() => page.evaluate(() => ({ sound: localStorage.getItem('pp.sound'), haptics: localStorage.getItem('pp.haptics') }))).toEqual({ sound: 'off', haptics: 'off' });
 });
 
-test('the tactile rack stages chips and previews equal-value change without replacing the live header', async ({ browser }) => {
+test('the tactile rack stages chips and builds custom equal-value change without replacing the live header', async ({ browser }) => {
   const ana = await seat(browser, 'Ana');
   await seat(browser, 'Ben', codeOf(ana));
   await startFirstHand(ana);
@@ -107,11 +107,20 @@ test('the tactile rack stages chips and previews equal-value change without repl
 
   const balance = await ana.locator('.turn-metric').filter({ hasText: 'Balance' }).innerText();
   await ana.getByRole('button', { name: 'Make change' }).click();
-  await expect(ana.getByText('Make change · balance stays the same')).toBeVisible();
-  await expect(ana.getByText('RM50 → 2 × RM20 + RM10')).toBeVisible();
+  await expect(ana.getByRole('dialog', { name: 'Make change' })).toBeVisible();
+  await expect(ana.getByRole('button', { name: 'Break chip' })).toBeDisabled();
+  await ana.getByRole('button', { name: /Break one RM50 chip/ }).click();
+  await ana.getByRole('spinbutton', { name: 'Number of RM1 chips' }).fill('20');
+  await ana.getByRole('spinbutton', { name: 'Number of RM5 chips' }).fill('6');
+  await expect(ana.getByText('RM50 of RM50')).toBeVisible();
+  await expect(ana.getByRole('button', { name: 'Break chip' })).toBeEnabled();
+  await ana.setViewportSize({ width: 844, height: 390 });
+  await expect.poll(() => ana.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await expect(ana.getByRole('dialog', { name: 'Make change' })).toBeVisible();
   await ana.getByRole('button', { name: 'Break chip' }).click();
   await expect(ana.locator('.turn-metric').filter({ hasText: 'Balance' })).toContainText(balance.replace(/\s+/g, ' ').trim().split(' ').at(-1)!);
-  await expect(ana.getByRole('button', { name: /Add one RM10 chip\. 4 available/ })).toBeVisible();
+  await expect(ana.getByRole('button', { name: /Add one RM1 chip\. 30 available/ })).toBeVisible();
+  await expect(ana.getByRole('button', { name: /Add one RM5 chip\. 9 available/ })).toBeVisible();
 });
 
 test('the lobby supports landscape and direct seat swapping by tap or drag', async ({ browser }) => {

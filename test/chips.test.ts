@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { breakChip, chipLabel, composeChips, inventoryTotal, takeExact } from '../src/lib/chips';
+import { breakChip, breakChipInto, chipLabel, composeChips, inventoryTotal, takeExact } from '../src/lib/chips';
 
 describe('visual chip composition', () => {
   it('recomposes a balance exactly using the approved denominations', () => {
@@ -46,6 +46,16 @@ describe('visual chip composition', () => {
     expect(inventoryTotal(changed)).toBe(50);
     expect(changed.find((chip) => chip.value === 20)?.count).toBe(2);
     expect(changed.find((chip) => chip.value === 10)?.count).toBe(1);
+  });
+
+  it('accepts a custom exact-value breakdown and rejects invalid replacements', () => {
+    const rack = composeChips(50).map((chip) => chip.value === 50 ? { ...chip, count: 1 } : { ...chip, count: 0 });
+    const changed = breakChipInto(rack, 50, [{ value: 1, count: 20 }, { value: 5, count: 6 }])!;
+    expect(inventoryTotal(changed)).toBe(50);
+    expect(changed.find((chip) => chip.value === 1)?.count).toBe(20);
+    expect(changed.find((chip) => chip.value === 5)?.count).toBe(6);
+    expect(breakChipInto(rack, 50, [{ value: 20, count: 2 }])).toBeNull();
+    expect(breakChipInto(rack, 20, [{ value: 50, count: 1 }])).toBeNull();
   });
 
   it('automatically makes exact change for a wager', () => {

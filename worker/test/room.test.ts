@@ -183,6 +183,16 @@ describe('joining', () => {
     expect(ben.state.you.chipInventoryPlayerId).toBe(idOf(ben));
     expect(ben.state.you.chipInventory?.reduce((sum, chip) => sum + chip.value * chip.count, 0)).toBe(990);
 
+    const beforeChange = ana.state.you.chipInventory!;
+    const beforeOnes = beforeChange.find((chip) => chip.value === 1)!.count;
+    const beforeFives = beforeChange.find((chip) => chip.value === 5)!.count;
+    await ana.ok({ type: 'changeChip', v: ana.state.v, value: 50, into: [{ value: 1, count: 20 }, { value: 5, count: 6 }] });
+    const changed = ana.state.you.chipInventory!;
+    expect(changed.reduce((sum, chip) => sum + chip.value * chip.count, 0)).toBe(995);
+    expect(changed.find((chip) => chip.value === 1)?.count).toBe(beforeOnes + 20);
+    expect(changed.find((chip) => chip.value === 5)?.count).toBe(beforeFives + 6);
+    expect(await ana.request({ type: 'changeChip', v: ana.state.v, value: 50, into: [{ value: 20, count: 2 }] })).toMatchObject({ code: 'INVALID' });
+
     const display = await Client.connect(code, tokenFor(98));
     expect(display.state.you.id).toBeNull();
     expect(display.state.room.game.players.every((player) => player.chipState === 'private')).toBe(true);

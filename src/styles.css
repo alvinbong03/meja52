@@ -1913,21 +1913,55 @@ button.chip-stack:active:not(:disabled) .poker-chip {
 .staged-stack .chip-count { right: -5px; bottom: -5px; }
 
 .change-chip-panel {
-  display: flex;
-  min-height: 58px;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  padding: 10px 12px;
+  display: grid;
+  gap: 12px;
+  padding: 14px;
   border: 1px solid var(--line-strong);
   border-radius: 14px;
-  background: color-mix(in srgb, var(--surface-2) 88%, transparent);
+  background: var(--surface-2);
 }
-.change-chip-panel > div:first-child { display: grid; gap: 2px; }
-.change-chip-actions { display: flex; gap: 8px; }
-.change-chip-choices { display: flex; gap: 6px; margin-top: 5px; }
-.change-chip-choices button { min-height: 28px; padding: 0 9px; border: 1px solid var(--line-strong); border-radius: 999px; background: transparent; color: inherit; font-size: 0.72rem; font-weight: 650; }
-.change-chip-choices button[data-on] { background: var(--ink); color: var(--bg); }
+.change-chip-heading,
+.change-chip-copy,
+.change-chip-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.change-chip-heading > div { display: grid; gap: 2px; }
+.change-chip-heading strong { font-size: 1.05rem; }
+.change-chip-total { color: var(--ink-2); font-size: 0.78rem; font-variant-numeric: tabular-nums; }
+.change-chip-total[data-ready] { color: var(--brand-mint); font-weight: 720; }
+.change-chip-step { display: grid; gap: 8px; padding-top: 10px; border-top: 1px solid var(--line); }
+.change-chip-instruction { color: var(--ink); font-size: 0.78rem; font-weight: 680; }
+.change-chip-copy > span:last-child { color: var(--ink-2); font-size: 0.74rem; font-variant-numeric: tabular-nums; }
+.change-chip-rack { display: grid; grid-template-columns: repeat(5, minmax(52px, 1fr)); align-items: end; gap: 8px; }
+.change-chip-rack .chip-stack { min-width: 0; }
+.change-chip-rack .poker-chip { width: clamp(52px, 11vw, 72px); }
+.change-chip-rack .chip-stack[data-selected] .poker-chip { outline: 3px solid var(--ink); outline-offset: 3px; transform: translateY(-3px); }
+.change-chip-rack .chip-stack:disabled { opacity: 0.28; }
+.change-chip-builder { grid-template-columns: repeat(4, minmax(58px, 1fr)); }
+.change-chip-option { display: grid; justify-items: center; gap: 6px; }
+.change-chip-option input {
+  width: 58px;
+  min-height: 36px;
+  padding: 0 7px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+.change-chip-actions { justify-content: flex-end; padding-top: 2px; }
+.change-chip-actions .btn { min-width: 104px; }
+
+@media (max-height: 520px) and (orientation: landscape) {
+  .change-chip-panel { grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); align-items: end; gap: 10px 16px; padding: 10px 12px; }
+  .change-chip-heading { grid-column: 1 / -1; }
+  .change-chip-step { align-self: stretch; }
+  .change-chip-actions { grid-column: 1 / -1; }
+  .change-chip-rack { grid-template-columns: repeat(5, minmax(42px, 1fr)); gap: 5px; }
+  .change-chip-builder { grid-template-columns: repeat(4, minmax(48px, 1fr)); }
+  .change-chip-rack .poker-chip { width: clamp(44px, 7vw, 62px); }
+}
 
 .staged-actions {
   display: grid;

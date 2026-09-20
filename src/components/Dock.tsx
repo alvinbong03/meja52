@@ -9,7 +9,7 @@ import {
   type Player,
 } from '../../shared/engine';
 import { fmt } from '../lib/format';
-import { chipLabel, composeChips, emptyInventory, inventoryTotal, takeExact, type ChipCount, type ChipValue } from '../lib/chips';
+import { CHIP_VALUES, chipLabel, composeChips, emptyInventory, inventoryTotal, takeExact, type ChipCount, type ChipValue } from '../lib/chips';
 import { useTable } from '../lib/table';
 import { useShake } from '../lib/motion';
 import { ChipRack, StagedChips } from './ChipRack';
@@ -181,7 +181,7 @@ function ActionPanel({ legal, player, actingFor, correcting, onCancel }: ActionP
   const { game, room, run, busy, v, you } = useTable();
   const [raising, setRaising] = useState(false);
   const [staged, setStaged] = useState<ChipCount[]>(emptyInventory());
-  const [changing, setChanging] = useState<ChipValue | null>(null);
+  const [changing, setChanging] = useState(false);
   const pot = room.potTotal;
   const openLabel = game.currentBet === 0 ? 'Bet' : 'Raise';
   const inventory = you.chipInventoryPlayerId === player.id && you.chipInventory ? you.chipInventory : composeChips(player.stack);
@@ -194,7 +194,7 @@ function ActionPanel({ legal, player, actingFor, correcting, onCancel }: ActionP
   useEffect(() => {
     setRaising(false);
     setStaged(emptyInventory());
-    setChanging(null);
+    setChanging(false);
   }, [v]);
 
   useEffect(() => {
@@ -310,27 +310,72 @@ function ActionPanel({ legal, player, actingFor, correcting, onCancel }: ActionP
           <Num value={player.committed} />
         </div>
       )}
-      {changing !== null && <ChangeChipPanel value={changing} available={available.filter((chip) => chip.value > 1 && chip.count > 0).map((chip) => chip.value)} currency={room.currency} busy={busy} onSelect={setChanging} onCancel={() => setChanging(null)} onConfirm={() => void run({ type: 'changeChip', v, value: changing, ...(actingFor ? { playerId: player.id } : {}) })} />}
-      <ChipRack inventory={available} currency={room.currency} onChip={addChip} onMakeChange={() => setChanging(available.filter((chip) => chip.value > 1 && chip.count > 0).at(-1)?.value ?? null)} />
+      {changing ? (
+        <ChangeChipPanel
+          inventory={available}
+          currency={room.currency}
+          busy={busy}
+          onCancel={() => setChanging(false)}
+          onConfirm={(value, into) => void run({ type: 'changeChip', v, value, into, ...(actingFor ? { playerId: player.id } : {}) })}
+        />
+      ) : (
+        <ChipRack inventory={available} currency={room.currency} onChip={addChip} onMakeChange={available.some((chip) => chip.value > 1 && chip.count > 0) ? () => setChanging(true) : undefined} />
+      )}
     </div>
   );
 }
 
-function ChangeChipPanel({ value, available, currency, busy, onSelect, onCancel, onConfirm }: { value: ChipValue; available: ChipValue[]; currency: string; busy: boolean; onSelect: (value: ChipValue) => void; onCancel: () => void; onConfirm: () => void }) {
-  const label = (amount: number) => chipLabel(currency, amount);
-  const parts: Record<number, string> = { 5: `5 × ${label(1)}`, 10: `2 × ${label(5)}`, 20: `2 × ${label(10)}`, 50: `2 × ${label(20)} + ${label(10)}` };
+function ChangeChipPanel({ inventory, currency, busy, onCancel, onConfirm }: { inventory: ChipCount[]; currency: string; busy: boolean; onCancel: () => void; onConfirm: (value: ChipValue, into: ChipCount[]) => void }) {
+  const [source, setSource] = useState<ChipValue | null>(null);
+  const [into, setInto] = useState<ChipCount[]>(emptyInventory());
+  const total = inventoryTotal(into);
+  const ready = source !== null && total === source && into.some((chip) => chip.count > 0);
+  const chooseSource = (value: ChipValue) => { setSource(value); setInto(emptyInventory()); };
+  const setCount = (value: ChipValue, count: number) => setInto((current) => current.map((chip) => chip.value === value
+    ? { ...chip, count: Math.max(0, Math.min(source === null ? 0 : Math.floor(source / value), Number.isFinite(count) ? Math.floor(count) : 0)) }
+    : chip));
+  const add = (value: ChipValue) => setCount(value, (into.find((chip) => chip.value === value)?.count ?? 0) + 1);
+  const remaining = source === null ? 0 : source - total;
   return (
-    <div className="change-chip-panel" role="group" aria-label="Make change preview">
-      <div>
-        <span className="label">Make change · balance stays the same</span>
-        <strong>{label(value)} → {parts[value]}</strong>
-        <div className="change-chip-choices" aria-label="Choose a chip to break">
-          {available.map((option) => <button key={option} type="button" data-on={option === value || undefined} onClick={() => onSelect(option)}>{label(option)}</button>)}
+    <div className="change-chip-panel" role="dialog" aria-labelledby="change-chip-title">
+      <div className="change-chip-heading">
+        <div><span className="label">Balance stays the same</span><strong id="change-chip-title">Make change</strong></div>
+        {source !== null && <span className="change-chip-total" data-ready={ready || undefined}>{chipLabel(currency, total)} of {chipLabel(currency, source)}</span>}
+      </div>
+      <div className="change-chip-step">
+        <span className="change-chip-instruction">1 · Choose one chip to break</span>
+        <div className="change-chip-rack" aria-label="Choose a chip to break">
+          {inventory.map(({ value, count }) => {
+            const selectable = value > 1 && count > 0;
+            return <button key={value} type="button" className="chip-stack" data-selected={source === value || undefined} disabled={!selectable} onClick={() => chooseSource(value)} aria-label={`Break one ${chipLabel(currency, value)} chip. ${count} available`}>
+              <span className="poker-chip" data-chip-value={value} aria-hidden="true"><span>{chipLabel(currency, value)}</span></span>
+              <span className="chip-count" aria-hidden="true">×{count}</span>
+            </button>;
+          })}
         </div>
       </div>
+      {source !== null && (
+        <div className="change-chip-step change-chip-compose">
+          <div className="change-chip-copy">
+            <span className="change-chip-instruction">2 · Build {chipLabel(currency, source)} in smaller chips</span>
+            <span aria-live="polite">{ready ? 'Exact amount ready' : remaining >= 0 ? `${chipLabel(currency, remaining)} remaining` : `${chipLabel(currency, Math.abs(remaining))} over`}</span>
+          </div>
+          <div className="change-chip-rack change-chip-builder" aria-label="Replacement chip rack">
+            {CHIP_VALUES.filter((value) => value < source).map((value) => {
+              const count = into.find((chip) => chip.value === value)?.count ?? 0;
+              return <div className="change-chip-option" key={value}>
+                <button type="button" className="chip-stack" onClick={() => add(value)} aria-label={`Add one ${chipLabel(currency, value)} replacement chip`}>
+                  <span className="poker-chip" data-chip-value={value} aria-hidden="true"><span>{chipLabel(currency, value)}</span></span>
+                </button>
+                <label><span className="sr-only">Number of {chipLabel(currency, value)} chips</span><input type="number" inputMode="numeric" min="0" max={Math.floor(source / value)} value={count} onChange={(event) => setCount(value, Number(event.target.value))} aria-label={`Number of ${chipLabel(currency, value)} chips`} /></label>
+              </div>;
+            })}
+          </div>
+        </div>
+      )}
       <div className="change-chip-actions">
         <button className="btn btn-quiet btn-sm" type="button" onClick={onCancel}>Cancel</button>
-        <button className="btn btn-primary btn-sm" type="button" disabled={busy} onClick={onConfirm}>Break chip</button>
+        <button className="btn btn-primary btn-sm" type="button" disabled={!ready || busy} onClick={() => source !== null && onConfirm(source, into.filter((chip) => chip.count > 0))}>Break chip</button>
       </div>
     </div>
   );
