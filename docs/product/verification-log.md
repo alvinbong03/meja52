@@ -176,3 +176,7 @@ Verification passed: 57 unit tests, 47 Worker integration tests, production buil
 - API responses carry `no-store`, `no-referrer` and `noindex, nofollow` controls, and the application sets a no-referrer document policy.
 
 Verification passed: 57 unit tests, 48 Worker integration tests, production build, and all 19 Playwright browser workflows. The settlement browser workflow now also opens the private record, checks the timeline, downloads CSV, verifies the disabled destructive action before confirmation, and deletes the record. Manual browser inspection covered the summary, history, room-data and deletion views at a 515×779 phone viewport; the accessible filter label remains available to assistive technology without disturbing layout, and all primary/destructive actions use the approved Indigo/Ivory/Hibiscus hierarchy.
+
+### Release 1 readiness audit
+
+The diagnostic release audit is recorded in `docs/product/release-1-readiness-audit.md`. The implementation scored 17/20 and passed all reliability/build gates, including 25,000 fuzz games, 48 Worker tests, 19 browser workflows, Pages Function compilation and an API Worker deployment dry-run. Publication remains gated on three P1 corrections: keep the private record capability out of logged API URLs, neutralise spreadsheet formulas in CSV exports, and name the Sound/Haptics switches for assistive technology. No product behaviour was changed during the audit.
