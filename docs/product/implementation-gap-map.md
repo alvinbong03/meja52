@@ -1,6 +1,6 @@
 # MEJA52 — Release 1 Implementation Gap Map
 
-Status: Release 1 implementation complete through the approved seating-lobby checkpoint; tactile chip/change interaction and final release review remain
+Status: Release 1 implementation complete through the approved seating-lobby and foldable-adaptation checkpoints; tactile chip/change interaction and final release review remain
 Working branch: `codex/meja52-release1`
 Upstream baseline: `7867414` (`origin/main` at audit time)
 

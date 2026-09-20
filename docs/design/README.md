@@ -7,6 +7,7 @@ Shared design guidance for the Digital Poker Table project.
 - [Player Table First Comp Brief.md](Player%20Table%20First%20Comp%20Brief.md) — approval brief for the first waiting/active-turn visual comp.
 - [Room Setup and Invite Comp Brief.md](Room%20Setup%20and%20Invite%20Comp%20Brief.md) — approval brief for the portrait card-mode and invitation flow.
 - [Seating Lobby Comp Brief.md](Seating%20Lobby%20Comp%20Brief.md) — approval brief for host seat arrangement and player confirmation.
+- [Foldable and Unusual Mobile Adaptation.md](Foldable%20and%20Unusual%20Mobile%20Adaptation.md) — approved full-screen gameplay rules for folded and unfolded touch devices.
 - [Remaining Release 1 Comps Approval Package.md](Remaining%20Release%201%20Comps%20Approval%20Package.md) — coordinated approval checklist for every remaining Release 1 surface and exception flow.
 
 Product behaviour remains defined in [Product Specification.md](../Poker%20Chips/Product%20Specification.md).

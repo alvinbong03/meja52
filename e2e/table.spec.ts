@@ -652,6 +652,44 @@ test('live play keeps balances private and exposes current bets in phone landsca
   await expect(ana.locator('.table-controls-handle')).toBeInViewport();
 });
 
+test('folded and unfolded touch screens keep the phone gameplay composition', async ({ browser }) => {
+  const ana = await seat(browser, 'Ana');
+  const ben = await seat(browser, 'Ben', codeOf(ana));
+  await startFirstHand(ana);
+  await expect(yourTurn(ana)).toBeVisible();
+  expect(await ana.evaluate(() => matchMedia('(any-pointer: coarse)').matches)).toBe(true);
+
+  for (const viewport of [
+    { width: 466, height: 678, label: 'Duo cover portrait' },
+    { width: 626, height: 890, label: 'Duo inner portrait' },
+    { width: 720, height: 960, label: 'Fold8 inner portrait' },
+  ]) {
+    await ana.setViewportSize(viewport);
+    const shell = await ana.locator('.table-shell').boundingBox();
+    expect(shell?.x, viewport.label).toBeLessThanOrEqual(1);
+    expect(shell?.width, viewport.label).toBeGreaterThanOrEqual(viewport.width - 1);
+    await expect(ana.getByRole('button', { name: 'Menu' }), viewport.label).toBeInViewport();
+    expect(await ana.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth), viewport.label).toBeLessThanOrEqual(0);
+  }
+
+  for (const viewport of [
+    { width: 678, height: 466, label: 'Duo cover landscape' },
+    { width: 890, height: 626, label: 'Duo inner landscape' },
+    { width: 960, height: 720, label: 'Fold8 inner landscape' },
+  ]) {
+    await ana.setViewportSize(viewport);
+    const rail = ana.getByRole('region', { name: 'Current street bets' });
+    const dock = await ana.locator('.dock-wrap').boundingBox();
+    await expect(rail, viewport.label).toBeVisible();
+    expect(dock?.x, viewport.label).toBeLessThanOrEqual(1);
+    expect(dock?.width, viewport.label).toBeGreaterThanOrEqual(viewport.width - 1);
+    await expect(ana.locator('.table-controls-handle'), viewport.label).toBeInViewport();
+    expect(await ana.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth), viewport.label).toBeLessThanOrEqual(0);
+  }
+
+  await ben.close();
+});
+
 test('no horizontal overflow from small phones to desktops', async ({ browser }) => {
   const host = await seat(browser, 'Ana with a long name');
   const code = codeOf(host);

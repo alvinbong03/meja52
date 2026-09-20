@@ -307,3 +307,24 @@ git diff --check                          PASS
 Browser coverage includes two independent player devices, neighbour confirmation and issue reporting, selected-dealer blind order, host/controller selection, full gameplay and settlement regressions, no horizontal overflow from 320 px to desktop, and a 15-player phone lobby plus scrollable 15-player landscape bet rail.
 
 Deployed to `https://meja52.meja52.workers.dev` as Worker version `dc32c77a-a246-4db0-b275-0948f06f0b02`. The live two-device WebSocket smoke test passed after updating the smoke client to exercise the host's explicit advisory-confirmation override; private balances and public pot state remained correct.
+
+### Foldable and unusual mobile-screen adaptation — 20 September 2026
+
+- Kept all coarse-pointer gameplay in the approved full-width phone composition, so unfolded touch viewports no longer inherit the centred 680 px portrait column or the 960 px desktop side-control layout.
+- Made touch landscape use the approved table-edge composition regardless of foldable inner-screen height. The current-bet rail remains across the top and the complete private action deck remains across the bottom.
+- Added independent left and right safe-area handling alongside the existing top and bottom insets without changing poker behaviour, privacy, control order or desktop layout.
+- Recorded the durable capability-based approach and official Apple, Samsung, MDN and web.dev references in `docs/design/Foldable and Unusual Mobile Adaptation.md`. Device posture and viewport-segment APIs remain optional enhancements rather than functional dependencies.
+- Visually inspected the unfolded portrait and landscape states in one bounded batch against the Apple, Porsche, Bang & Olufsen and Linear principles. No new component language or layout hierarchy was introduced.
+
+Verification:
+
+```text
+npm run typecheck                         PASS
+npm test                                  PASS (67 unit, 58 Worker)
+npm run test:e2e                          PASS (23 workflows)
+npm run build                             PASS
+Impeccable detector                       PASS (0 findings)
+git diff --check                          PASS
+```
+
+The new browser workflow covers iPhone Duo cover and inner portrait/landscape reference viewports plus representative Galaxy Z Fold8 inner portrait/landscape viewports. It asserts full-width composition, visible controls, landscape bet rail, bottom Table Controls access and no page-level horizontal overflow. Existing standard-phone, 15-player and fine-pointer desktop workflows remain green. Real-device Safari and Samsung Chrome checks remain part of the final release gate.
