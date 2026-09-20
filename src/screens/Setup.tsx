@@ -92,8 +92,8 @@ export function Setup({ navigate }: { navigate: (to: string) => void }) {
               <div><dt>{money(currency, startingStack)} starting balance</dt><dd><button onClick={() => setStep(2)}>Change</button></dd></div>
               <div><dt>{money(currency, sb)} / {money(currency, bb)} blinds</dt><dd><button onClick={() => setStep(2)}>Change</button></dd></div>
               <div><dt>Table Controller · You (Host)</dt><dd>Change in lobby</dd></div>
-              <div><dt>Sound</dt><dd><button className="switch" role="switch" aria-checked={sound} onClick={() => setSound(!sound)}><span /></button></dd></div>
-              <div><dt>Haptics</dt><dd><button className="switch" role="switch" aria-checked={haptics} onClick={() => setHaptics(!haptics)}><span /></button></dd></div>
+              <div><dt>Sound</dt><dd><button className="switch" role="switch" aria-label="Sound" aria-checked={sound} onClick={() => setSound(!sound)}><span /></button></dd></div>
+              <div><dt>Haptics</dt><dd><button className="switch" role="switch" aria-label="Haptics" aria-checked={haptics} onClick={() => setHaptics(!haptics)}><span /></button></dd></div>
             </dl>
             <p className="setup-note">No real money is handled.</p>
             {error && <p className="form-error" role="alert">{error}</p>}

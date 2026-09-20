@@ -44,7 +44,7 @@ export function SettlementExperience({ onDone }: { onDone: () => void }) {
         issues={settlement.reviews.filter((review) => review.status === 'issue')}
         withIssues={settlement.finalizedWithIssues}
         net={(id) => useCash ? signedCash(room.currency, cents.get(id) ?? 0) : signedChips(rows.find((row) => row.id === id)?.net ?? 0)}
-        recordHref={isHost && savedRecordToken(room.code) ? `/record/${room.code}/${savedRecordToken(room.code)}` : null}
+        recordHref={isHost && savedRecordToken(room.code) ? `/record/${room.code}#${savedRecordToken(room.code)}` : null}
         onDone={onDone}
       />
     );

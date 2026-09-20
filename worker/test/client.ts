@@ -10,6 +10,7 @@ export async function api(path: string, init?: RequestInit) {
 }
 
 let ipCounter = 0;
+let socketIpCounter = 0;
 
 export async function createRoom(token = tokenFor(1), ip = `10.0.0.${++ipCounter}`): Promise<string> {
   const res = await api('/api/rooms', {
@@ -40,8 +41,8 @@ export class Client {
     });
   }
 
-  static async connect(code: string, token?: string) {
-    const res = await api(`/api/rooms/${code}/ws`, { headers: { Upgrade: 'websocket' } });
+  static async connect(code: string, token?: string, ip = `198.51.100.${++socketIpCounter}`) {
+    const res = await api(`/api/rooms/${code}/ws`, { headers: { Upgrade: 'websocket', 'cf-connecting-ip': ip } });
     if (!res.webSocket) throw new Error(`upgrade failed ${res.status}`);
     res.webSocket.accept();
     const client = new Client(res.webSocket);

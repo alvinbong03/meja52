@@ -11,6 +11,8 @@
   },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Room"] }],
   "ratelimits": [
-    { "name": "CREATE_LIMITER", "namespace_id": "4201", "simple": { "limit": 20, "period": 60 } }
+    { "name": "CREATE_LIMITER", "namespace_id": "4201", "simple": { "limit": 20, "period": 60 } },
+    { "name": "LOOKUP_LIMITER", "namespace_id": "4202", "simple": { "limit": 60, "period": 60 } },
+    { "name": "CONNECT_LIMITER", "namespace_id": "4203", "simple": { "limit": 60, "period": 60 } }
   ]
 }

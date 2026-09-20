@@ -1,6 +1,7 @@
 User-agent: *
 Allow: /
 Disallow: /t/
+Disallow: /record/
 Disallow: /api/
 
 Sitemap: https://meja52.pages.dev/sitemap.xml

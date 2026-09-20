@@ -65,6 +65,7 @@ const UNDO_DEPTH = 30;
 const LOG_KEEP = 5000;
 const LOG_SEND = 40;
 const MAX_SOCKETS = 40;
+const MAX_UNAFFILIATED_SOCKETS = 20;
 const RATE_PER_SEC = 8;
 const RATE_BURST = 20;
 const STREETS = ['Preflop', 'Flop', 'Turn', 'River'];
@@ -263,7 +264,7 @@ export class Room extends DurableObject<Env> {
       return Response.json({
         code: this.s.code,
         phase: this.s.game.phase,
-        players: this.s.members.map((m) => m.name),
+        playerCount: this.s.members.length,
       });
     }
 
@@ -273,6 +274,13 @@ export class Room extends DurableObject<Env> {
       }
       if (this.ctx.getWebSockets().length >= MAX_SOCKETS) {
         return new Response('Table is crowded', { status: 503 });
+      }
+      const unaffiliated = this.ctx.getWebSockets().filter((socket) => {
+        const attachment = socket.deserializeAttachment() as Attachment;
+        return !attachment.memberId;
+      }).length;
+      if (unaffiliated >= MAX_UNAFFILIATED_SOCKETS) {
+        return new Response('Too many pending connections', { status: 503 });
       }
       const pair = new WebSocketPair();
       const [client, server] = Object.values(pair);
@@ -379,14 +387,12 @@ export class Room extends DurableObject<Env> {
       if (v !== s.v) deny('STALE', 'The table changed. Try again.');
     };
     const nameOf = (id: string) => s.members.find((m) => m.id === id)?.name ?? findPlayer(s.game, id)?.name ?? 'Someone';
-    /** Self, the host, or anyone acting for a seat without a present player. */
-    const requireControl = (targetId: string | undefined) => {
+    /** Self, the host, or the Table Controller. */
+    const requireControl = (targetId: string | undefined): string => {
       const m = requireMember();
-      const id = targetId ?? m.id;
-      if (id === m.id || s.hostId === m.id) return id;
-      const target = s.members.find((x) => x.id === id) ?? deny('INVALID', 'Unknown player');
-      if (!this.isAway(target)) deny('FORBIDDEN', `${target.name} is still here`);
-      return id;
+      const id: string = targetId ?? m.id;
+      if (id === m.id || s.hostId === m.id || (s.controllerId ?? s.hostId) === m.id) return id;
+      return deny('FORBIDDEN', 'Only the host or Table Controller can manage another player');
     };
 
     if (s.endedAt && ![
@@ -489,8 +495,12 @@ export class Room extends DurableObject<Env> {
       case 'resolveClaim': {
         const m = requireMember();
         const claim = s.claims.find((c) => c.id === msg.claimId) ?? deny('INVALID', 'Request already handled');
-        s.claims = s.claims.filter((c) => c.id !== claim.id);
         const target = s.members.find((x) => x.id === claim.playerId);
+        const controllerId = s.controllerId ?? s.hostId;
+        if (m.id !== claim.playerId && m.id !== s.hostId && m.id !== controllerId) {
+          deny('FORBIDDEN', 'Only that player, the host, or the Table Controller can handle this request');
+        }
+        s.claims = s.claims.filter((c) => c.id !== claim.id);
         if (msg.allow && target) {
           this.applyClaim(target, claim.tokenHash);
           this.log('table', `${m.name} moved ${target.name} to a new device`);
@@ -625,6 +635,8 @@ export class Room extends DurableObject<Env> {
         if (actorId !== m.id) {
           const target = s.members.find((x) => x.id === actorId) ?? deny('INVALID', 'Unknown player');
           const correcting = s.hostId === m.id && s.correctionForId === actorId;
+          const controlsTable = s.hostId === m.id || (s.controllerId ?? s.hostId) === m.id;
+          if (!correcting && !controlsTable) deny('FORBIDDEN', 'Only the host or Table Controller can act for another player');
           if (!correcting && !this.isAway(target)) deny('FORBIDDEN', `${target.name} is still here`);
         }
         const before = s.game;

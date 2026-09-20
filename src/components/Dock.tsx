@@ -29,7 +29,7 @@ export function Dock({ onRebuy, onRunout, onOverride }: { onRebuy: () => void; o
 }
 
 function DockBody({ onRebuy, onRunout, onOverride }: { onRebuy: () => void; onRunout: () => void; onOverride: () => void }) {
-  const { game, you, me, room, serverNow, away, member, isHost } = useTable();
+  const { game, you, me, room, serverNow, away, member, isHost, isController } = useTable();
   const [actingFor, setActingFor] = useState<string | null>(null);
 
   const actorId = game.toActId;
@@ -75,7 +75,7 @@ function DockBody({ onRebuy, onRunout, onOverride }: { onRebuy: () => void; onRu
   const actor = findPlayer(game, actorId);
   const actorMember = member(actorId);
   const waited = room.turnStartedAt ? serverNow - room.turnStartedAt : 0;
-  const canActFor = !!actor && !!me && (actorMember?.manual || (away(actorId) && waited >= ACT_FOR_AFTER_MS));
+  const canActFor = !!actor && !!me && (isHost || isController) && (actorMember?.manual || (away(actorId) && waited >= ACT_FOR_AFTER_MS));
 
   if (actingFor && actor && actingFor === actor.id) {
     const legal = legalActions(game, actor.id);

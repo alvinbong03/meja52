@@ -179,4 +179,26 @@ Verification passed: 57 unit tests, 48 Worker integration tests, production buil
 
 ### Release 1 readiness audit
 
-The diagnostic release audit is recorded in `docs/product/release-1-readiness-audit.md`. The implementation scored 17/20 and passed all reliability/build gates, including 25,000 fuzz games, 48 Worker tests, 19 browser workflows, Pages Function compilation and an API Worker deployment dry-run. Publication remains gated on three P1 corrections: keep the private record capability out of logged API URLs, neutralise spreadsheet formulas in CSV exports, and name the Sound/Haptics switches for assistive technology. No product behaviour was changed during the audit.
+The diagnostic release audit is recorded in `docs/product/release-1-readiness-audit.md`. The implementation scored 17/20 and passed all reliability/build gates, including 25,000 fuzz games, 48 Worker tests, 19 browser workflows, Pages Function compilation and an API Worker deployment dry-run. Publication remained gated on three P1 corrections: keeping the private record capability out of logged API URLs, neutralising spreadsheet formulas in CSV exports, and naming the Sound/Haptics switches for assistive technology. No product behaviour was changed during that diagnostic audit.
+
+### Independent security hardening and full-product review — 20 September 2026
+
+Two independent reviewers audited the current Release 1 implementation. The security reviewer found no remaining P0/P1 issue after the hardening changes; the product reviewer found six approved workflows or privacy guarantees that still block a public Release 1. The complete decision and implementation order are recorded in `docs/product/independent-release-review-2026-09-20.md`.
+
+This hardening pass moved private-record capabilities out of server-visible URLs, added record indexing/referrer controls, neutralised CSV formula input, named the setup switches, closed seat-claim and proxy-action authorization gaps, removed names from anonymous room lookup, added bounded pre-parse request handling, added lookup/connection rate limits and an unaffiliated-socket cap, and broadened secret-file ignores. The approved visual layout did not change.
+
+Verification:
+
+```text
+npm run typecheck                         PASS
+npm test                                  PASS (64 unit, 51 Worker)
+npm run test:e2e                          PASS (20 workflows)
+npm run build                             PASS
+wrangler deploy --dry-run                 PASS
+wrangler pages functions build            PASS
+npm audit --omit=dev                      PASS (0 vulnerabilities)
+npm audit                                 RISK (4 high, development/test only)
+git diff --check                          PASS
+```
+
+Wrangler authentication is not configured, so no live Cloudflare resource was created and no production smoke test was run.

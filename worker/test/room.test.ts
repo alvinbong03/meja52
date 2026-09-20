@@ -12,7 +12,7 @@ describe('http api', () => {
     const code = await createRoom();
     expect(code).toMatch(/^[A-HJKMNP-Z]{4}$/);
     const info = await api(`/api/rooms/${code}`);
-    expect(await info.json()).toEqual({ code, phase: 'lobby', players: [] });
+    expect(await info.json()).toEqual({ code, phase: 'lobby', playerCount: 0 });
   });
 
   it('requires a valid private device token when creating a room', async () => {
@@ -94,6 +94,29 @@ describe('http api', () => {
     expect(statuses.at(-1)).toBe(429);
   });
 
+  it('rate limits before parsing oversized table-creation requests', async () => {
+    const statuses: number[] = [];
+    for (let i = 0; i < 22; i++) {
+      const res = await api('/api/rooms', {
+        method: 'POST',
+        headers: { 'cf-connecting-ip': '203.0.113.10', 'content-type': 'application/json' },
+        body: JSON.stringify({ padding: 'x'.repeat(5000) }),
+      });
+      statuses.push(res.status);
+    }
+    expect(statuses.slice(0, 20).every((status) => status === 413)).toBe(true);
+    expect(statuses.at(-1)).toBe(429);
+  });
+
+  it('requires JSON for table creation', async () => {
+    const res = await api('/api/rooms', {
+      method: 'POST',
+      headers: { 'cf-connecting-ip': '203.0.113.11', 'content-type': 'text/plain' },
+      body: '{}',
+    });
+    expect(res.status).toBe(415);
+  });
+
   it('generates codes from the unambiguous alphabet', () => {
     for (let i = 0; i < 200; i++) expect(randomCode()).toMatch(/^[A-HJKMNP-Z]{4}$/);
   });
@@ -134,7 +157,9 @@ describe('joining', () => {
     const again = await Client.connect(code, tokenFor(2));
     expect(again.state.you.id).toBe(idOf(ben));
     const info = await (await api(`/api/rooms/${code}`)).json();
-    expect(info).toMatchObject({ players: ['Ana', 'Ben'] });
+    expect(info).toMatchObject({ playerCount: 2 });
+    expect(JSON.stringify(info)).not.toContain('Ana');
+    expect(JSON.stringify(info)).not.toContain('Ben');
   });
 
   it('accepts fifteen players and rejects a sixteenth', async () => {
@@ -484,8 +509,9 @@ describe('playing a hand', () => {
     await ana.ok({ type: 'reviewSettlement', v: ana.state.v, status: 'correct' });
     await ana.ok({ type: 'finalizeSettlement', v: ana.state.v, withIssues: false, recordToken });
 
-    expect((await api(`/api/records/${code}/${tokenFor(504)}`)).status).toBe(404);
-    const guestResponse = await api(`/api/records/${code}/${recordToken}`, { headers: { 'x-device-token': tokenFor(2) } });
+    expect((await api(`/api/records/${code}`, { headers: { 'x-record-token': tokenFor(504) } })).status).toBe(404);
+    expect((await api(`/api/records/${code}/${recordToken}`)).status).toBe(404);
+    const guestResponse = await api(`/api/records/${code}`, { headers: { 'x-device-token': tokenFor(2), 'x-record-token': recordToken } });
     expect(guestResponse.status).toBe(200);
     const guestBody = await guestResponse.json() as { canDelete: boolean; record: Record<string, unknown> };
     expect(guestBody.canDelete).toBe(false);
@@ -493,7 +519,7 @@ describe('playing a hand', () => {
     expect(JSON.stringify(guestBody)).not.toContain(recordToken);
     expect(JSON.stringify(guestBody)).not.toContain(tokenFor(1));
 
-    const hostResponse = await api(`/api/records/${code}/${recordToken}`, { headers: { 'x-device-token': tokenFor(1) } });
+    const hostResponse = await api(`/api/records/${code}`, { headers: { 'x-device-token': tokenFor(1), 'x-record-token': recordToken } });
     const hostBody = await hostResponse.json() as { canDelete: boolean; record: { finalizedAt: number; expiresAt: number } };
     expect(hostBody.canDelete).toBe(true);
     expect(hostBody.record.expiresAt - hostBody.record.finalizedAt).toBe(FINAL_TTL_MS);
@@ -501,8 +527,8 @@ describe('playing a hand', () => {
     const alarm = await runInDurableObject(stub, (_, state) => state.storage.getAlarm());
     expect(Math.abs((alarm ?? 0) - hostBody.record.expiresAt)).toBeLessThan(1000);
 
-    expect((await api(`/api/records/${code}/${recordToken}`, { method: 'DELETE', headers: { 'x-device-token': tokenFor(2) } })).status).toBe(403);
-    expect((await api(`/api/records/${code}/${recordToken}`, { method: 'DELETE', headers: { 'x-device-token': tokenFor(1) } })).status).toBe(204);
+    expect((await api(`/api/records/${code}`, { method: 'DELETE', headers: { 'x-device-token': tokenFor(2), 'x-record-token': recordToken } })).status).toBe(403);
+    expect((await api(`/api/records/${code}`, { method: 'DELETE', headers: { 'x-device-token': tokenFor(1), 'x-record-token': recordToken } })).status).toBe(204);
     expect((await api(`/api/rooms/${code}`)).status).toBe(404);
   });
 
@@ -801,13 +827,14 @@ describe('seats and devices', () => {
     expect(cat.state.room.game.results.some((result) => result.id === idOf(ben))).toBe(true);
   });
 
-  it('acting for someone is only allowed when they are away or have no phone', async () => {
+  it('only the host or Table Controller can manage or act for an unattended seat', async () => {
     const { clients, idOf } = await table(['Ana', 'Ben']);
     const [ana, ben] = clients;
     await ana.ok({ type: 'addSeat', name: 'Dee' });
     let s = await ben.settle();
     const dee = s.room.members.find((m) => m.name === 'Dee')!;
     expect(dee.manual).toBe(true);
+    expect(await ben.request({ type: 'takeBreak', playerId: dee.id })).toMatchObject({ code: 'FORBIDDEN' });
 
     await ana.ok({ type: 'start', v: ana.state.v });
     s = await ben.settle();
@@ -817,7 +844,7 @@ describe('seats and devices', () => {
         code: 'FORBIDDEN',
       });
     }
-    // Play until it is Dee's turn, then anyone may act for Dee.
+    // Play until it is Dee's turn. A regular member still cannot act for the unattended seat.
     for (let i = 0; i < 6 && ben.state.room.game.toActId !== dee.id; i++) {
       const t = ben.state.room.game.toActId!;
       const c = clients.find((x) => idOf(x) === t)!;
@@ -828,9 +855,10 @@ describe('seats and devices', () => {
     const game = ben.state.room.game;
     const deeSeat = game.players.find((p) => p.id === dee.id)!;
     const kind = game.currentBet > deeSeat.bet ? 'call' : 'check';
-    await ben.ok({ type: 'act', v: ben.state.v, kind, playerId: dee.id });
+    expect(await ben.request({ type: 'act', v: ben.state.v, kind, playerId: dee.id })).toMatchObject({ code: 'FORBIDDEN' });
+    await ana.ok({ type: 'act', v: ana.state.v, kind, playerId: dee.id });
     s = await ana.settle();
-    expect(s.room.log.some((l) => l.text.startsWith('Dee ') && l.text.endsWith('(by Ben)'))).toBe(true);
+    expect(s.room.log.some((l) => l.text.startsWith('Dee ') && l.text.endsWith('(by Ana)'))).toBe(true);
   });
 
   it('a new device must be approved to take over a seat, and the old device is signed out', async () => {
@@ -847,6 +875,22 @@ describe('seats and devices', () => {
     expect(s.you.id).toBe(benId);
     await ben.waitFor((m) => m.type === 'closed' && m.reason === 'replaced');
     expect(ana.state.room.log.at(-1)?.text).toBe('Ana moved Ben to a new device');
+  });
+
+  it('does not let an unrelated member approve their own device taking the host seat', async () => {
+    const { code, clients, idOf } = await table(['Ana', 'Ben']);
+    const [ana, ben] = clients;
+    const secondAttackerDevice = await Client.connect(code, tokenFor(177));
+    await secondAttackerDevice.ok({ type: 'claim', playerId: idOf(ana) });
+    const claimId = (await ben.settle()).room.claims[0].id;
+
+    expect(await ben.request({ type: 'resolveClaim', claimId, allow: true })).toMatchObject({ code: 'FORBIDDEN' });
+    expect((await ana.settle()).room.claims).toHaveLength(1);
+    expect(ana.state.room.hostId).toBe(idOf(ana));
+    expect(secondAttackerDevice.state.you.id).toBeNull();
+
+    await ana.ok({ type: 'resolveClaim', claimId, allow: false });
+    await secondAttackerDevice.waitFor((message) => message.type === 'err' && message.code === 'FORBIDDEN');
   });
 
   it('declined claims tell the requester', async () => {

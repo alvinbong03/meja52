@@ -1,6 +1,10 @@
 import type { SettlementRecord } from '../../shared/protocol';
 
-const escapeCsv = (value: string | number | boolean) => `"${String(value).replaceAll('"', '""')}"`;
+export function csvCell(value: string | number | boolean) {
+  let text = String(value);
+  if (typeof value === 'string' && /^\s*[=+\-@]/.test(text)) text = `'${text}`;
+  return `"${text.replaceAll('"', '""')}"`;
+}
 
 function download(blob: Blob, name: string) {
   const url = URL.createObjectURL(blob);
@@ -26,7 +30,7 @@ export function exportRecordCsv(record: SettlementRecord) {
     ...(cash ? [(player.net / 100).toFixed(2)] : []),
     player.leftEarly,
   ]);
-  const csv = [header, ...rows].map((row) => row.map(escapeCsv).join(',')).join('\r\n');
+  const csv = [header, ...rows].map((row) => row.map(csvCell).join(',')).join('\r\n');
   download(new Blob([`\ufeff${csv}`], { type: 'text/csv;charset=utf-8' }), `meja52-${record.code}-ledger.csv`);
 }
 

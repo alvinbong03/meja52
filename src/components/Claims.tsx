@@ -3,7 +3,8 @@ import { useTable } from '../lib/table';
 export function Claims() {
   const { room, run, busy, nameOf, you } = useTable();
   if (!you.id || room.claims.length === 0) return null;
-  const claim = room.claims[0];
+  const claim = room.claims.find((item) => item.playerId === you.id || room.hostId === you.id || (room.controllerId ?? room.hostId) === you.id);
+  if (!claim) return null;
   return (
     <div className="claim" role="alertdialog" aria-labelledby="claim-text">
       <p id="claim-text">

@@ -65,6 +65,19 @@ async function confirmAward(page: Page) {
   await page.getByRole('button', { name: 'Confirm award' }).click();
 }
 
+test('room setup preferences have accessible controls', async ({ page }) => {
+  await page.goto('/create');
+  await page.getByRole('button', { name: 'Continue' }).click();
+  await page.getByRole('button', { name: 'Continue' }).click();
+
+  const sound = page.getByRole('switch', { name: 'Sound' });
+  const haptics = page.getByRole('switch', { name: 'Haptics' });
+  await expect(sound).toHaveAttribute('aria-checked', 'true');
+  await expect(haptics).toHaveAttribute('aria-checked', 'true');
+  await sound.click();
+  await expect(sound).toHaveAttribute('aria-checked', 'false');
+});
+
 test('three players play a hand from deal to payout', async ({ browser }) => {
   const ana = await seat(browser, 'Ana');
   const code = codeOf(ana);
@@ -196,7 +209,9 @@ test('the host ends after the current hand and everyone receives frozen settleme
   expect(await ana.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await ana.evaluate(() => { document.documentElement.style.fontSize = ''; });
   await ana.getByRole('link', { name: 'Open private record' }).click();
-  await expect(ana).toHaveURL(/\/record\/[A-Z]{4}\/[a-f0-9]{64}$/);
+  await expect(ana).toHaveURL(/\/record\/[A-Z]{4}#[a-f0-9]{64}$/);
+  expect(await ana.evaluate(() => location.pathname)).toMatch(/^\/record\/[A-Z]{4}$/);
+  expect(await ana.evaluate(() => location.hash)).toMatch(/^#[a-f0-9]{64}$/);
   await expect(ana.getByRole('heading', { name: 'Settlement complete' })).toBeVisible();
   await ana.getByRole('button', { name: /Session history/ }).click();
   await expect(ana.getByRole('heading', { name: 'Table timeline' })).toBeVisible();
@@ -435,7 +450,7 @@ test('two players with the same hand chop the pot', async ({ browser }) => {
   for (const p of [ana, ben, cat]) expect((p as Page & { errors: string[] }).errors).toEqual([]);
 });
 
-test('anyone can act for a seat without a phone, and undo rolls it back', async ({ browser }) => {
+test('the host can act for a seat without a phone, and undo rolls it back', async ({ browser }) => {
   const ana = await seat(browser, 'Ana');
   const code = codeOf(ana);
   const ben = await seat(browser, 'Ben', code);
@@ -453,9 +468,10 @@ test('anyone can act for a seat without a phone, and undo rolls it back', async 
   await stageAndPlace(ben, 'Call 5', 5);
 
   await expect(ana.getByRole('button', { name: 'Act for Gran' })).toBeVisible();
-  await ben.getByRole('button', { name: 'Act for Gran' }).click();
-  await expect(ben.getByText('Acting for Gran')).toBeVisible();
-  await ben.getByRole('button', { name: 'Check' }).click();
+  await expect(ben.getByRole('button', { name: 'Act for Gran' })).toHaveCount(0);
+  await ana.getByRole('button', { name: 'Act for Gran' }).click();
+  await expect(ana.getByText('Acting for Gran')).toBeVisible();
+  await ana.getByRole('button', { name: 'Check' }).click();
   await expect(ana.getByText('Deal the flop')).toBeVisible();
 
   await ben.getByRole('button', { name: 'Menu' }).click();
@@ -463,11 +479,11 @@ test('anyone can act for a seat without a phone, and undo rolls it back', async 
   await ben.keyboard.press('Escape');
 
   await ana.getByRole('button', { name: 'Menu' }).click();
-  await expect(ana.getByText('Gran checks (by Ben)')).toBeVisible();
+  await expect(ana.getByText('Gran checks (by Ana)')).toBeVisible();
   await ana.getByRole('button', { name: /^Undo/ }).click();
   await expect(ana.getByRole('heading', { name: 'Undo last action' })).toBeVisible();
   await ana.getByRole('button', { name: 'Undo action' }).click();
-  await expect(ben.getByRole('button', { name: 'Act for Gran' })).toBeVisible();
+  await expect(ana.getByRole('button', { name: 'Act for Gran' })).toBeVisible();
   await expect(ben.locator('.phase-name')).toHaveText('Preflop');
 });
 

@@ -4,7 +4,7 @@ import { deviceToken } from './device';
 export interface RoomInfo {
   code: string;
   phase: string;
-  players: string[];
+  playerCount: number;
 }
 
 export async function createRoom(config?: RoomConfig): Promise<string> {
@@ -26,16 +26,24 @@ export async function roomInfo(code: string): Promise<RoomInfo | null> {
 }
 
 export async function settlementRecord(code: string, token: string): Promise<SettlementRecordResponse | null> {
-  const res = await fetch(`/api/records/${code}/${token}`, { headers: { 'x-device-token': deviceToken() } });
+  const res = await fetch(`/api/records/${code}`, {
+    headers: {
+      'x-device-token': deviceToken(),
+      'x-record-token': token,
+    },
+  });
   if (res.status === 404) return null;
   if (!res.ok) throw new Error('Could not load this record');
   return (await res.json()) as SettlementRecordResponse;
 }
 
 export async function deleteSettlementRecord(code: string, token: string) {
-  const res = await fetch(`/api/records/${code}/${token}`, {
+  const res = await fetch(`/api/records/${code}`, {
     method: 'DELETE',
-    headers: { 'x-device-token': deviceToken() },
+    headers: {
+      'x-device-token': deviceToken(),
+      'x-record-token': token,
+    },
   });
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as { error?: string };

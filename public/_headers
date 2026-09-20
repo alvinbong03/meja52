@@ -11,3 +11,7 @@
 
 /t/*
   X-Robots-Tag: noindex
+
+/record/*
+  X-Robots-Tag: noindex, nofollow
+  Referrer-Policy: no-referrer

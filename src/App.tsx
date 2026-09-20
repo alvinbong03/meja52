@@ -15,7 +15,7 @@ type Route =
   | { screen: 'room'; code: string; display: boolean };
 
 function parse(url: string): Route | null {
-  const { pathname, searchParams } = new URL(url, location.origin);
+  const { pathname, searchParams, hash } = new URL(url, location.origin);
   if (pathname === '/') return { screen: 'home' };
   if (pathname === '/create') return { screen: 'setup' };
   if (pathname === '/join') return { screen: 'join' };
@@ -23,18 +23,23 @@ function parse(url: string): Route | null {
   if (invite && isRoomCode(invite)) return { screen: 'invite', code: invite };
   const room = pathname.match(/^\/t\/([A-Za-z]{4})\/?$/)?.[1].toUpperCase();
   if (room && isRoomCode(room)) return { screen: 'room', code: room, display: searchParams.get('view') === 'display' };
-  const record = pathname.match(/^\/record\/([A-Za-z]{4})\/([a-f0-9]{64})\/?$/);
-  if (record && isRoomCode(record[1].toUpperCase())) return { screen: 'record', code: record[1].toUpperCase(), token: record[2] };
+  const record = pathname.match(/^\/record\/([A-Za-z]{4})\/?$/)?.[1].toUpperCase();
+  const recordToken = hash.slice(1);
+  if (record && isRoomCode(record) && /^[a-f0-9]{64}$/.test(recordToken)) return { screen: 'record', code: record, token: recordToken };
   return null;
 }
 
 export function App() {
-  const [href, setHref] = useState(() => location.pathname + location.search);
+  const [href, setHref] = useState(() => location.pathname + location.search + location.hash);
   useEffect(() => {
-    const onPop = () => setHref(location.pathname + location.search);
+    const onPop = () => setHref(location.pathname + location.search + location.hash);
     window.addEventListener('popstate', onPop);
+    window.addEventListener('hashchange', onPop);
     if (!parse(location.href)) history.replaceState(null, '', '/');
-    return () => window.removeEventListener('popstate', onPop);
+    return () => {
+      window.removeEventListener('popstate', onPop);
+      window.removeEventListener('hashchange', onPop);
+    };
   }, []);
   const navigate = useCallback((to: string) => {
     history.pushState(null, '', to);
