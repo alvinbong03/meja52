@@ -352,3 +352,24 @@ git diff --check                          PASS
 ```
 
 Deployed to `https://meja52.meja52.workers.dev` as Worker version `4e8d31c4-453f-4e1b-896b-4483693a07d1`. The post-deploy two-device WebSocket smoke test passed with private balances, public pot state and the new private chip-inventory payload intact.
+
+### Landscape lobby, direct seat movement and balanced starting racks — 20 September 2026
+
+- Separated lobby landscape behaviour from the gameplay-only landscape rule that previously hid the lobby’s header and seating surface.
+- Added a compact two-column phone-landscape lobby: the physical table map remains primary, role controls remain visible beside it, and **Lock seats & start** remains reachable without changing the portrait hierarchy.
+- Replaced insertion-order seating with direct seat swapping. The host can drag one name onto another seat, or tap a name and then tap the intended new seat; both methods swap the two occupants.
+- Reworded the central seating guidance to describe the physical result rather than “come before” ordering.
+- Changed deterministic chip composition to preserve useful small denominations. RM50 now begins as exactly `10 × RM1`, `4 × RM5`, and `2 × RM10`; larger balances preserve that base, then add RM20 and RM50 chips.
+- Versioned the private inventory composition so existing alpha rooms adopt the new balanced rack once while keeping the numeric balance authoritative.
+
+Verification:
+
+```text
+npm run typecheck                         PASS
+npm test                                  PASS (70 unit, 58 Worker)
+npm run test:e2e                          PASS (25 workflows)
+npm run build                             PASS
+landscape lobby tap/drag workflow         PASS
+Impeccable detector                       PASS (0 findings)
+git diff --check                          PASS
+```

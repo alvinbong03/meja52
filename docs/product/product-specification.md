@@ -173,7 +173,7 @@ The four-letter code is a convenience locator, not a private secret. For the app
 2. They enter a display name and may choose an avatar; no account is required.
 3. A valid player link or valid four-letter code may enter the lobby directly after name entry. The host may remove duplicates or unwanted entries.
 4. A circular lobby represents the physical table.
-5. The host drags players into the same clockwise order as their physical seats.
+5. The host drags a player directly onto another seat to swap the two positions. As an accessible touch/keyboard alternative, tap a player and then tap their intended new seat; the two players swap without an insertion-order step.
 6. Each phone shows its seat and neighbours to its left and right. Confirmation is advisory; the host may start after acknowledging any unconfirmed seats.
 7. The host selects or confirms the initial Dealer Button. The app proposes a random starting seat.
 8. The host selects **Lock Seats & Start**.
@@ -257,6 +257,8 @@ Cash chips are directly denominated in the selected currency. For RM1/RM2 blinds
 | RM50 | Teal-blue |
 
 Release 1 uses the fixed RM1–RM5–RM10–RM20–RM50 rack. Editable denomination sets remain a later enhancement.
+
+Default composition prioritises playable small chips before larger values. A RM50 balance is composed as `10 × RM1`, `4 × RM5`, and `2 × RM10`. Larger balances retain that small-chip floor, then introduce RM20 and RM50 chips; the exact composition always sums to the authoritative balance.
 
 ### Tournaments
 

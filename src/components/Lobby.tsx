@@ -1,4 +1,4 @@
-import { useState, type CSSProperties, type DragEvent } from 'react';
+import { useRef, useState, type CSSProperties, type DragEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { bySeat, MAX_PLAYERS } from '../../shared/engine';
 import { useTable } from '../lib/table';
 
@@ -60,18 +60,22 @@ function HostSeatingLobby({ onInvite }: { onInvite: () => void }) {
   const seats = bySeat(game);
   const [mode, setMode] = useState<HostMode>('arrange');
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [dropTargetId, setDropTargetId] = useState<string | null>(null);
+  const pointer = useRef<{ id: number; playerId: string; x: number; y: number; moved: boolean } | null>(null);
+  const suppressClick = useRef(false);
   const confirmations = new Map(room.seatConfirmations.map((item) => [item.playerId, item.status]));
   const confirmable = seats.filter((player) => !member(player.id)?.manual);
   const confirmed = confirmable.filter((player) => player.id === room.hostId || confirmations.get(player.id) === 'confirmed').length;
   const issues = confirmable.filter((player) => confirmations.get(player.id) === 'issue').length;
 
-  const moveBefore = (movingId: string, targetId: string) => {
-    if (movingId === targetId) return;
+  const moveToSeat = (movingId: string, targetId: string) => {
+    if (movingId === targetId) { setSelectedId(null); return; }
     const ids = seats.map((player) => player.id);
     const from = ids.indexOf(movingId);
-    if (from < 0 || !ids.includes(targetId)) return;
-    ids.splice(from, 1);
-    ids.splice(ids.indexOf(targetId), 0, movingId);
+    const to = ids.indexOf(targetId);
+    if (from < 0 || to < 0) return;
+    [ids[from], ids[to]] = [ids[to], ids[from]];
     setSelectedId(null);
     void run({ type: 'seatOrder', v, ids });
   };
@@ -85,14 +89,42 @@ function HostSeatingLobby({ onInvite }: { onInvite: () => void }) {
       void run({ type: 'transferController', playerId }).then((ok) => ok && setMode('arrange'));
       return;
     }
-    if (selectedId) moveBefore(selectedId, playerId);
+    if (selectedId) moveToSeat(selectedId, playerId);
     else setSelectedId(playerId);
   };
 
   const dropSeat = (event: DragEvent<HTMLButtonElement>, targetId: string) => {
     event.preventDefault();
     const movingId = event.dataTransfer.getData('text/plain');
-    if (movingId) moveBefore(movingId, targetId);
+    if (movingId) moveToSeat(movingId, targetId);
+  };
+
+  const pointerDown = (event: ReactPointerEvent<HTMLButtonElement>, playerId: string) => {
+    if (mode !== 'arrange' || busy) return;
+    pointer.current = { id: event.pointerId, playerId, x: event.clientX, y: event.clientY, moved: false };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const pointerMove = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    const active = pointer.current;
+    if (!active || active.id !== event.pointerId) return;
+    if (!active.moved && Math.hypot(event.clientX - active.x, event.clientY - active.y) < 8) return;
+    active.moved = true;
+    setDraggingId(active.playerId);
+    const target = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>('.table-map-seat')?.dataset.playerId;
+    setDropTargetId(target && target !== active.playerId ? target : null);
+  };
+
+  const finishPointer = (event: ReactPointerEvent<HTMLButtonElement>, cancelled = false) => {
+    const active = pointer.current;
+    if (!active || active.id !== event.pointerId) return;
+    if (active.moved) {
+      suppressClick.current = true;
+      if (!cancelled && dropTargetId) moveToSeat(active.playerId, dropTargetId);
+    }
+    pointer.current = null;
+    setDraggingId(null);
+    setDropTargetId(null);
   };
 
   return (
@@ -107,8 +139,8 @@ function HostSeatingLobby({ onInvite }: { onInvite: () => void }) {
       ) : (
         <div className="table-map" data-mode={mode} data-crowded={seats.length > 8 || undefined}>
           <div className="table-map-centre">
-            <strong>{mode === 'dealer' ? 'Choose the first dealer' : mode === 'controller' ? 'Choose the Table Controller' : selectedId ? `Move ${nameOf(selectedId)}` : 'Arrange clockwise'}</strong>
-            <span>{mode === 'arrange' ? (selectedId ? 'Tap the seat they should come before.' : 'Drag a name, or tap it then choose its place.') : 'Tap a player to assign the role.'}</span>
+            <strong>{mode === 'dealer' ? 'Choose the first dealer' : mode === 'controller' ? 'Choose the Table Controller' : selectedId ? `Choose ${nameOf(selectedId)}’s new seat` : 'Arrange the table'}</strong>
+            <span>{mode === 'arrange' ? (selectedId ? 'Tap another seat to swap places.' : 'Drag a name to another seat, or tap a name then its new seat.') : 'Tap a player to assign the role.'}</span>
           </div>
           {seats.map((player, index) => {
             const angle = -Math.PI / 2 + (index / seats.length) * Math.PI * 2;
@@ -122,15 +154,25 @@ function HostSeatingLobby({ onInvite }: { onInvite: () => void }) {
                 key={player.id}
                 className="table-map-seat"
                 style={style}
+                data-player-id={player.id}
                 data-selected={selectedId === player.id || undefined}
+                data-dragging={draggingId === player.id || undefined}
+                data-drop-target={dropTargetId === player.id || undefined}
                 data-status={status}
                 draggable={mode === 'arrange'}
                 disabled={busy || (mode === 'controller' && member(player.id)?.manual)}
                 aria-label={`${player.name}, seat ${index + 1}${room.dealerButtonId === player.id ? ', proposed dealer' : ''}${status === 'issue' ? ', asked host to check seat' : ''}`}
-                onClick={() => chooseSeat(player.id)}
+                onClick={() => {
+                  if (suppressClick.current) { suppressClick.current = false; return; }
+                  chooseSeat(player.id);
+                }}
                 onDragStart={(event) => event.dataTransfer.setData('text/plain', player.id)}
                 onDragOver={(event) => event.preventDefault()}
                 onDrop={(event) => dropSeat(event, player.id)}
+                onPointerDown={(event) => pointerDown(event, player.id)}
+                onPointerMove={pointerMove}
+                onPointerUp={(event) => finishPointer(event)}
+                onPointerCancel={(event) => finishPointer(event, true)}
               >
                 <span className="seat-grip" aria-hidden="true"><i /><i /><i /><i /><i /><i /></span>
                 <strong>{player.name}</strong>
@@ -143,20 +185,22 @@ function HostSeatingLobby({ onInvite }: { onInvite: () => void }) {
         </div>
       )}
 
-      <div className="lobby-role-rows">
-        <button onClick={() => setMode(mode === 'dealer' ? 'arrange' : 'dealer')} data-active={mode === 'dealer' || undefined}>
-          <span>Dealer button</span><strong>{nameOf(room.dealerButtonId)}</strong><em>{mode === 'dealer' ? 'Cancel' : 'Change'}</em>
-        </button>
-        <button onClick={() => setMode(mode === 'controller' ? 'arrange' : 'controller')} data-active={mode === 'controller' || undefined}>
-          <span>Table Controller</span><strong>{nameOf(room.controllerId)}{room.controllerId === room.hostId ? ' (Host)' : ''}</strong><em>{mode === 'controller' ? 'Cancel' : 'Change'}</em>
-        </button>
-      </div>
+      <div className="lobby-side">
+        <div className="lobby-role-rows">
+          <button onClick={() => setMode(mode === 'dealer' ? 'arrange' : 'dealer')} data-active={mode === 'dealer' || undefined}>
+            <span>Dealer button</span><strong>{nameOf(room.dealerButtonId)}</strong><em>{mode === 'dealer' ? 'Cancel' : 'Change'}</em>
+          </button>
+          <button onClick={() => setMode(mode === 'controller' ? 'arrange' : 'controller')} data-active={mode === 'controller' || undefined}>
+            <span>Table Controller</span><strong>{nameOf(room.controllerId)}{room.controllerId === room.hostId ? ' (Host)' : ''}</strong><em>{mode === 'controller' ? 'Cancel' : 'Change'}</em>
+          </button>
+        </div>
 
-      <div className="seat-progress" role="status">
-        <strong>{confirmed} of {confirmable.length} seats confirmed</strong>
-        <span>{issues > 0 ? `${issues} ${issues === 1 ? 'player asked' : 'players asked'} you to check the order.` : 'Player confirmation is advisory.'}</span>
+        <div className="seat-progress" role="status">
+          <strong>{confirmed} of {confirmable.length} seats confirmed</strong>
+          <span>{issues > 0 ? `${issues} ${issues === 1 ? 'player asked' : 'players asked'} you to check the order.` : 'Player confirmation is advisory.'}</span>
+        </div>
+        <button className="link-btn centre" onClick={onInvite}>Invite more players</button>
       </div>
-      <button className="link-btn centre" onClick={onInvite}>Invite more players</button>
     </div>
   );
 }

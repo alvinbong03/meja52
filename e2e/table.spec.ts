@@ -111,7 +111,30 @@ test('the tactile rack stages chips and previews equal-value change without repl
   await expect(ana.getByText('RM50 → 2 × RM20 + RM10')).toBeVisible();
   await ana.getByRole('button', { name: 'Break chip' }).click();
   await expect(ana.locator('.turn-metric').filter({ hasText: 'Balance' })).toContainText(balance.replace(/\s+/g, ' ').trim().split(' ').at(-1)!);
-  await expect(ana.getByRole('button', { name: /Add one RM10 chip\. 1 available/ })).toBeVisible();
+  await expect(ana.getByRole('button', { name: /Add one RM10 chip\. 4 available/ })).toBeVisible();
+});
+
+test('the lobby supports landscape and direct seat swapping by tap or drag', async ({ browser }) => {
+  const ana = await seat(browser, 'Ana');
+  const code = codeOf(ana);
+  await seat(browser, 'Ben', code);
+  await seat(browser, 'Cat', code);
+
+  await ana.getByRole('button', { name: /Ben, seat 2/ }).click();
+  await expect(ana.getByText('Tap another seat to swap places.')).toBeVisible();
+  await ana.getByRole('button', { name: /Cat, seat 3/ }).click();
+  await expect(ana.getByRole('button', { name: /Cat, seat 2/ })).toBeVisible();
+  await expect(ana.getByRole('button', { name: /Ben, seat 3/ })).toBeVisible();
+
+  await ana.getByRole('button', { name: /Ben, seat 3/ }).dragTo(ana.getByRole('button', { name: /Cat, seat 2/ }));
+  await expect(ana.getByRole('button', { name: /Ben, seat 2/ })).toBeVisible();
+  await expect(ana.getByRole('button', { name: /Cat, seat 3/ })).toBeVisible();
+
+  await ana.setViewportSize({ width: 844, height: 390 });
+  await expect(ana.getByRole('heading', { name: 'Seat the table' })).toBeVisible();
+  await expect(ana.locator('.table-map')).toBeInViewport();
+  await expect(ana.getByRole('button', { name: 'Lock seats & start' })).toBeInViewport();
+  expect(await ana.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
 });
 
 test('players confirm physical neighbours and the host chooses the first dealer', async ({ browser }) => {
@@ -739,6 +762,10 @@ test('a full fifteen-player lobby remains usable on a phone', async ({ browser }
   await expect(host.locator('.table-map-seat')).toHaveCount(15);
   const overflow = await host.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBeLessThanOrEqual(0);
+  await host.setViewportSize({ width: 844, height: 390 });
+  await expect(host.locator('.table-map')).toBeInViewport();
+  await expect(host.getByRole('button', { name: 'Lock seats & start' })).toBeInViewport();
+  expect(await host.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
   await openPlayers(host);
   await expect(host.getByRole('dialog', { name: 'Players' }).getByText('Player 15', { exact: true })).toBeVisible();
   await host.keyboard.press('Escape');

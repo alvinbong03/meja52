@@ -75,6 +75,7 @@ const MAX_UNAFFILIATED_SOCKETS = 20;
 const RATE_PER_SEC = 8;
 const RATE_BURST = 20;
 const STREETS = ['Preflop', 'Flop', 'Turn', 'River'];
+const CHIP_INVENTORY_VERSION = 2;
 
 interface Member {
   id: string;
@@ -155,6 +156,7 @@ interface Stored {
   settlement?: SettlementStateView | null;
   /** Private visual chip composition, always reconciled to the numeric stack. */
   chipInventories?: Record<string, ChipCount[]>;
+  chipInventoryVersion?: number;
   turnStartedAt: number | null;
   turnId: string | null;
   endingAfterHand?: boolean;
@@ -1706,6 +1708,7 @@ export class Room extends DurableObject<Env> {
 
   private inventoryFor(playerId: string, stack: number) {
     const s = this.s as Stored;
+    this.ensureChipInventoryVersion();
     const inventory = reconcileInventory(s.chipInventories?.[playerId], stack);
     (s.chipInventories ??= {})[playerId] = inventory;
     return inventory;
@@ -1740,10 +1743,18 @@ export class Room extends DurableObject<Env> {
 
   private reconcileChipInventories() {
     const s = this.s as Stored;
+    this.ensureChipInventoryVersion();
     const active = new Set(s.game.players.map((player) => player.id));
     const inventories = (s.chipInventories ??= {});
     for (const player of s.game.players) inventories[player.id] = reconcileInventory(inventories[player.id], player.stack);
     for (const id of Object.keys(inventories)) if (!active.has(id)) delete inventories[id];
+  }
+
+  private ensureChipInventoryVersion() {
+    const s = this.s as Stored;
+    if (s.chipInventoryVersion === CHIP_INVENTORY_VERSION) return;
+    s.chipInventories = {};
+    s.chipInventoryVersion = CHIP_INVENTORY_VERSION;
   }
 
   private commit() {

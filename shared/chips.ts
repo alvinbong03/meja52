@@ -31,13 +31,30 @@ export function inventoryTotal(chips: readonly ChipCount[]) {
   return chips.reduce((sum, chip) => sum + chip.value * chip.count, 0);
 }
 
-/** Deterministic default composition. Numeric game state remains authoritative. */
+/**
+ * Deterministic practical rack composition. A balance of 50 starts with
+ * 10 × 1, 4 × 5 and 2 × 10; larger racks keep that useful small-chip floor,
+ * then introduce 20s before filling the remainder with the largest values.
+ * Numeric game state remains authoritative.
+ */
 export function composeChips(amount: number): ChipCount[] {
   let remaining = Math.max(0, Math.floor(amount));
-  const byValue = new Map<ChipValue, number>();
+  const byValue = new Map<ChipValue, number>(CHIP_VALUES.map((value) => [value, 0]));
+  const add = (value: ChipValue, count: number) => {
+    const affordable = Math.min(count, Math.floor(remaining / value));
+    byValue.set(value, (byValue.get(value) ?? 0) + affordable);
+    remaining -= affordable * value;
+  };
+
+  if (remaining >= 50) {
+    add(1, 10);
+    add(5, 4);
+    add(10, 2);
+    if (remaining >= 40) add(20, 2);
+  }
   for (const value of [...CHIP_VALUES].reverse()) {
     const count = Math.floor(remaining / value);
-    byValue.set(value, count);
+    byValue.set(value, (byValue.get(value) ?? 0) + count);
     remaining -= count * value;
   }
   return CHIP_VALUES.map((value) => ({ value, count: byValue.get(value) ?? 0 }));

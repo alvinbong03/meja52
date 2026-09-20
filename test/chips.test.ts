@@ -6,11 +6,21 @@ describe('visual chip composition', () => {
     const result = composeChips(995);
     expect(result.reduce((sum, chip) => sum + chip.value * chip.count, 0)).toBe(995);
     expect(result).toEqual([
-      { value: 1, count: 0 },
-      { value: 5, count: 1 },
-      { value: 10, count: 0 },
+      { value: 1, count: 10 },
+      { value: 5, count: 5 },
+      { value: 10, count: 2 },
       { value: 20, count: 2 },
-      { value: 50, count: 19 },
+      { value: 50, count: 18 },
+    ]);
+  });
+
+  it('gives a 50-unit rack the approved useful small-chip mix', () => {
+    expect(composeChips(50)).toEqual([
+      { value: 1, count: 10 },
+      { value: 5, count: 4 },
+      { value: 10, count: 2 },
+      { value: 20, count: 0 },
+      { value: 50, count: 0 },
     ]);
   });
 
@@ -25,7 +35,13 @@ describe('visual chip composition', () => {
   });
 
   it('breaks a chip without changing the balance', () => {
-    const rack = composeChips(50);
+    const rack = [
+      { value: 1 as const, count: 0 },
+      { value: 5 as const, count: 0 },
+      { value: 10 as const, count: 0 },
+      { value: 20 as const, count: 0 },
+      { value: 50 as const, count: 1 },
+    ];
     const changed = breakChip(rack, 50)!;
     expect(inventoryTotal(changed)).toBe(50);
     expect(changed.find((chip) => chip.value === 20)?.count).toBe(2);
