@@ -328,3 +328,5 @@ git diff --check                          PASS
 ```
 
 The new browser workflow covers iPhone Duo cover and inner portrait/landscape reference viewports plus representative Galaxy Z Fold8 inner portrait/landscape viewports. It asserts full-width composition, visible controls, landscape bet rail, bottom Table Controls access and no page-level horizontal overflow. Existing standard-phone, 15-player and fine-pointer desktop workflows remain green. Real-device Safari and Samsung Chrome checks remain part of the final release gate.
+
+Deployed to `https://meja52.meja52.workers.dev` as Worker version `0f10cbef-4710-4760-a2ef-e57ae89a1408`. The post-deploy two-device WebSocket smoke test passed with private balances and public pot state intact.
