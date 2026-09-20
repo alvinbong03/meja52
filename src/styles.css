@@ -1828,7 +1828,7 @@ button.chip-stack:active:not(:disabled) .poker-chip {
 
 .staged-chips {
   display: flex;
-  min-height: 76px;
+  min-height: 88px;
   align-items: end;
   justify-content: center;
   padding: 10px 0 16px;
@@ -1836,7 +1836,7 @@ button.chip-stack:active:not(:disabled) .poker-chip {
 }
 
 .staged-chip {
-  width: 62px;
+  width: clamp(68px, 19vw, 88px);
   transform: translateY(calc((var(--chip-order) % 3) * -3px));
 }
 
@@ -2002,8 +2002,8 @@ button.chip-stack:active:not(:disabled) .poker-chip {
   .chip-stack { min-height: 64px; }
   .poker-chip { width: clamp(68px, 12vw, 92px); }
   .poker-chip > span { font-size: clamp(0.72rem, 2.4vw, 0.86rem); }
-  .staged-chips { min-height: 62px; padding-block: 2px 6px; }
-  .staged-chip { width: 64px; }
+  .staged-chips { min-height: 86px; padding-block: 4px 8px; }
+  .staged-chip { width: clamp(78px, 14vw, 104px); }
   .btn-turn { min-height: 48px; }
   .dock-raise:has(.staged-chips) .raise-heading { display: none; }
   .raise-heading .turn-title { font-size: 1.05rem; }

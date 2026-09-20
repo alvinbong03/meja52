@@ -129,3 +129,10 @@ Type checking, the production build, and the focused landscape Playwright workfl
 - A 15-player browser regression confirms all players remain present, cell width never compresses below 120 px, and the rail scrolls instead of overflowing the page.
 
 Type checking, the production build, and focused 3-player and 15-player landscape browser workflows passed.
+
+### Enlarged staged chips
+
+- Enlarged chips displayed after selection, including their landscape presentation, without moving the approved Clear/status/Place controls.
+- A 568×320 browser regression confirms staged chips render at least 78 px wide without introducing page-level horizontal overflow.
+
+Type checking, the production build, and the focused phone-landscape workflow passed.

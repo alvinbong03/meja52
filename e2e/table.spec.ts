@@ -493,6 +493,9 @@ test('live play keeps balances private and exposes current bets in phone landsca
   await ben.setViewportSize({ width: 568, height: 320 });
   await expect(ben.getByRole('region', { name: 'Current street bets' })).toBeVisible();
   await expect(ben.getByRole('button', { name: 'Call 6' })).toBeVisible();
+  await ben.getByRole('button', { name: 'Call 6' }).click();
+  const stagedChipWidth = await ben.locator('.staged-chip').first().evaluate((chip) => chip.getBoundingClientRect().width);
+  expect(stagedChipWidth).toBeGreaterThanOrEqual(78);
   const compactOverflow = await ben.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(compactOverflow).toBeLessThanOrEqual(0);
 
