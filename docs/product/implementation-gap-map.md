@@ -1,20 +1,22 @@
 # MEJA52 — Release 1 Implementation Gap Map
 
-Status: Release 1 implementation complete through the approved seating-lobby and foldable-adaptation checkpoints; tactile chip/change interaction and final release review remain
+Status: Release 1 implementation and automated certification complete; real-device/soak testing, rollback rehearsal and owner-authorised merge/tag remain
 Working branch: `codex/meja52-release1`
 Upstream baseline: `7867414` (`origin/main` at audit time)
 
-## Baseline verification
+## Current certification evidence — 20 September 2026
 
 | Check | Result |
 | --- | --- |
 | Locked dependency installation | Passed |
 | TypeScript application and Worker type checking | Passed |
-| Unit tests | 49 passed |
-| Worker integration tests | 29 passed |
+| Unit tests | 71 passed; 25,000-game extended fuzz run passed |
+| Worker integration tests | 58 passed |
 | Production build | Passed |
-| Playwright multi-device workflows | 11 passed |
-| Dependency audit | Four high-severity development/test-chain findings through `sharp`, `miniflare` and the Worker test-pool dependency; no forced update applied |
+| Playwright multi-device workflows | 26 passed |
+| Cloudflare deployment dry-run | Passed with Wrangler 4.135.0 |
+| Dependency audit | Passed with 0 vulnerabilities, including development dependencies |
+| Live deployment | Passed on `https://meja52.meja52.workers.dev` with security headers and two-device WebSocket privacy smoke test |
 
 The inherited project is functional and well tested. It is a useful foundation, not a visual or behavioural match for the approved MEJA52 product.
 
@@ -59,11 +61,11 @@ The inherited project is functional and well tested. It is a useful foundation, 
 
 ### Foundation — correctness and authority
 
-1. **Implemented in pass 1:** raise engine, protocol, Worker and current UI capacity boundaries to 15, with engine and full-room regression coverage. Dedicated load and real-device coverage remain required.
+1. **Implemented and automated:** engine, protocol, Worker and UI capacity boundaries support 15, with full-room browser coverage. The mixed-device physical pilot remains required.
 2. **Implemented in pass 1:** bind initial hosting to the creator's existing private device capability without adding approval to code/link joining. The capability is salted per room, never returned in public state and retired after the creator takes a seat.
-3. **Implemented in pass 1:** add an independently transferable Table Controller, default it to the host, and enforce Host-only undo versus Controller-only physical awards and next-hand dealing. The current inherited UI exposes the role using existing controls; the approved visual treatment remains Slice 1 work.
-4. **Partially implemented in pass 2:** currency and private pending-rebuy state are live. Denomination policy, attendance requests and the broader durable audit model remain pending.
-5. Resolve the Cloudflare development dependency advisories through a tested compatible upgrade, never `npm audit fix --force`.
+3. **Implemented:** an independently transferable Table Controller defaults to the host, with role-specific controls and enforced Host/Controller authority.
+4. **Implemented:** currency, fixed Release 1 denomination policy, private rebuy state, attendance workflows and durable audit history are live.
+5. **Resolved:** the Cloudflare development dependency advisories were removed with a bounded `sharp@0.35.4` override and Wrangler 4.135.0 update; every automated gate passed afterward.
 
 ### Slice 1 — create, invite, join and seat
 
@@ -79,7 +81,7 @@ This slice establishes MEJA52's production tokens, typography, brand application
 
 Implement the approved waiting, active-turn, preselection, staged-call, raise builder, custom amount, chip-change and portrait fallback comps.
 
-**Implemented in pass 1 and refined in passes 7–8:** responsive portrait/landscape table-edge presentation, deterministic RM1/RM5/RM10/RM20/RM50 visual chip composition, tappable chip racks, two-stage Call → Place workflow, Clear, chip-first raise staging, approved shortcuts and secondary Custom amount entry. Every active player now retains one visible current-street bet beside their name—including `0`—in both the standard table and compact landscape rail, without exposing private balances or total hand contributions. The landscape rail is reserved exclusively for player bets, uses 120 px minimum player cells and scrolls independently for 10–15 players; Pot remains in the private action header beside Balance. Landscape chip targets and staged-chip visuals are enlarged for tactile interaction. Manual chip change now persists a player-chosen exact breakdown, with server validation and both tactile tapping and numeric quantity entry. Custom room denomination settings remain pending.
+**Implemented and refined:** responsive portrait/landscape table-edge presentation, deterministic RM1/RM5/RM10/RM20/RM50 visual chip composition, tappable chip racks, two-stage Call → Place workflow, Clear, chip-first raise staging, approved shortcuts and secondary Custom amount entry. Every active player retains one visible current-street bet beside their name—including `0`—in both the standard table and compact landscape rail, without exposing private balances or total hand contributions. The rail identifies D/SB/BB and folded players, uses 120 px minimum cells and scrolls independently for 10–15 players; Pot remains in the private action header beside Balance. Manual chip change persists a player-chosen exact breakdown, with server validation and both tactile tapping and numeric quantity entry. Editable denomination sets are a later enhancement, not Release 1 scope.
 
 ### Slice 3 — table continuity
 
@@ -112,3 +114,10 @@ Implement shared display, settlement, minimum transfers, history/export, retenti
 ## Identity approval gate — complete
 
 The owner approved `.impeccable/mocks/brand/meja52-identity-direction-v2.png`. Backend foundation work and the approved Slice 1 interface implementation may proceed.
+
+## Remaining release gates
+
+- Complete the mixed iPhone Safari and Android Chrome physical-device checklist, including rotation, lock/unlock, backgrounding and network switching.
+- Run one multi-phone physical-card session and a 30–60 minute reconnect/soak session on an ordinary home network.
+- Exercise one Cloudflare rollback and verify a fresh-machine deployment path.
+- Merge to `main` and create the Release 1 tag only after explicit owner approval.

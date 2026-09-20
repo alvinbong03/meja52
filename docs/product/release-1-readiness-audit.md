@@ -1,8 +1,10 @@
 # MEJA52 Release 1 Readiness Audit
 
-Status: Diagnostic release gate; no product behaviour changed
+Status: Historical diagnostic snapshot — superseded by `release-1-certification-2026-09-20.md`
 Audited: 20 September 2026
 Branch: `codex/meja52-release1` at `a5e04c6`
+
+> This document records the earlier audit at commit `a5e04c6`. Its P1 findings, product-workflow blockers, deployment gap and development dependency advisories have since been resolved and reverified. Use the current certification document for release decisions.
 
 ## Implementation integrity verdict
 

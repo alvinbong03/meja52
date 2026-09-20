@@ -476,3 +476,28 @@ git diff --check                          PASS
 ```
 
 Deployed to `https://meja52.meja52.workers.dev` as Worker version `1f3c4926-75b8-4bb7-8d58-8d7b7df26b2f`. The post-deploy two-device WebSocket smoke test passed with private balances and public pot state intact.
+
+### Release 1 automated certification — 20 September 2026
+
+- Re-ran the complete correctness, privacy, responsive, accessibility, build and Cloudflare packaging gates against the current Release 1 branch.
+- Isolated the unknown-room browser test from the cumulative local lookup-rate bucket; the production limiter remained unchanged.
+- Removed all four development/test dependency advisories with a bounded `sharp@0.35.4` override and compatible Wrangler/types patch updates. No forced audit rewrite was used.
+- Replaced stale release status in the README, gap map and earlier audit pointer. The current decision and physical-device checklist are in `docs/product/release-1-certification-2026-09-20.md`.
+
+Verification:
+
+```text
+npm run typecheck                         PASS
+npm run test:unit                         PASS (71 tests; 1,500 fuzz games)
+FUZZ_GAMES=25000 npm run test:unit        PASS (71 tests; 25,000 fuzz games)
+npm run test:worker                       PASS (58 tests)
+npm run test:e2e                          PASS (26 workflows)
+npm run build                             PASS (367.34 kB JS / 108.00 kB gzip)
+npm run deploy:dry-run                    PASS (Wrangler 4.135.0)
+npm audit                                 PASS (0 vulnerabilities)
+Impeccable detector                       PASS (0 findings)
+live security-header inspection           PASS
+git diff --check                          PASS
+```
+
+Automated Release 1 certification passes. Physical iPhone/Android play, a longer home-network soak, rollback rehearsal and explicit owner approval to merge/tag remain open.

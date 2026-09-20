@@ -882,7 +882,13 @@ test('planned hosting transfer stays pending until the named player accepts', as
   await expect(ben.getByRole('button', { name: 'Transfer hosting' })).toBeVisible();
 });
 
-test('unknown table codes and room pages explain themselves', async ({ page }) => {
+test('unknown table codes and room pages explain themselves', async ({ browser }) => {
+  const context = await browser.newContext({
+    ...test.info().project.use,
+    extraHTTPHeaders: { 'cf-connecting-ip': '203.0.113.250' },
+  });
+  contexts.push(context);
+  const page = await context.newPage();
   await page.goto('/');
   await page.getByRole('button', { name: 'Join a table' }).click();
   await page.getByLabel('Room code').fill('zzzz');

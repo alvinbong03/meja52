@@ -10,13 +10,7 @@
 
 `poker` `home-game` `chip-tracker` `texas-holdem` `realtime` `websockets` `durable-objects` `cloudflare-workers` `react` `pwa`
 
-Release 1 is under active development. The approved product specification, implementation plan and interface comps are included in this repository.
-
-<p>
-  <img src="docs/your-turn-light.png" width="240" alt="Your turn: the action bar floods yellow with Fold, Call and Raise" />
-  <img src="docs/waiting-dark.png" width="240" alt="Dark mode while waiting: the pot, a Deal the flop prompt and the seat list" />
-  <img src="docs/showdown-dark.png" width="240" alt="Showdown: two winners ticked, each share shown before paying out" />
-</p>
+Release 1 has passed its automated certification suite and is live for alpha testing. Mixed real-device play, soak testing and the owner-authorised `main` merge/tag remain before a public Release 1 declaration.
 
 ---
 
@@ -29,15 +23,15 @@ Before writing a line, we read the code of 22 open source chip trackers and put 
 ## What it does
 
 - **One phone per player, zero accounts.** Start a table, share a four-letter code, QR code or link. Names are the only sign up.
-- **Real no-limit hold'em rules.** Blinds post themselves, turn order is enforced, and the big blind keeps its option. Minimum raises follow the last full raise, and short all-ins only reopen betting when they add up to a full raise (TDA rule 47).
+- **Server-enforced no-limit hold'em.** Blinds post automatically, D/SB/BB remain visible, turn order is enforced, and the big blind keeps its option. MEJA52’s approved home-game rule permits any whole-unit raise above the current bet and reopens action.
 - **Side pots without arguments.** Pots are built in layers from what each player put in, uncalled chips go back automatically, and folded chips stay in as dead money.
 - **Chops take one tap per winner.** Same hand as somebody else? Tap both names. Every pot lists its players with a checkbox, each share appears the moment you pick, and the odd chip goes clockwise from the dealer with a line saying so.
-- **Your turn is impossible to miss.** The action bar floods yellow, a soft two-note chime plays, and Android phones buzz. The screen stays awake while a table is open.
+- **Your turn is impossible to miss.** Waiting devices use Batik Indigo; only the active player moves to Hibiscus red with an explicit `Your turn` label. Optional sound and haptics respect each device’s saved preference.
 - **Deal prompts for the dealer.** "Deal the flop", "Run out the board", "Who won?". The app tells the table what the cards should be doing.
-- **Built for real tables.** Anyone can undo, seats can be added for players without a phone, and anyone can act for someone who is away. A phone can hand its seat to a new device (with the table's approval), and dropped connections reconnect by themselves.
-- **Settle up.** Buy-ins, rebuys and net results, plus the fewest payments needed to square up in chips or cash.
+- **Built for real tables.** The host governs corrections and continuity; a separate Table Controller handles physical streets and awards. Manual seats, accepted host transfer, device recovery, breaks, missed blinds, late arrivals and governed leaving are supported.
+- **Settle up.** Buy-ins, rebuys, early leavers and net results produce a minimum-transfer plan. The app records acknowledgements but never moves money; private final records expire after 30 days and support image, CSV and JSON export.
 - **Table display mode.** Prop an iPad or laptop in the middle for a big-type view of the pot, whose turn it is and every current bet, with a QR code to join. Private balances stay on each player's device.
-- **Phone first, fine everywhere.** Thumb-zone controls on phones, a two-column layout with keyboard shortcuts (`F` fold, `C` check or call, `R` raise, arrows to size, `Enter` to confirm, `N` next hand) on iPad and desktop. Light and dark follow the device setting.
+- **Phone first, fine everywhere.** Landscape gameplay, portrait fallback and settlement, foldable/unusual-screen adaptation, 15-player scrolling rails and keyboard alternatives (`F`, `C`, `R`, arrows, `Enter`, `N`) are covered by browser workflows.
 
 ## Architecture
 
@@ -60,7 +54,7 @@ Before writing a line, we read the code of 22 open source chip trackers and put 
 
 **Every change is versioned.** Each state carries a version `v`, and every action names the version it was decided on. Double taps, two people pressing "Deal next hand" at once, and actions taken from a stale screen are rejected with `STALE`. The sender gets the fresh state back.
 
-**Identity is a device secret.** Each device generates a random 256-bit token. The room stores only a SHA-256 hash of it (salted with the table code) and never broadcasts it. Taking over a seat from a new device needs approval from someone at the table, unless nobody else is around.
+**Identity is a device secret.** Each device generates a random 256-bit token. The room stores only a salted SHA-256 hash and never broadcasts it. Taking over a seat from a new device requires authorised approval.
 
 **Undo rewinds the game, not the guest list.** The last 30 game states are kept. Membership lives outside that history, so undoing never removes someone who just sat down or brings back someone who was removed.
 
@@ -84,9 +78,9 @@ Before writing a line, we read the code of 22 open source chip trackers and put 
 ## Testing
 
 ```bash
-npm run test:unit     # engine scenarios + 1,500 fuzzed games + protocol + settle-up
-npm run test:worker   # Durable Object and WebSocket protocol inside workerd
-npm run test:e2e      # Playwright: full hands across simulated phones, iPad and desktop
+npm run test:unit     # 71 tests: engine scenarios + 1,500 fuzzed games + protocol + settlement
+npm run test:worker   # 58 Durable Object and WebSocket integration tests inside workerd
+npm run test:e2e      # 26 multi-device Playwright workflows
 FUZZ_GAMES=25000 npm run test:unit   # the long fuzz run
 ```
 
@@ -96,7 +90,7 @@ FUZZ_GAMES=25000 npm run test:unit   # the long fuzz run
   - the table dropping from three to two players
   - dead money, three-way ties with odd chips
   - leaving on your own turn, and leaving at showdown
-- **The fuzzer** plays random games of 2 to 9 players with short, mixed and deep stacks, random leaves and deliberate illegal moves. After every action it checks:
+- **The fuzzer** plays random games with short, mixed and deep stacks, random leaves and deliberate illegal moves. After every action it checks:
   - chips are conserved
   - somebody legal is always due to act
   - pots add up, eligibility is nested, and each player can win exactly what they matched
@@ -105,15 +99,7 @@ FUZZ_GAMES=25000 npm run test:unit   # the long fuzz run
 
   25,000 games pass clean.
 - **Integration tests** cover stale versions, concurrent `next` and `undo`, seat claims, kicks, host handoff, oversized and malformed messages, rate limits and room expiry.
-- **End-to-end tests** cover:
-  - a complete hand across three phones
-  - two players chopping a pot, shares previewed before the payout
-  - a real side pot
-  - acting for a seat without a phone, plus undo
-  - moving a seat to a new device
-  - going offline mid-hand
-  - desktop keyboard shortcuts
-  - no horizontal overflow from 320 to 1440 pixels
+- **End-to-end tests** cover complete play and settlement, blind posting and positions, tactile/custom chip change, side pots and ties, rebuy/break/leave/late-arrival workflows, accepted host transfer, recovery and seat takeover, runouts and governed corrections, 15-player/foldable layouts, keyboard access and overflow from 320 to 1440 pixels.
 
 ## Local development
 
@@ -133,7 +119,7 @@ MEJA52 deploys as one Cloudflare Worker containing the static Vite build, `/api/
 ```bash
 npm run deploy:dry-run  # build and validate without publishing
 npm run deploy          # build and publish to workers.dev
-npm run smoke:live      # verify live API, two WebSockets and private balances
+npm run smoke:live      # verify live API, two WebSockets, public pot and private balances
 ```
 
 Wrangler must be authenticated first. GitHub deployment from `main` requires `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` repository secrets.
@@ -146,6 +132,7 @@ React 19, Vite 8, TypeScript 5.9, Cloudflare Workers static assets, Durable Obje
 
 - [Product specification](docs/product/product-specification.md)
 - [Implementation gap map](docs/product/implementation-gap-map.md)
+- [Release 1 certification](docs/product/release-1-certification-2026-09-20.md)
 - [Design system](DESIGN.md)
 - [Approved design package](docs/design/Remaining%20Release%201%20Comps%20Approval%20Package.md)
 - [Future Digital Card Mode handoff](docs/product/future-release-handoff.md)
