@@ -391,12 +391,12 @@ button:disabled {
 .home-chips {
   position: absolute;
   z-index: 2;
-  top: -50px;
+  top: 50%;
   left: 50%;
   width: 270px;
-  height: 180px;
+  height: 84px;
   opacity: 0.55;
-  transform: translateX(-50%);
+  transform: translate(-50%, -50%);
 }
 
 .home-chips i {
@@ -428,7 +428,7 @@ button:disabled {
   .home-card { top: 14%; right: -10%; width: 126px; border-radius: 12px; opacity: 0.68; }
   .home-card-back { right: 5%; top: 16%; }
   .home-table-scene { right: -38%; bottom: -2%; width: 125%; }
-  .home-chips { top: -42px; transform: translateX(-50%) scale(0.65); transform-origin: center top; }
+  .home-chips { top: 50%; transform: translate(-50%, -50%) scale(0.65); transform-origin: center; }
   .home-table-edge { border-width: 24px; }
 }
 
