@@ -19,16 +19,16 @@ import { Num } from './Num';
 
 const ACT_FOR_AFTER_MS = 15_000;
 
-export function Dock({ onRebuy }: { onRebuy: () => void }) {
+export function Dock({ onRebuy, onRunout }: { onRebuy: () => void; onRunout: () => void }) {
   const shaking = useShake();
   return (
     <div className="dock-shake" data-shake={shaking || undefined}>
-      <DockBody onRebuy={onRebuy} />
+      <DockBody onRebuy={onRebuy} onRunout={onRunout} />
     </div>
   );
 }
 
-function DockBody({ onRebuy }: { onRebuy: () => void }) {
+function DockBody({ onRebuy, onRunout }: { onRebuy: () => void; onRunout: () => void }) {
   const { game, you, me, room, serverNow, away, member, isHost } = useTable();
   const [actingFor, setActingFor] = useState<string | null>(null);
 
@@ -36,9 +36,6 @@ function DockBody({ onRebuy }: { onRebuy: () => void }) {
   useEffect(() => setActingFor(null), [actorId, game.phase]);
 
   if (game.phase === 'lobby') return <LobbyDock />;
-  if (game.phase === 'showdown') return <AwardPanel />;
-  if (game.phase === 'done') return <ResultsPanel onRebuy={onRebuy} />;
-
   if (room.paused) {
     return (
       <div className="dock dock-hold" role="status">
@@ -48,6 +45,13 @@ function DockBody({ onRebuy }: { onRebuy: () => void }) {
       </div>
     );
   }
+
+  if (game.phase === 'showdown') {
+    if (game.runout && !room.runoutPlan) return <RunoutGate onRunout={onRunout} />;
+    if (room.runoutPlan?.phase === 'dealing') return <RunoutDealPanel />;
+    return <AwardPanel />;
+  }
+  if (game.phase === 'done') return <ResultsPanel onRebuy={onRebuy} />;
 
   if (room.correctionForId) {
     const correctionPlayer = findPlayer(game, room.correctionForId);
@@ -86,6 +90,46 @@ function DockBody({ onRebuy }: { onRebuy: () => void }) {
           Act for {actor.name}
         </button>
       )}
+    </div>
+  );
+}
+
+function RunoutGate({ onRunout }: { onRunout: () => void }) {
+  const { isHost, nameOf, room } = useTable();
+  return (
+    <div className="dock dock-runout">
+      <span className="label">All players are all-in</span>
+      <strong>{isHost ? 'Choose how many times to run the board' : `Waiting for ${nameOf(room.hostId)} to choose the runouts`}</strong>
+      {isHost && <button className="btn btn-primary btn-xl btn-block" onClick={onRunout}>Run remaining board…</button>}
+    </div>
+  );
+}
+
+function RunoutDealPanel() {
+  const { room, game, isController, nameOf, run, busy, v } = useTable();
+  const plan = room.runoutPlan!;
+  const ordinal = ['First', 'Second', 'Third', 'Fourth'][plan.current] ?? `Runout ${plan.current + 1}`;
+  const cards = plan.fromStreet === 0 ? 'flop, turn and river' : plan.fromStreet === 1 ? 'turn and river' : 'river';
+  if (!isController) {
+    return <div className="dock"><p className="dock-wait">Waiting for {nameOf(room.controllerId)} to complete runout {plan.current + 1} of {plan.count}</p></div>;
+  }
+  return (
+    <div className="dock dock-runout">
+      <div className="turn-overview">
+        <div><span className="turn-title">Runout {plan.current + 1} of {plan.count}</span><span className="turn-sub">Table Controller</span></div>
+        <span className="turn-metric"><small>Pot</small><Num value={potTotal(game)} /></span>
+      </div>
+      <div className="runout-deal-copy">
+        <strong>Deal the {ordinal.toLowerCase()} {cards}</strong>
+        <span>Complete this physical runout before selecting its winner.</span>
+      </div>
+      <div className="runout-progress" aria-label={`Runout ${plan.current + 1} of ${plan.count}`}>
+        {Array.from({ length: plan.count }, (_, index) => <i key={index} data-on={index <= plan.current || undefined} />)}
+      </div>
+      <button className="btn btn-primary btn-xl btn-block" disabled={busy} onClick={() => run({ type: 'completeRunout', v })}>
+        {ordinal} runout complete
+      </button>
+      <small className="centre muted">Each runout awards its portion of every pot.</small>
     </div>
   );
 }
@@ -366,7 +410,8 @@ function RaisePanel({ legal, pot, currentBet, bb, label, player, currency, busy,
 
 function AwardPanel() {
   const { game, run, busy, v, nameOf, isController, room } = useTable();
-  const open = game.pots.filter((p) => !p.paid);
+  const boardIds = room.runoutPlan ? new Set(room.runoutPlan.potIds) : null;
+  const open = game.pots.filter((p) => !p.paid && (!boardIds || boardIds.has(p.id)));
   const [picks, setPicks] = useState<Record<number, string[]>>({});
   const [touched, setTouched] = useState<Record<number, boolean>>({});
 
@@ -407,7 +452,7 @@ function AwardPanel() {
     <div className="dock dock-award">
       <div className="turn-head">
         <div>
-          <span className="turn-title">Who won?</span>
+          <span className="turn-title">{room.runoutPlan ? `Who won runout ${room.runoutPlan.current + 1}?` : 'Who won?'}</span>
           <span className="turn-sub">Tap every winner. Two or more chop it.</span>
         </div>
       </div>

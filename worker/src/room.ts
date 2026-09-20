@@ -4,6 +4,7 @@ import {
   addBuyIn,
   addPlayer,
   award,
+  awardPots,
   bySeat,
   createGame,
   eligibleForHand,
@@ -11,12 +12,14 @@ import {
   handInProgress,
   legalActions,
   potTotal,
+  physicalRunoutLimit,
   removePlayer,
   returnWithPost,
   RuleError,
   setSeatOrder,
   setSittingOut,
   setStack,
+  splitPotsForRunouts,
   startHand,
   updateSettings,
   MAX_PLAYERS,
@@ -42,6 +45,7 @@ import {
   type MemberView,
   type RoomView,
   type RebuyRequestView,
+  type RunoutPlanView,
   type ServerMessage,
   type CurrencyCode,
 } from '../../shared/protocol';
@@ -74,6 +78,10 @@ interface Claim extends ClaimView {
 
 interface RebuyRequest extends RebuyRequestView {}
 
+interface StoredRunoutPlan extends RunoutPlanView {
+  boards: number[][];
+}
+
 interface Snapshot {
   label: string;
   game: Game;
@@ -85,6 +93,7 @@ interface Snapshot {
   leaveRequests?: LeaveRequestView[];
   lateArrivals?: LateArrivalView[];
   handStart?: Game | null;
+  runoutPlan?: StoredRunoutPlan | null;
 }
 
 interface Stored {
@@ -110,6 +119,7 @@ interface Stored {
   paused?: boolean;
   voidProposal?: VoidProposalView | null;
   correctionForId?: string | null;
+  runoutPlan?: StoredRunoutPlan | null;
   turnStartedAt: number | null;
   turnId: string | null;
   endingAfterHand?: boolean;
@@ -200,6 +210,7 @@ export class Room extends DurableObject<Env> {
         paused: false,
         voidProposal: null,
         correctionForId: null,
+        runoutPlan: null,
         turnStartedAt: null,
         turnId: null,
         endingAfterHand: false,
@@ -531,7 +542,62 @@ export class Room extends DurableObject<Env> {
         if (s.paused) deny('PHASE', 'The hand is paused');
         requireController();
         checkV(msg.v);
-        this.mutate('Award the pot', (g) => award(g, msg.winners));
+        if (s.game.runout) {
+          const plan = s.runoutPlan ?? deny('PHASE', 'The host must choose the runout count first');
+          if (plan.phase !== 'awarding') deny('PHASE', 'Complete this physical runout first');
+          const potIds = plan.boards[plan.current] ?? deny('INVALID', 'Runout state is invalid');
+          const finalBoard = plan.current === plan.count - 1;
+          this.mutate(
+            `Award runout ${plan.current + 1} of ${plan.count}`,
+            (g) => awardPots(g, msg.winners, potIds),
+            'win',
+            false,
+            () => {
+              if (finalBoard) s.runoutPlan = null;
+              else {
+                plan.current += 1;
+                plan.phase = 'dealing';
+                plan.potIds = plan.boards[plan.current] ?? [];
+              }
+            },
+          );
+        } else {
+          this.mutate('Award the pot', (g) => award(g, msg.winners));
+        }
+        return;
+      }
+      case 'chooseRunouts': {
+        const host = requireHost();
+        checkV(msg.v);
+        if (s.runoutPlan) deny('INVALID', 'The runout count is already set');
+        if (s.game.phase !== 'showdown' || !s.game.runout) deny('PHASE', 'Multiple runouts are not available');
+        const maximum = physicalRunoutLimit(s.game);
+        if (msg.count > maximum) deny('INVALID', `This hand supports at most ${maximum} runouts`);
+        if (msg.count > 1 && !msg.agreed) deny('INVALID', 'Confirm that the players agreed');
+        const split = splitPotsForRunouts(s.game, msg.count);
+        s.game = split.game;
+        s.runoutPlan = {
+          count: msg.count,
+          current: 0,
+          phase: 'dealing',
+          fromStreet: s.game.street,
+          potIds: split.boards[0] ?? [],
+          boards: split.boards,
+        };
+        s.v += 1;
+        this.log('hand', `${host.name} chose ${msg.count} runout${msg.count === 1 ? '' : 's'}`);
+        this.commit();
+        return;
+      }
+      case 'completeRunout': {
+        const controller = requireController();
+        checkV(msg.v);
+        const plan = s.runoutPlan ?? deny('PHASE', 'The host has not chosen the runout count');
+        if (plan.phase !== 'dealing') deny('PHASE', 'This runout is already complete');
+        plan.phase = 'awarding';
+        s.v += 1;
+        this.log('hand', `${controller.name} completed runout ${plan.current + 1} of ${plan.count}`);
+        this.commit();
         return;
       }
       case 'undo': {
@@ -553,6 +619,7 @@ export class Room extends DurableObject<Env> {
         if (snap.rebuyRequests) s.rebuyRequests = structuredClone(snap.rebuyRequests);
         if (snap.breaks) s.breaks = structuredClone(snap.breaks);
         s.correctionForId = msg.mode === 'correct' ? snap.game.toActId : null;
+        s.runoutPlan = snap.runoutPlan ? structuredClone(snap.runoutPlan) : null;
         s.v += 1;
         this.log('undo', `${m.name} undid: ${snap.label}`);
         this.commit();
@@ -621,6 +688,7 @@ export class Room extends DurableObject<Env> {
         s.paused = false;
         s.voidProposal = null;
         s.correctionForId = null;
+        s.runoutPlan = null;
         this.undo = [];
         s.v += 1;
         this.log('table', `${host.name} voided Hand ${current.handNo}: ${proposal.reason}`);
@@ -917,7 +985,13 @@ export class Room extends DurableObject<Env> {
 
   // ---------- state changes ----------
 
-  private mutate(label: string, fn: (g: Game) => Game, kind: LogKind = 'hand', startsHand = false) {
+  private mutate(
+    label: string,
+    fn: (g: Game) => Game,
+    kind: LogKind = 'hand',
+    startsHand = false,
+    afterGame?: () => void,
+  ) {
     const s = this.s as Stored;
     const before = s.game;
     const rebuyRequestsBefore = structuredClone(s.rebuyRequests ?? []);
@@ -939,9 +1013,11 @@ export class Room extends DurableObject<Env> {
       leaveRequests: leaveRequestsBefore,
       lateArrivals: lateArrivalsBefore,
       handStart: handStartBefore,
+      runoutPlan: s.runoutPlan ? structuredClone(s.runoutPlan) : null,
     });
     if (this.undo.length > UNDO_DEPTH) this.undo.shift();
     s.game = after;
+    afterGame?.();
     if (startsHand) s.handStart = structuredClone(before);
     s.v += 1;
     this.logTransition(before, after, label, kind);
@@ -1364,6 +1440,13 @@ export class Room extends DurableObject<Env> {
       paused: s.paused ?? false,
       voidProposal: s.voidProposal ?? null,
       correctionForId: s.correctionForId ?? null,
+      runoutPlan: s.runoutPlan ? {
+        count: s.runoutPlan.count,
+        current: s.runoutPlan.current,
+        phase: s.runoutPlan.phase,
+        fromStreet: s.runoutPlan.fromStreet,
+        potIds: s.runoutPlan.boards[s.runoutPlan.current] ?? [],
+      } : null,
       log: s.log.slice(-LOG_SEND),
       undoLabel: this.undo.at(-1)?.label ?? null,
       turnStartedAt: s.turnStartedAt,

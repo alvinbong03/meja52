@@ -43,6 +43,8 @@ export type ClientMessage =
   | { type: 'previewVoid'; v: number; reason: string; advanceButton: boolean }
   | { type: 'cancelVoid'; v: number }
   | { type: 'confirmVoid'; v: number }
+  | { type: 'chooseRunouts'; v: number; count: number; agreed: boolean }
+  | { type: 'completeRunout'; v: number }
   | { type: 'endGame'; v: number }
   | { type: 'cancelEndGame'; v: number }
   | { type: 'takeBreak'; playerId?: string }
@@ -117,6 +119,14 @@ export interface VoidProposalView {
   proposedAt: number;
 }
 
+export interface RunoutPlanView {
+  count: number;
+  current: number;
+  phase: 'dealing' | 'awarding';
+  fromStreet: number;
+  potIds: number[];
+}
+
 export type LogKind = 'action' | 'hand' | 'win' | 'undo' | 'table';
 
 export interface LogEntry {
@@ -143,6 +153,7 @@ export interface RoomView {
   paused: boolean;
   voidProposal: VoidProposalView | null;
   correctionForId: string | null;
+  runoutPlan: RunoutPlanView | null;
   log: LogEntry[];
   undoLabel: string | null;
   turnStartedAt: number | null;
@@ -228,7 +239,12 @@ export function parseClientMessage(raw: string): Envelope | null {
     case 'resumeHand':
     case 'cancelVoid':
     case 'confirmVoid':
+    case 'completeRunout':
       return isNum(v) ? out({ type: m.type, v }) : null;
+    case 'chooseRunouts':
+      return isNum(v) && isNum(m.count) && m.count >= 1 && m.count <= 4 && typeof m.agreed === 'boolean'
+        ? out({ type: 'chooseRunouts', v, count: m.count, agreed: m.agreed })
+        : null;
     case 'previewVoid':
       return isNum(v) && isStr(m.reason, 80) && m.reason.trim().length > 0 && typeof m.advanceButton === 'boolean'
         ? out({ type: 'previewVoid', v, reason: m.reason, advanceButton: m.advanceButton })

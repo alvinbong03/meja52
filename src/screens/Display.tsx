@@ -17,7 +17,9 @@ export function Display({ onExit }: { onExit: () => void }) {
   let headline = '';
   if (game.phase === 'lobby') headline = 'Scan to join';
   else if (game.phase === 'betting' && actor) headline = freshStreet ? NEXT_CARDS[game.street] : `${actor.name} to act`;
-  else if (game.phase === 'showdown') headline = game.runout ? 'All in. Run it out.' : 'Cards up';
+  else if (game.phase === 'showdown') headline = room.runoutPlan
+    ? `Runout ${room.runoutPlan.current + 1} of ${room.runoutPlan.count} · ${room.runoutPlan.phase === 'dealing' ? 'dealing' : 'award winner'}`
+    : game.runout ? 'All in. Run it out.' : 'Cards up';
   else if (game.phase === 'done') {
     headline = outcomeLine(game, nameOf);
   }
@@ -64,7 +66,7 @@ export function Display({ onExit }: { onExit: () => void }) {
               </span>
               <span className="display-seat-value">
                 <small>{hand ? 'Current bet' : 'Balance'}</small>
-                {hand ? <span className="num">{p.bet > 0 ? fmt(p.bet) : '—'}</span> : <Num value={p.stack} />}
+                {hand ? <span className="num">{fmt(p.bet)}</span> : <Num value={p.stack} />}
               </span>
               <span className="display-seat-foot">
                 <span />

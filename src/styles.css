@@ -2431,6 +2431,108 @@ button.chip-stack:active:not(:disabled) .poker-chip {
   font-size: 0.875rem;
 }
 
+.runout-flow,
+.dock-runout,
+.runout-heading,
+.runout-deal-copy {
+  display: grid;
+}
+
+.runout-flow,
+.dock-runout {
+  gap: 18px;
+}
+
+.runout-heading,
+.runout-deal-copy {
+  gap: 4px;
+  text-align: center;
+}
+
+.runout-heading strong,
+.runout-deal-copy strong {
+  font-size: 1.25rem;
+  font-weight: 650;
+}
+
+.runout-heading span,
+.runout-deal-copy span {
+  color: var(--ink-2);
+}
+
+.runout-counts {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  border-bottom: 1px solid var(--line);
+}
+
+.runout-counts button {
+  display: grid;
+  min-height: 84px;
+  place-content: center;
+  gap: 3px;
+  padding: 8px 2px;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  background: transparent;
+  color: var(--ink);
+}
+
+.runout-counts button strong {
+  font-size: 1.5rem;
+}
+
+.runout-counts button small {
+  color: var(--ink-3);
+  font-size: 0.68rem;
+}
+
+.runout-counts button[aria-checked='true'] {
+  border-bottom-color: var(--accent);
+  color: var(--accent-text);
+}
+
+.runout-counts button:disabled {
+  opacity: 0.38;
+}
+
+.agreement-check {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 58px;
+}
+
+.agreement-check input {
+  width: 22px;
+  height: 22px;
+  accent-color: var(--accent);
+}
+
+.agreement-check span {
+  display: grid;
+  gap: 2px;
+}
+
+.agreement-check small {
+  color: var(--ink-2);
+}
+
+.runout-progress {
+  display: flex;
+  gap: 5px;
+}
+
+.runout-progress i {
+  flex: 1;
+  height: 3px;
+  background: var(--line-strong);
+}
+
+.runout-progress i[data-on] {
+  background: var(--accent);
+}
+
 .rebuy-requests {
   gap: 28px;
 }

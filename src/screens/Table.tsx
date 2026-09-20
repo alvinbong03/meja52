@@ -111,7 +111,7 @@ export function Table({ onDisplay, onLeft }: { onDisplay: () => void; onLeft: ()
             <button className="btn btn-primary btn-lg btn-block" onClick={conn.reconnect}>Try now</button>
             <small>Your seat and balance are safe. Actions stay locked until you’re back.</small>
           </div>
-        ) : !lateArrival ? <Dock onRebuy={() => setSheet('rebuy')} /> : null}
+        ) : !lateArrival ? <Dock onRebuy={() => setSheet('rebuy')} onRunout={() => setSheet('runout')} /> : null}
         <button className="table-controls-handle" onClick={() => setSheet('menu')}>
           <Icon name="up" size={16} />
           Table controls

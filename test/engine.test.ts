@@ -3,11 +3,13 @@ import {
   act,
   addPlayer,
   award,
+  awardPots,
   chipsInPlay,
   findPlayer,
   legalActions,
   LIMITS,
   potTotal,
+  physicalRunoutLimit,
   rebuy,
   addBuyIn,
   returnWithPost,
@@ -17,6 +19,7 @@ import {
   setSittingOut,
   setStack,
   shareOut,
+  splitPotsForRunouts,
   startHand,
   updateSettings,
   type Game,
@@ -268,6 +271,31 @@ describe('pots and showdown', () => {
     g = award(g, { [main.id]: ['p1'], [side.id]: ['p2'] });
     expect(stacks(g)).toEqual({ p0: 250, p1: 300, p2: 300 });
     expect(g.phase).toBe('done');
+  });
+
+  it('splits every contested pot across physical runouts and awards one board at a time', () => {
+    let g = startHand(table([500, 100, 250]));
+    g = raise(g, 'p0', 500);
+    g = call(g, 'p1');
+    g = call(g, 'p2');
+    expect(physicalRunoutLimit(g)).toBe(4);
+    const settledBeforeRunouts = g.results.reduce((sum, result) => sum + result.amount, 0);
+    const split = splitPotsForRunouts(g, 2);
+    g = split.game;
+    expect(split.boards).toHaveLength(2);
+    expect(split.boards.map((ids) => ids.map((id) => g.pots.find((pot) => pot.id === id)?.amount))).toEqual([
+      [150, 150],
+      [150, 150],
+    ]);
+    g = awardPots(g, Object.fromEntries(split.boards[0].map((id) => [
+      id,
+      [g.pots.find((pot) => pot.id === id)!.eligible.includes('p1') ? 'p1' : 'p2'],
+    ])), split.boards[0]);
+    expect(g.phase).toBe('showdown');
+    expect(g.results.reduce((sum, result) => sum + result.amount, 0) - settledBeforeRunouts).toBe(300);
+    g = awardPots(g, Object.fromEntries(split.boards[1].map((id) => [id, ['p2']])), split.boards[1]);
+    expect(g.phase).toBe('done');
+    expect(chipsInPlay(g)).toBe(850);
   });
 
   it('folded chips stay in the pot but the folder is never eligible', () => {

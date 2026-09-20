@@ -136,3 +136,12 @@ Type checking, the production build, and focused 3-player and 15-player landscap
 - A 568×320 browser regression confirms staged chips render at least 78 px wide without introducing page-level horizontal overflow.
 
 Type checking, the production build, and the focused phone-landscape workflow passed.
+
+### Physical multiple all-in runouts
+
+- Added the approved host-only runout selection with `1×`–`4×` choices, physical deck/burn-card capacity limits, and verbal-agreement confirmation for multiple boards.
+- Main and side pots are divided into exact board portions; indivisible remainders go to earlier runouts and existing clockwise odd-chip payout rules still apply within each portion.
+- The Table Controller—not necessarily the host—is guided through each named physical runout and awards only that board before the next begins.
+- Runout choice, dealing completion and awards remain visible in public table state and audit history.
+
+Verification passed: 56 unit tests, 44 Worker integration tests, production build, and all 18 Playwright browser workflows. Coverage includes two physical runouts with a main pot, side pot, different eligibility, transferred Table Controller and exact final balances.

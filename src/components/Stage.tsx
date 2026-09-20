@@ -24,6 +24,8 @@ export function Stage() {
   const actor = findPlayer(game, game.toActId);
   const freshStreet =
     game.phase === 'betting' && game.street > 0 && game.players.every((p) => !p.acted) && game.currentBet === 0;
+  const runoutIds = room.runoutPlan ? new Set(room.runoutPlan.potIds) : null;
+  const visiblePots = runoutIds ? game.pots.filter((pot) => runoutIds.has(pot.id)) : game.pots;
 
   let line: ReactNode = null;
   let lineKey: string = game.phase;
@@ -39,7 +41,7 @@ export function Stage() {
       </>
     );
   } else if (game.phase === 'showdown') {
-    line = <span>{game.runout ? 'All in. Run it out.' : 'Cards up.'}</span>;
+    line = <span>{room.runoutPlan ? `Runout ${room.runoutPlan.current + 1} of ${room.runoutPlan.count} · ${room.runoutPlan.phase === 'dealing' ? 'dealing' : 'award winner'}` : game.runout ? 'All in. Run it out.' : 'Cards up.'}</span>;
   } else if (game.phase === 'done') {
     line = <span>{outcomeLine(game, nameOf)}</span>;
   }
@@ -53,9 +55,9 @@ export function Stage() {
       <div className="stage-line" key={lineKey}>
         {line}
       </div>
-      {game.phase === 'showdown' && game.pots.length > 1 && (
+      {game.phase === 'showdown' && visiblePots.length > 1 && (
         <ul className="pot-breakdown">
-          {game.pots.map((p, i) => (
+          {visiblePots.map((p, i) => (
             <li key={p.id}>
               <span>{i === 0 ? 'Main' : `Side ${i}`}</span>
               <span className="num">{fmt(p.amount)}</span>

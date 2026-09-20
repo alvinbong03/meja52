@@ -289,17 +289,25 @@ test('short stack all in creates a side pot that pays the right people', async (
   await expect(yourTurn(cat)).toBeVisible();
   await stageAndPlace(cat, 'All in 990', 990);
 
-  await expect(ana.getByText('Who won?')).toBeVisible();
+  await expect(ana.getByText('Choose how many times to run the board')).toBeVisible();
   await expect(ana.locator('.stage-line')).toHaveText('All in. Run it out.');
-  const main = ana.locator('.pot-pick').filter({ hasText: 'Main pot' });
-  const side = ana.locator('.pot-pick').filter({ hasText: 'Side pot 1' });
-  await expect(main).toContainText('300');
-  await expect(side).toContainText('1,800');
-  await expect(side.getByRole('button', { name: 'Ben' })).toHaveCount(0);
+  await ana.getByRole('button', { name: 'Run remaining board…' }).click();
+  await ana.getByRole('radio', { name: /^2×/ }).click();
+  await ana.getByLabel('Players agreed verbally').check();
+  await ana.getByRole('button', { name: 'Run it 2 times' }).click();
 
-  await main.getByRole('button', { name: 'Ben' }).click();
-  await side.getByRole('button', { name: 'Cat' }).click();
-  await ana.getByRole('button', { name: 'Pay out' }).click();
+  for (const ordinal of ['First', 'Second']) {
+    await expect(ana.getByText(`Runout ${ordinal === 'First' ? 1 : 2} of 2`, { exact: true })).toBeVisible();
+    await ana.getByRole('button', { name: `${ordinal} runout complete` }).click();
+    const main = ana.locator('.pot-pick').filter({ hasText: 'Main pot' });
+    const side = ana.locator('.pot-pick').filter({ hasText: 'Side pot 1' });
+    await expect(main).toContainText('150');
+    await expect(side).toContainText('900');
+    await expect(side.getByRole('button', { name: 'Ben' })).toHaveCount(0);
+    await main.getByRole('button', { name: 'Ben' }).click();
+    await side.getByRole('button', { name: 'Cat' }).click();
+    await ana.getByRole('button', { name: 'Pay out' }).click();
+  }
 
   await expect(stackOf(ana, 'Ben')).toHaveText('300');
   await expect(stackOf(ana, 'Cat')).toHaveText('1,800');

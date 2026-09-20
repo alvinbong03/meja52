@@ -550,6 +550,38 @@ export function buildPots(g: Game): Pot[] {
   return pots.map((p, i) => ({ id: i, ...p }));
 }
 
+/** Physical Hold'em capacity, including burns, capped to the approved 1–4 choices. */
+export function physicalRunoutLimit(g: Game): number {
+  if (!g.runout || g.phase !== 'showdown' || g.street >= 3) return 1;
+  const dealtPlayers = g.players.filter((player) => player.inHand).length;
+  const usedByStreet = [0, 4, 6, 8][g.street];
+  const neededByStreet = [8, 4, 2, 0][g.street];
+  const remaining = Math.max(0, 52 - dealtPlayers * 2 - usedByStreet);
+  return Math.max(1, Math.min(4, Math.floor(remaining / neededByStreet)));
+}
+
+/** Split each contested pot board-by-board; earlier boards receive indivisible remainders. */
+export function splitPotsForRunouts(g0: Game, count: number): { game: Game; boards: number[][] } {
+  if (g0.phase !== 'showdown' || !g0.runout) fail('PHASE', 'The board cannot be run multiple times');
+  if (!isInt(count, 1, physicalRunoutLimit(g0))) fail('INVALID', 'Unsupported runout count');
+  const g = clone(g0);
+  const settled = g.pots.filter((pot) => pot.paid);
+  const contested = g.pots.filter((pot) => !pot.paid);
+  let nextId = Math.max(-1, ...g.pots.map((pot) => pot.id)) + 1;
+  const boards = Array.from({ length: count }, () => [] as number[]);
+  const portions: Pot[] = [];
+  for (let board = 0; board < count; board++) {
+    for (const pot of contested) {
+      const id = nextId++;
+      const amount = Math.floor(pot.amount / count) + (board < pot.amount % count ? 1 : 0);
+      portions.push({ id, amount, eligible: [...pot.eligible], paid: false });
+      boards[board].push(id);
+    }
+  }
+  g.pots = [...settled, ...portions];
+  return { game: g, boards };
+}
+
 function enterShowdown(g: Game) {
   g.toActId = null;
   g.pots = buildPots(g);
@@ -601,10 +633,12 @@ function finish(g: Game) {
 }
 
 /** winners maps pot id to the ids that split it. Every unpaid pot must be covered. */
-export function award(g0: Game, winners: Record<string, string[]>): Game {
+export function awardPots(g0: Game, winners: Record<string, string[]>, potIds: number[]): Game {
   if (g0.phase !== 'showdown') fail('PHASE', 'Nothing to award');
   const g = clone(g0);
-  const unpaid = g.pots.filter((p) => !p.paid);
+  const wanted = new Set(potIds);
+  const unpaid = g.pots.filter((p) => !p.paid && wanted.has(p.id));
+  if (unpaid.length !== wanted.size) fail('INVALID', 'Unknown or already paid pot');
   for (const pot of unpaid) {
     const w = winners[String(pot.id)];
     const valid =
@@ -615,8 +649,12 @@ export function award(g0: Game, winners: Record<string, string[]>): Game {
     if (!valid) fail('INVALID', 'Pick a winner for every pot');
   }
   for (const pot of unpaid) payout(g, pot, winners[String(pot.id)]);
-  finish(g);
+  if (g.pots.every((pot) => pot.paid)) finish(g);
   return g;
+}
+
+export function award(g0: Game, winners: Record<string, string[]>): Game {
+  return awardPots(g0, winners, g0.pots.filter((pot) => !pot.paid).map((pot) => pot.id));
 }
 
 /** Chips in play: stacks plus everything committed. Constant across betting and awards. */

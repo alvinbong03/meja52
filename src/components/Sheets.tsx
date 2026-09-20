@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { bySeat, handInProgress, LIMITS, potTotal } from '../../shared/engine';
+import { bySeat, handInProgress, LIMITS, physicalRunoutLimit, potTotal } from '../../shared/engine';
 import type { LateArrivalView } from '../../shared/protocol';
 import { setSoundEnabled, soundEnabled } from '../lib/device';
 import { fmt } from '../lib/format';
@@ -10,7 +10,7 @@ import { Invite } from './Invite';
 import { Sheet } from './Sheet';
 import { Settlement } from './Settlement';
 
-export type SheetName = 'menu' | 'invite' | 'settings' | 'players' | 'settle' | 'rebuy' | 'rebuyRequests' | 'lateArrivals' | 'break' | 'leave' | 'undo' | 'void' | null;
+export type SheetName = 'menu' | 'invite' | 'settings' | 'players' | 'settle' | 'rebuy' | 'rebuyRequests' | 'lateArrivals' | 'break' | 'leave' | 'undo' | 'void' | 'runout' | null;
 
 interface Props {
   open: SheetName;
@@ -60,6 +60,9 @@ export function Sheets({ open, setOpen, onDisplay, onLeft }: Props) {
       </Sheet>
       <Sheet open={open === 'void'} onClose={close} title="Void this hand">
         <VoidFlow onDone={close} />
+      </Sheet>
+      <Sheet open={open === 'runout'} onClose={close} title="Run remaining board">
+        <RunoutFlow onDone={close} />
       </Sheet>
     </>
   );
@@ -133,6 +136,9 @@ function Menu({ setOpen, onDisplay }: { setOpen: (s: SheetName) => void; onDispl
           {isHost && game.handNo > 0 && item('Void hand', () => setOpen('void'), {
             note: 'Return every contribution',
             danger: true,
+          })}
+          {isHost && game.phase === 'showdown' && game.runout && !room.runoutPlan && item('Run remaining board…', () => setOpen('runout'), {
+            note: `Choose 1–${physicalRunoutLimit(game)} runouts`,
           })}
           {isHost && game.handNo > 0 &&
             (room.endingAfterHand ? (
@@ -245,6 +251,40 @@ function VoidFlow({ onDone }: { onDone: () => void }) {
         if (await run({ type: 'previewVoid', v, reason, advanceButton })) onDone();
       }}>Preview void</button>
       <button className="btn btn-quiet btn-lg btn-block" onClick={onDone}>Cancel</button>
+    </div>
+  );
+}
+
+function RunoutFlow({ onDone }: { onDone: () => void }) {
+  const { game, run, busy, v } = useTable();
+  const maximum = physicalRunoutLimit(game);
+  const [count, setCount] = useState(Math.min(2, maximum));
+  const [agreed, setAgreed] = useState(false);
+  const street = ['preflop', 'flop', 'turn', 'river'][game.street];
+  return (
+    <div className="runout-flow">
+      <div className="runout-heading">
+        <strong>Run it how many times?</strong>
+        <span>Available only because every remaining player is all-in.</span>
+      </div>
+      <div className="runout-counts" role="radiogroup" aria-label="Number of runouts">
+        {[1, 2, 3, 4].map((option) => (
+          <button key={option} role="radio" aria-checked={count === option} disabled={option > maximum} onClick={() => setCount(option)}>
+            <strong>{option}×</strong>
+            {option > maximum && <small>Not enough cards</small>}
+          </button>
+        ))}
+      </div>
+      {count > 1 && (
+        <label className="agreement-check">
+          <input type="checkbox" checked={agreed} onChange={(event) => setAgreed(event.target.checked)} />
+          <span><strong>Players agreed verbally</strong><small>From the {street} · Physical cards</small></span>
+        </label>
+      )}
+      <button className="btn btn-primary btn-xl btn-block" disabled={busy || (count > 1 && !agreed)} onClick={async () => {
+        if (await run({ type: 'chooseRunouts', v, count, agreed: count === 1 || agreed })) onDone();
+      }}>{count === 1 ? 'Keep one board' : `Run it ${count} times`}</button>
+      <p className="hint centre">The same count applies to every pot.</p>
     </div>
   );
 }

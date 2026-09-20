@@ -557,6 +557,45 @@ describe('playing a hand', () => {
     expect(s.room.log.at(-1)?.text).toMatch(/voided Hand 1: Exposed card/);
   });
 
+  it('lets the host choose physical runouts and the controller award each board exactly', async () => {
+    const { clients, idOf } = await table(['Ana', 'Ben']);
+    const [ana, ben] = clients;
+    await ana.ok({ type: 'setStack', v: ana.state.v, playerId: idOf(ana), stack: 100 });
+    await ana.ok({ type: 'setStack', v: ana.state.v, playerId: idOf(ben), stack: 100 });
+    await ana.ok({ type: 'transferController', playerId: idOf(ben) });
+    await ana.ok({ type: 'start', v: ana.state.v });
+    await ana.ok({ type: 'act', v: ana.state.v, kind: 'raise', amount: 100 });
+    await ben.ok({ type: 'act', v: ben.state.v, kind: 'call' });
+    let s = await ana.settle();
+    expect(s.room.game.runout).toBe(true);
+    expect(await ben.request({ type: 'chooseRunouts', v: s.v, count: 2, agreed: true })).toMatchObject({ code: 'FORBIDDEN' });
+    expect(await ana.request({ type: 'chooseRunouts', v: s.v, count: 2, agreed: false })).toMatchObject({ code: 'INVALID' });
+    await ana.ok({ type: 'chooseRunouts', v: s.v, count: 2, agreed: true });
+    s = await ana.settle();
+    expect(s.room.runoutPlan).toMatchObject({ count: 2, current: 0, phase: 'dealing' });
+    expect(await ana.request({ type: 'completeRunout', v: s.v })).toMatchObject({ code: 'FORBIDDEN' });
+    await ben.ok({ type: 'completeRunout', v: s.v });
+    s = await ben.settle();
+    const first = s.room.runoutPlan!.potIds;
+    await ben.ok({ type: 'award', v: s.v, winners: Object.fromEntries(first.map((id) => [id, [idOf(ana)]])) });
+    s = await ben.settle();
+    expect(s.room.game.phase).toBe('showdown');
+    expect(s.room.runoutPlan).toMatchObject({ current: 1, phase: 'dealing' });
+    await ben.ok({ type: 'completeRunout', v: s.v });
+    s = await ben.settle();
+    const second = s.room.runoutPlan!.potIds;
+    await ben.ok({ type: 'award', v: s.v, winners: Object.fromEntries(second.map((id) => [id, [idOf(ben)]])) });
+    s = await ben.settle();
+    expect(s.room.game.phase).toBe('done');
+    expect(s.room.runoutPlan).toBeNull();
+    expect(s.room.game.players.map((player) => player.stack)).toEqual([100, 100]);
+    expect(s.room.log.map((entry) => entry.text)).toEqual(expect.arrayContaining([
+      'Ana chose 2 runouts',
+      'Ben completed runout 1 of 2',
+      'Ben completed runout 2 of 2',
+    ]));
+  });
+
   it('undo never removes someone who joined afterwards', async () => {
     const { code, clients } = await table(['Ana', 'Ben']);
     const [ana] = clients;
