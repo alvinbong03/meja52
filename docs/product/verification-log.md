@@ -436,3 +436,22 @@ git diff --check                          PASS
 ```
 
 Deployed to `https://meja52.meja52.workers.dev` as Worker version `916bd8d1-fd36-4a73-897f-d861fae8ff66`. The post-deploy two-device WebSocket smoke test passed with private balances and public pot state intact.
+
+### Visible positions and verified blind posting — 20 September 2026
+
+- Audited the server-authoritative blind engine and confirmed that each hand automatically deducts the configured small and big blind, records those amounts as current-street bets and advances action from the correct seat.
+- Added compact `D`, `SB` and `BB` position marks to every player in the landscape current-bet rail. Heads-up correctly shows `D` and `SB` together on the dealer.
+- Added the previously missing `SB` and `BB` marks to the shared table display; the standard player list already showed all three positions.
+- Verified the player-facing rule flow: with 5/10 blinds the heads-up small blind begins at 995 and can Call 5, raise or fold; the big blind begins at 990 and, after the call, can Check or Raise without paying the blind again.
+
+Verification:
+
+```text
+npm run typecheck                         PASS
+npm run test:unit                         PASS (71 tests)
+npm run test:worker                       PASS (58 tests)
+blind-position browser workflow           PASS
+npm run build                             PASS
+Impeccable layout detector                PASS (0 findings)
+git diff --check                          PASS
+```

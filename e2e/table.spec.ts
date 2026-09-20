@@ -123,6 +123,32 @@ test('the tactile rack stages chips and builds custom equal-value change without
   await expect(ana.getByRole('button', { name: /Add one RM5 chip\. 9 available/ })).toBeVisible();
 });
 
+test('blinds post automatically and the public rail identifies dealer, small blind and big blind', async ({ browser }) => {
+  const ana = await seat(browser, 'Ana');
+  const ben = await seat(browser, 'Ben', codeOf(ana));
+  await startFirstHand(ana);
+
+  await expect(ana.getByRole('button', { name: 'Call 5' })).toBeVisible();
+  await expect(ana.locator('.turn-metric').filter({ hasText: 'Balance' })).toContainText('995');
+  await expect(ben.getByText('Ana to act · 5 to call')).toBeVisible();
+
+  await ana.setViewportSize({ width: 844, height: 390 });
+  const rail = ana.getByRole('region', { name: 'Current street bets' });
+  const anaSeat = rail.getByRole('listitem').filter({ hasText: 'Ana' });
+  const benSeat = rail.getByRole('listitem').filter({ hasText: 'Ben' });
+  await expect(anaSeat.getByLabel('Dealer, Small blind')).toBeVisible();
+  await expect(anaSeat.getByText('5', { exact: true })).toBeVisible();
+  await expect(benSeat.getByLabel('Big blind')).toBeVisible();
+  await expect(benSeat.getByText('10', { exact: true })).toBeVisible();
+
+  await ana.setViewportSize({ width: 390, height: 844 });
+  await stageAndPlace(ana, 'Call 5', 5);
+  await expect(ben.getByRole('button', { name: 'Check' })).toBeVisible();
+  await expect(ben.getByRole('button', { name: 'Raise' })).toBeVisible();
+  await expect(ben.getByRole('button', { name: /^Call/ })).toHaveCount(0);
+  await expect(ben.locator('.turn-metric').filter({ hasText: 'Balance' })).toContainText('990');
+});
+
 test('the lobby supports landscape and direct seat swapping by tap or drag', async ({ browser }) => {
   const ana = await seat(browser, 'Ana');
   const code = codeOf(ana);

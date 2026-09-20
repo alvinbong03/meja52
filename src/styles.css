@@ -2112,11 +2112,15 @@ button.chip-stack:active:not(:disabled) .poker-chip {
     background: var(--ink);
     transform: translateY(-50%);
   }
-  .bet-rail-list li span { max-width: 100%; overflow: hidden; color: var(--ink-2); font-size: 0.72rem; text-overflow: ellipsis; white-space: nowrap; }
+  .bet-rail-player { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 5px; }
+  .bet-rail-name { min-width: 0; overflow: hidden; color: var(--ink-2); font-size: 0.72rem; text-overflow: ellipsis; white-space: nowrap; }
+  .bet-rail-positions { display: inline-flex; flex: none; align-items: center; gap: 4px; }
+  .bet-position { color: var(--ink); font-size: 0.56rem; font-weight: 760; letter-spacing: 0.015em; line-height: 1; }
+  .bet-position[data-position='D'] { display: inline-grid; width: 15px; height: 15px; place-items: center; border: 1px solid currentColor; border-radius: 50%; }
   .bet-rail-list li strong { font-size: 1rem; font-weight: 650; }
   .bet-rail-value { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; }
   .bet-rail-value em { color: var(--ink); font-size: 0.625rem; font-style: normal; font-weight: 650; letter-spacing: 0.02em; }
-  .bet-rail-list li[data-folded] > span,
+  .bet-rail-list li[data-folded] .bet-rail-player,
   .bet-rail-list li[data-folded] strong { opacity: 0.48; }
   .bet-rail-empty { padding: 0 14px; color: var(--ink-2); font-size: 0.78rem; }
   .dock-wrap,

@@ -63,6 +63,8 @@ export function Display({ onExit }: { onExit: () => void }) {
               <span className="display-seat-name">
                 {p.name}
                 {hand && game.buttonId === p.id && <span className="tag">D</span>}
+                {hand && game.sbId === p.id && <span className="tag">SB</span>}
+                {hand && game.bbId === p.id && <span className="tag">BB</span>}
               </span>
               <span className="display-seat-value">
                 <small>Current bet</small>
