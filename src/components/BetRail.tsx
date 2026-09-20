@@ -1,17 +1,22 @@
 import { useMemo } from 'react';
 import { bySeat } from '../../shared/engine';
-import { fmt } from '../lib/format';
+import { fmt, STREET_NAMES } from '../lib/format';
 import { useTable } from '../lib/table';
 
 export function BetRail() {
   const { game } = useTable();
   const hand = game.phase === 'betting' || game.phase === 'showdown';
   const seats = useMemo(() => bySeat(game).filter((player) => player.inHand), [game]);
+  const street = game.phase === 'showdown' ? 'Showdown' : STREET_NAMES[game.street];
 
   if (!hand) return null;
 
   return (
     <section className="landscape-bet-rail" aria-label="Current street bets">
+      <div className="bet-rail-street" aria-label={`Hand ${game.handNo}, ${street}`}>
+        <span>Hand {game.handNo}</span>
+        <strong>{street}</strong>
+      </div>
       <div className="bet-rail-scroll">
         {seats.length > 0 ? (
           <ul className="bet-rail-list">

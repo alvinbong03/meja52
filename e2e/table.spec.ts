@@ -138,6 +138,7 @@ test('blinds post automatically and the public rail identifies dealer, small bli
 
   await ana.setViewportSize({ width: 844, height: 390 });
   const rail = ana.getByRole('region', { name: 'Current street bets' });
+  await expect(rail.locator('.bet-rail-street')).toContainText('Preflop');
   const anaSeat = rail.getByRole('listitem').filter({ hasText: 'Ana' });
   const benSeat = rail.getByRole('listitem').filter({ hasText: 'Ben' });
   await expect(anaSeat.getByLabel('Dealer, Small blind')).toBeVisible();
@@ -223,7 +224,9 @@ test('three players play a hand from deal to payout', async ({ browser }) => {
   await cat.getByRole('button', { name: 'Fold' }).click();
 
   await ana.setViewportSize({ width: 844, height: 390 });
-  const foldedRailSeat = ana.getByRole('region', { name: 'Current street bets' }).getByRole('listitem').filter({ hasText: 'Cat' });
+  const streetRail = ana.getByRole('region', { name: 'Current street bets' });
+  await expect(streetRail.locator('.bet-rail-street')).toContainText('Flop');
+  const foldedRailSeat = streetRail.getByRole('listitem').filter({ hasText: 'Cat' });
   await expect(foldedRailSeat).toHaveAttribute('data-folded', 'true');
   await expect(foldedRailSeat.getByText('Folded', { exact: true })).toBeVisible();
   await expect(foldedRailSeat.getByText('0', { exact: true })).toBeVisible();
@@ -232,7 +235,20 @@ test('three players play a hand from deal to payout', async ({ browser }) => {
   await expect(ana.getByText('Deal the flop')).toBeVisible();
   await expect(ana.locator('.pot-amount')).toHaveText('130');
 
-  for (let i = 0; i < 6; i++) await actWhoeverIsUp([ana, ben], 'Check');
+  for (let i = 0; i < 2; i++) await actWhoeverIsUp([ana, ben], 'Check');
+  await ana.setViewportSize({ width: 844, height: 390 });
+  await expect(ana.locator('.bet-rail-street')).toContainText('Turn');
+  await ana.setViewportSize({ width: 390, height: 844 });
+
+  for (let i = 0; i < 2; i++) await actWhoeverIsUp([ana, ben], 'Check');
+  await ana.setViewportSize({ width: 844, height: 390 });
+  await expect(ana.locator('.bet-rail-street')).toContainText('River');
+  await ana.setViewportSize({ width: 390, height: 844 });
+
+  for (let i = 0; i < 2; i++) await actWhoeverIsUp([ana, ben], 'Check');
+  await ana.setViewportSize({ width: 844, height: 390 });
+  await expect(ana.locator('.bet-rail-street')).toContainText('Showdown');
+  await ana.setViewportSize({ width: 390, height: 844 });
   await expect(ana.getByText('Who won?')).toBeVisible();
   await expect(cat.getByText('Waiting for Ana to confirm the winner')).toBeVisible();
   await ana.locator('.win-row').filter({ hasText: 'Ben' }).click();
@@ -251,7 +267,7 @@ test('three players play a hand from deal to payout', async ({ browser }) => {
 
   await expect(ben.getByText('Waiting for Ana to deal the next hand')).toBeVisible();
   await ana.getByRole('button', { name: /Deal next hand/ }).click();
-  await expect(ana.getByText('Hand 2', { exact: true })).toBeVisible();
+  await expect(ana.getByRole('banner').getByText('Hand 2', { exact: true })).toBeVisible();
   for (const p of [ana, ben, cat]) expect((p as Page & { errors: string[] }).errors).toEqual([]);
 });
 
@@ -482,7 +498,7 @@ test('the host approves a late arrival who posts a big blind for the next hand',
   await ana.getByRole('button', { name: /Deal next hand/ }).click();
   await expect(dee.getByText('Your balance')).toBeVisible();
   await expect(dee.locator('.my-stack')).toHaveText('590');
-  await expect(dee.getByText('Hand 2', { exact: true })).toBeVisible();
+  await expect(dee.getByRole('banner').getByText('Hand 2', { exact: true })).toBeVisible();
 });
 
 test('short stack all in creates a side pot that pays the right people', async ({ browser }) => {
@@ -695,7 +711,7 @@ test('desktop keyboard shortcuts drive the action bar', async ({ browser }) => {
   await ben.getByRole('button', { name: 'Fold' }).click();
   await expect(ana.getByRole('button', { name: /Deal next hand/ })).toBeVisible();
   await ana.keyboard.press('n');
-  await expect(ana.getByText('Hand 2', { exact: true })).toBeVisible();
+  await expect(ana.getByRole('banner').getByText('Hand 2', { exact: true })).toBeVisible();
 });
 
 test('live play keeps balances private and exposes current bets in phone landscape', async ({ browser }) => {
@@ -824,6 +840,8 @@ test('a full fifteen-player lobby remains usable on a phone', async ({ browser }
   await startFirstHand(host);
   await host.setViewportSize({ width: 844, height: 390 });
   const rail = host.getByRole('region', { name: 'Current street bets' });
+  const streetMarker = rail.locator('.bet-rail-street');
+  await expect(streetMarker).toContainText('Preflop');
   await expect(rail.getByRole('listitem')).toHaveCount(15);
   const railMetrics = await rail.locator('.bet-rail-scroll').evaluate((element) => ({
     clientWidth: element.clientWidth,
@@ -832,6 +850,9 @@ test('a full fifteen-player lobby remains usable on a phone', async ({ browser }
   }));
   expect(railMetrics.scrollWidth).toBeGreaterThan(railMetrics.clientWidth);
   expect(railMetrics.minimumCell).toBeGreaterThanOrEqual(120);
+  await rail.locator('.bet-rail-scroll').evaluate((element) => element.scrollTo({ left: element.scrollWidth }));
+  await expect(streetMarker).toBeInViewport();
+  await expect(streetMarker).toContainText('Preflop');
 });
 
 test('guests cannot take hosting while the unseated creator is connected or still in the grace period', async ({ browser }) => {

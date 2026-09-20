@@ -503,3 +503,22 @@ git diff --check                          PASS
 Automated Release 1 certification passes. Physical iPhone/Android play, a longer home-network soak, rollback rehearsal and explicit owner approval to merge/tag remain open.
 
 Deployed the certified dependency/toolchain state to `https://meja52.meja52.workers.dev` as Worker version `f9c79791-6b0d-4611-a7b7-971b711ac644`. The post-deploy two-device WebSocket smoke test and API security-header check passed.
+
+### Persistent landscape street indicator — 20 September 2026
+
+- Added a fixed Hand/Street marker to the left of the landscape current-bet rail, showing **Preflop**, **Flop**, **Turn**, **River** or **Showdown** to every player.
+- Kept the 120 px player-bet cells independently scrollable for 10–15 players, so the street remains visible while reviewing the far end of the table.
+- Preserved the approved hierarchy: the rail contains public hand context and current-street bets, while Pot and Balance remain in the private action header.
+- Used one quiet divider and the existing MEJA52 type and colour tokens; no new card, pill or decorative surface was introduced.
+
+Verification:
+
+```text
+npm run typecheck                         PASS
+street progression browser workflow       PASS (Preflop → Showdown)
+15-player fixed-marker browser check      PASS
+npm run test:e2e                          PASS (26 workflows)
+npm run build                             PASS
+Impeccable detector                       PASS (0 findings)
+git diff --check                          PASS
+```
