@@ -280,3 +280,5 @@ npm run build                             PASS
 Impeccable detector                       PASS (0 findings)
 git diff --check                          PASS
 ```
+
+Deployed to `https://meja52.meja52.workers.dev` as Worker version `0e29289a-5071-4447-b3cb-99b13e2b0e64`. The post-deploy two-device WebSocket smoke test passed with private balances and public pot state intact.
