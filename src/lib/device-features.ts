@@ -57,3 +57,8 @@ export function turnAlert() {
     osc.stop(t + 0.25);
   });
 }
+
+/** A restrained confirmation pulse when a staged wager crosses the betting line. */
+export function chipPlaceHaptic() {
+  if (hapticsEnabled()) navigator.vibrate?.(24);
+}

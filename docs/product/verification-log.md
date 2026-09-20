@@ -330,3 +330,23 @@ git diff --check                          PASS
 The new browser workflow covers iPhone Duo cover and inner portrait/landscape reference viewports plus representative Galaxy Z Fold8 inner portrait/landscape viewports. It asserts full-width composition, visible controls, landscape bet rail, bottom Table Controls access and no page-level horizontal overflow. Existing standard-phone, 15-player and fine-pointer desktop workflows remain green. Real-device Safari and Samsung Chrome checks remain part of the final release gate.
 
 Deployed to `https://meja52.meja52.workers.dev` as Worker version `0f10cbef-4710-4760-a2ef-e57ae89a1408`. The post-deploy two-device WebSocket smoke test passed with private balances and public pot state intact.
+
+### Approved tactile chip interaction — 20 September 2026
+
+- Implemented the approved fixed RM1, RM5, RM10, RM20 and RM50 rack without changing the existing live turn/call/Pot/Balance header or public current-bet rail.
+- Added tap and 350 ms hold-to-repeat staging, larger staged chips, a betting-line instruction that becomes the exact release amount, whole-wager upward drag placement, one-chip downward return, Clear and labelled Place alternatives.
+- Added a compact pencil-over-chip Make Change control with denomination selection, equal-value preview, Cancel and Break Chip confirmation. Automatic exact wagers use the same deterministic change chain and privately explain when change was made.
+- Added per-player private denomination inventories in the Durable Object. The Worker validates their total against the numeric stack, preserves them across reconnects, awards and rebuys, includes them in undo snapshots, and exposes them only to the player or an authorised controller currently acting for that seat.
+- Removed centre stripes from chip faces so printed values remain legible; retained the approved restrained dimensional material and brand colours.
+- Visually checked the untouched live header plus idle, staged and Make Change states in landscape against the Apple, Porsche, Bang & Olufsen and Linear reference principles.
+
+Verification:
+
+```text
+npm run typecheck                         PASS
+npm test                                  PASS (69 unit, 58 Worker)
+npm run test:e2e                          PASS (24 workflows)
+npm run build                             PASS
+manual landscape idle/staged/change       PASS
+git diff --check                          PASS
+```

@@ -1,4 +1,5 @@
 import { MAX_PLAYERS, type ActionKind, type Departed, type Game, type Legal, type Player, type Settings } from './engine';
+import { CHIP_VALUES, type ChipCount, type ChipValue } from './chips';
 
 /** Bounded above the largest legal 15-player multi-pot award envelope. */
 export const MAX_MESSAGE_BYTES = 8192;
@@ -36,7 +37,8 @@ export type ClientMessage =
   | { type: 'cancelClaim' }
   | { type: 'resolveClaim'; claimId: string; allow: boolean }
   | { type: 'start'; v: number; allowUnconfirmed?: boolean }
-  | { type: 'act'; v: number; kind: ActionKind; amount?: number; playerId?: string }
+  | { type: 'act'; v: number; kind: ActionKind; amount?: number; playerId?: string; chips?: ChipCount[] }
+  | { type: 'changeChip'; v: number; value: ChipValue; playerId?: string }
   | { type: 'award'; v: number; winners: Record<string, string[]> }
   | { type: 'confirmAward'; v: number }
   | { type: 'disputeAward'; v: number }
@@ -303,6 +305,8 @@ export interface YouView {
   isController: boolean;
   claimId: string | null;
   legal: Legal | null;
+  chipInventory: ChipCount[] | null;
+  chipInventoryPlayerId: string | null;
 }
 
 export type ErrorCode = 'STALE' | 'NOT_TURN' | 'INVALID' | 'PHASE' | 'FORBIDDEN' | 'RATE' | 'NOT_FOUND';
@@ -320,6 +324,18 @@ const isId = (v: unknown): v is string => typeof v === 'string' && /^[a-z0-9]{8,
 const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isSafeInteger(v) && v >= 0;
 const optId = (v: unknown) => v === undefined || isId(v);
 const KINDS: readonly string[] = ['fold', 'check', 'call', 'raise'];
+const isChipValue = (v: unknown): v is ChipValue => typeof v === 'number' && CHIP_VALUES.includes(v as ChipValue);
+const parseChips = (v: unknown): ChipCount[] | null => {
+  if (!Array.isArray(v) || v.length > CHIP_VALUES.length) return null;
+  const seen = new Set<number>();
+  const chips: ChipCount[] = [];
+  for (const row of v) {
+    if (!isObj(row) || !isChipValue(row.value) || !isNum(row.count) || seen.has(row.value)) return null;
+    seen.add(row.value);
+    chips.push({ value: row.value, count: row.count });
+  }
+  return chips;
+};
 
 /** Strict structural validation. Unknown message types or malformed fields return null. */
 export function parseClientMessage(raw: string): Envelope | null {
@@ -434,11 +450,20 @@ export function parseClientMessage(raw: string): Envelope | null {
       if (!isNum(v) || typeof m.kind !== 'string' || !KINDS.includes(m.kind) || !optId(m.playerId)) return null;
       if (m.amount !== undefined && !isNum(m.amount)) return null;
       if (m.kind === 'raise' && m.amount === undefined) return null;
+      const chips = m.chips === undefined ? undefined : parseChips(m.chips);
+      if (m.chips !== undefined && !chips) return null;
       const msg: ClientMessage = { type: 'act', v, kind: m.kind as ActionKind };
       if (m.amount !== undefined) msg.amount = m.amount as number;
       if (m.playerId !== undefined) msg.playerId = m.playerId as string;
+      if (chips) msg.chips = chips;
       return out(msg);
     }
+    case 'changeChip':
+      return isNum(v) && isChipValue(m.value) && optId(m.playerId)
+        ? out(m.playerId === undefined
+            ? { type: 'changeChip', v, value: m.value }
+            : { type: 'changeChip', v, value: m.value, playerId: m.playerId as string })
+        : null;
     case 'award': {
       if (!isNum(v) || !isObj(m.winners)) return null;
       const winners: Record<string, string[]> = {};

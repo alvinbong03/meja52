@@ -251,12 +251,12 @@ Cash chips are directly denominated in the selected currency. For RM1/RM2 blinds
 | Value | Colour |
 |---:|---|
 | RM1 | White/blue |
-| RM5 | Red |
-| RM25 | Green |
-| RM100 | Black |
-| RM500 | Purple |
+| RM5 | Green |
+| RM10 | Red |
+| RM20 | Warm amber |
+| RM50 | Teal-blue |
 
-The app proposes a 1–5–25–100–500-style set derived from the stakes. The host may edit values and colours in **Advanced Chip Settings**.
+Release 1 uses the fixed RM1–RM5–RM10–RM20–RM50 rack. Editable denomination sets remain a later enhancement.
 
 ### Tournaments
 
@@ -275,7 +275,7 @@ Tournament chips do not all have the same value and are never converted to curre
 ### Accessibility and stack display
 
 - Every chip prints its value.
-- Every denomination has a distinct edge pattern in addition to colour.
+- Every denomination has a distinct value label and colour; the centre remains visually quiet so the amount stays easy to read.
 - Screen readers receive a complete value/count label.
 - Large holdings use visible stack layers plus a count such as `×18`; the UI does not draw hundreds of individual objects.
 - The authoritative balance is an integer count of the configured smallest currency unit. Never use floating point for value.
@@ -288,7 +288,7 @@ On the player's turn:
 
 1. Tap a denomination repeatedly to add individual chips to the betting area.
 2. Press and hold to add chips repeatedly.
-3. Drag chips back to the rack or tap **Clear** at any time during that turn before committing.
+3. Drag one staged chip downward to return it, or tap **Clear** to return the whole staged group at any time before committing.
 4. The betting area shows both physical chips and the exact total.
 5. Drag the prepared stack upward across the betting line to commit.
 6. Crossing the line produces a visual snap, haptic feedback and a chip-to-pot animation.
@@ -318,17 +318,17 @@ Visual chip composition persists between actions. The app makes change only when
 ### Manual change
 
 - A visible **Make Change** control appears beside the chip rack.
-- Tap it and select a chip to preview an equal-value breakdown, for example `RM25 → 5 × RM5`.
+- Tap it and select a chip to preview an equal-value breakdown: `RM50 → RM20 + RM20 + RM10`, `RM20 → 2 × RM10`, `RM10 → 2 × RM5`, or `RM5 → 5 × RM1`.
 - Confirm **Break Chip** to animate the exchange.
 - Direct shortcut: drag a chip onto the **Make Change** target.
-- On first use, display: “Need smaller chips? Drag a chip to Make Change.”
+- The preview explains that the player's balance stays the same.
 - Making change does not alter balance and may be done before or during a turn.
 
 ### Automatic change
 
 For a quick Call or exact numeric amount, the app first tries the player's current visual denominations. If no exact combination exists, it breaks the smallest suitable larger chip and returns the unused smaller chips to the rack.
 
-Example: a player with RM25 + RM5 calls RM10. The RM25 becomes five RM5 chips, two enter the betting area and four remain in the rack, leaving RM20 after commitment.
+Example: a player with only RM20 chips calls RM7. One RM20 is broken through the approved chain, RM5 + RM1 + RM1 enters the betting area and RM13 remains in the rack.
 
 Custom denomination sets use an exact bounded change-making algorithm. If the visible rack cannot represent an otherwise legal wager, the server still commits the numeric wager and the client deterministically recomposes the rack, using a clearly labelled smallest-unit remainder token when necessary. Pot awards, rebuys, splits, odd chips, undo and reconnect use the same deterministic composition function.
 

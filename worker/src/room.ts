@@ -28,6 +28,7 @@ import {
   type Settings,
 } from '../../shared/engine';
 import { cleanName, sameName } from '../../shared/names';
+import { breakChip, inventoryTotal, normalizeInventory, reconcileInventory, takeExact, type ChipCount } from '../../shared/chips';
 import { ledger, netsInCents, settleUp } from '../../shared/settle';
 import {
   AWAY_AFTER_MS,
@@ -116,6 +117,7 @@ interface Snapshot {
   awardProposal?: AwardProposalView | null;
   overrideProposal?: OverrideProposalView | null;
   settlement?: SettlementStateView | null;
+  chipInventories?: Record<string, ChipCount[]>;
 }
 
 interface Stored {
@@ -151,6 +153,8 @@ interface Stored {
   awardProposal?: AwardProposalView | null;
   overrideProposal?: OverrideProposalView | null;
   settlement?: SettlementStateView | null;
+  /** Private visual chip composition, always reconciled to the numeric stack. */
+  chipInventories?: Record<string, ChipCount[]>;
   turnStartedAt: number | null;
   turnId: string | null;
   endingAfterHand?: boolean;
@@ -668,10 +672,33 @@ export class Room extends DurableObject<Env> {
         }
         const before = s.game;
         const after = act(before, actorId, { kind: msg.kind, amount: msg.amount });
+        const beforePlayer = findPlayer(before, actorId) ?? deny('INVALID', 'Unknown player');
+        const afterPlayer = findPlayer(after, actorId) ?? deny('INVALID', 'Unknown player');
+        const spent = beforePlayer.stack - afterPlayer.stack;
+        if (spent < 0) deny('INVALID', 'Invalid chip movement');
         const text = this.describeAction(before, after, actorId);
         const suffix = actorId !== m.id ? ` (by ${m.name})` : '';
         s.correctionForId = null;
-        this.mutate(text + suffix, () => after, 'action');
+        this.mutate(text + suffix, () => after, 'action', false, undefined, { playerId: actorId, amount: spent, chips: msg.chips });
+        return;
+      }
+      case 'changeChip': {
+        const m = requireMember();
+        checkV(msg.v);
+        const playerId = msg.playerId ?? m.id;
+        if (playerId !== m.id) {
+          const target = s.members.find((candidate) => candidate.id === playerId) ?? deny('INVALID', 'Unknown player');
+          const controlsTable = s.hostId === m.id || (s.controllerId ?? s.hostId) === m.id;
+          if (!controlsTable || (!target.manual && !this.isAway(target) && s.correctionForId !== playerId)) {
+            deny('FORBIDDEN', 'You cannot change this player’s chips');
+          }
+        }
+        const player = findPlayer(s.game, playerId) ?? deny('INVALID', 'Unknown player');
+        const changed = breakChip(this.inventoryFor(playerId, player.stack), msg.value);
+        if (!changed) return deny('INVALID', msg.value === 1 ? 'RM1 is already the smallest chip' : `No RM${msg.value} chip is available`);
+        (s.chipInventories ??= {})[playerId] = changed;
+        s.v += 1;
+        this.commit();
         return;
       }
       case 'award': {
@@ -830,6 +857,7 @@ export class Room extends DurableObject<Env> {
         if (snap.lateArrivals) s.lateArrivals = structuredClone(snap.lateArrivals);
         if (snap.buyInEvents) s.buyInEvents = structuredClone(snap.buyInEvents);
         if (snap.handStart !== undefined) s.handStart = snap.handStart ? structuredClone(snap.handStart) : null;
+        if (snap.chipInventories) s.chipInventories = structuredClone(snap.chipInventories);
         s.game = this.reconcile(snap.game);
         if (snap.rebuyRequests) s.rebuyRequests = structuredClone(snap.rebuyRequests);
         if (snap.breaks) s.breaks = structuredClone(snap.breaks);
@@ -1343,6 +1371,7 @@ export class Room extends DurableObject<Env> {
     kind: LogKind = 'hand',
     startsHand = false,
     afterGame?: () => void,
+    chipSpend?: { playerId: string; amount: number; chips?: ChipCount[] },
   ) {
     const s = this.s as Stored;
     const before = s.game;
@@ -1370,9 +1399,11 @@ export class Room extends DurableObject<Env> {
       runoutPlan: s.runoutPlan ? structuredClone(s.runoutPlan) : null,
       awardProposal: s.awardProposal ? structuredClone(s.awardProposal) : null,
       overrideProposal: s.overrideProposal ? structuredClone(s.overrideProposal) : null,
+      chipInventories: structuredClone(s.chipInventories ?? {}),
     });
     if (this.undo.length > UNDO_DEPTH) this.undo.shift();
     s.game = after;
+    if (chipSpend && chipSpend.amount > 0) this.spendInventory(chipSpend.playerId, chipSpend.amount, chipSpend.chips);
     afterGame?.();
     if (startsHand) s.handStart = structuredClone(before);
     s.v += 1;
@@ -1673,8 +1704,51 @@ export class Room extends DurableObject<Env> {
     if (s.log.length > LOG_KEEP) s.log.splice(0, s.log.length - LOG_KEEP);
   }
 
+  private inventoryFor(playerId: string, stack: number) {
+    const s = this.s as Stored;
+    const inventory = reconcileInventory(s.chipInventories?.[playerId], stack);
+    (s.chipInventories ??= {})[playerId] = inventory;
+    return inventory;
+  }
+
+  private spendInventory(playerId: string, amount: number, requested?: ChipCount[]) {
+    const s = this.s as Stored;
+    const player = findPlayer(s.game, playerId) ?? deny('INVALID', 'Unknown player');
+    const beforeStack = player.stack + amount;
+    const inventory = this.inventoryFor(playerId, beforeStack);
+    if (requested) {
+      const chips = normalizeInventory(requested);
+      if (inventoryTotal(chips) !== amount) deny('INVALID', 'Placed chips do not match the wager');
+      const canSubtract = inventory.every((row) => (chips.find((chip) => chip.value === row.value)?.count ?? 0) <= row.count);
+      if (!canSubtract) {
+        const automatic = takeExact(inventory, amount) ?? deny('INVALID', 'The wager cannot be composed from this rack');
+        const same = automatic.taken.every((row) => row.count === (chips.find((chip) => chip.value === row.value)?.count ?? 0));
+        if (!same) deny('INVALID', 'A placed chip is no longer available');
+        s.chipInventories![playerId] = automatic.remaining;
+        return;
+      }
+      const next = inventory.map((row) => {
+        const used = chips.find((chip) => chip.value === row.value)?.count ?? 0;
+        return { ...row, count: row.count - used };
+      });
+      s.chipInventories![playerId] = next;
+      return;
+    }
+    const result = takeExact(inventory, amount) ?? deny('INVALID', 'The wager cannot be composed from this rack');
+    s.chipInventories![playerId] = result.remaining;
+  }
+
+  private reconcileChipInventories() {
+    const s = this.s as Stored;
+    const active = new Set(s.game.players.map((player) => player.id));
+    const inventories = (s.chipInventories ??= {});
+    for (const player of s.game.players) inventories[player.id] = reconcileInventory(inventories[player.id], player.stack);
+    for (const id of Object.keys(inventories)) if (!active.has(id)) delete inventories[id];
+  }
+
   private commit() {
     const s = this.s as Stored;
+    this.reconcileChipInventories();
     if (s.game.phase === 'lobby') {
       this.ensureDealerButton();
       this.reconcileSeatConfirmations();
@@ -2081,6 +2155,12 @@ export class Room extends DurableObject<Env> {
     const isHost = !!id && s.hostId === id;
     const isController = !!id && (s.controllerId ?? s.hostId) === id;
     const revealAll = !!s.endedAt;
+    const actorId = s.game.toActId;
+    const actorMember = actorId ? s.members.find((candidate) => candidate.id === actorId) : undefined;
+    const canControlActor = !!actorId && !!actorMember && (isHost || isController)
+      && (actorMember.manual || this.isAway(actorMember) || (isHost && s.correctionForId === actorId));
+    const inventoryPlayerId = canControlActor ? actorId : id;
+    const inventoryPlayer = inventoryPlayerId ? findPlayer(s.game, inventoryPlayerId) : undefined;
     const game = {
       ...room.game,
       players: room.game.players.map((player) => {
@@ -2117,6 +2197,10 @@ export class Room extends DurableObject<Env> {
         isController,
         claimId: s.claims.find((c) => c.connId === att.connId)?.id ?? null,
         legal: id && !s.paused && (!s.correctionForId || isHost) ? legalActions(s.game, id) : null,
+        chipInventory: inventoryPlayer && inventoryPlayerId
+          ? this.inventoryFor(inventoryPlayerId, inventoryPlayer.stack)
+          : null,
+        chipInventoryPlayerId: inventoryPlayer ? inventoryPlayerId : null,
       },
     };
   }

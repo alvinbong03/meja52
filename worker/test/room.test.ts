@@ -178,12 +178,18 @@ describe('joining', () => {
     expect(anaOnBen).toMatchObject({ chipState: 'private', stack: 0, buyIn: 0, committed: 0, bet: 5 });
     expect(ana.state.room.potTotal).toBe(15);
     expect(ben.state.room.potTotal).toBe(15);
+    expect(ana.state.you.chipInventoryPlayerId).toBe(idOf(ana));
+    expect(ana.state.you.chipInventory?.reduce((sum, chip) => sum + chip.value * chip.count, 0)).toBe(995);
+    expect(ben.state.you.chipInventoryPlayerId).toBe(idOf(ben));
+    expect(ben.state.you.chipInventory?.reduce((sum, chip) => sum + chip.value * chip.count, 0)).toBe(990);
 
     const display = await Client.connect(code, tokenFor(98));
     expect(display.state.you.id).toBeNull();
     expect(display.state.room.game.players.every((player) => player.chipState === 'private')).toBe(true);
     expect(display.state.room.game.players.map((player) => player.bet)).toEqual([5, 10]);
     expect(display.state.room.potTotal).toBe(15);
+    expect(display.state.you.chipInventory).toBeNull();
+    expect(display.state.you.chipInventoryPlayerId).toBeNull();
   });
 
   it('reveals a manual seat only to the host and Table Controller who manage it', async () => {

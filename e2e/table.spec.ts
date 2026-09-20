@@ -92,6 +92,28 @@ test('room setup preferences have accessible controls', async ({ page }) => {
   await expect.poll(() => page.evaluate(() => ({ sound: localStorage.getItem('pp.sound'), haptics: localStorage.getItem('pp.haptics') }))).toEqual({ sound: 'off', haptics: 'off' });
 });
 
+test('the tactile rack stages chips and previews equal-value change without replacing the live header', async ({ browser }) => {
+  const ana = await seat(browser, 'Ana');
+  await seat(browser, 'Ben', codeOf(ana));
+  await startFirstHand(ana);
+
+  await expect(ana.getByText('Your turn', { exact: true })).toBeVisible();
+  await expect(ana.locator('.turn-metric').filter({ hasText: 'Pot' })).toBeVisible();
+  await expect(ana.locator('.turn-metric').filter({ hasText: 'Balance' })).toBeVisible();
+  await ana.getByRole('button', { name: /Add one RM5 chip/ }).click();
+  await expect(ana.getByText('Drag chips here to place bet')).toBeVisible();
+  await expect(ana.getByRole('button', { name: /RM5 chip staged/ })).toBeVisible();
+  await ana.getByRole('button', { name: 'Clear' }).click();
+
+  const balance = await ana.locator('.turn-metric').filter({ hasText: 'Balance' }).innerText();
+  await ana.getByRole('button', { name: 'Make change' }).click();
+  await expect(ana.getByText('Make change · balance stays the same')).toBeVisible();
+  await expect(ana.getByText('RM50 → 2 × RM20 + RM10')).toBeVisible();
+  await ana.getByRole('button', { name: 'Break chip' }).click();
+  await expect(ana.locator('.turn-metric').filter({ hasText: 'Balance' })).toContainText(balance.replace(/\s+/g, ' ').trim().split(' ').at(-1)!);
+  await expect(ana.getByRole('button', { name: /Add one RM10 chip\. 1 available/ })).toBeVisible();
+});
+
 test('players confirm physical neighbours and the host chooses the first dealer', async ({ browser }) => {
   const ana = await seat(browser, 'Ana');
   const ben = await seat(browser, 'Ben', codeOf(ana));

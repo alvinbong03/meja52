@@ -9,11 +9,13 @@ import {
   type Player,
 } from '../../shared/engine';
 import { fmt } from '../lib/format';
+import { composeChips, emptyInventory, inventoryTotal, takeExact, type ChipCount, type ChipValue } from '../lib/chips';
 import { useTable } from '../lib/table';
 import { useShake } from '../lib/motion';
 import { ChipRack, StagedChips } from './ChipRack';
 import { Icon } from './Icon';
 import { Num } from './Num';
+import { toast } from './Toast';
 
 const ACT_FOR_AFTER_MS = 15_000;
 
@@ -176,18 +178,23 @@ interface ActionProps {
 }
 
 function ActionPanel({ legal, player, actingFor, correcting, onCancel }: ActionProps) {
-  const { game, room, run, busy, v } = useTable();
+  const { game, room, run, busy, v, you } = useTable();
   const [raising, setRaising] = useState(false);
-  const [staged, setStaged] = useState(0);
+  const [staged, setStaged] = useState<ChipCount[]>(emptyInventory());
+  const [changing, setChanging] = useState<ChipValue | null>(null);
   const pot = room.potTotal;
   const openLabel = game.currentBet === 0 ? 'Bet' : 'Raise';
+  const inventory = you.chipInventoryPlayerId === player.id && you.chipInventory ? you.chipInventory : composeChips(player.stack);
+  const stagedAmount = inventoryTotal(staged);
+  const available = inventory.map((chip) => ({ ...chip, count: Math.max(0, chip.count - (staged.find((row) => row.value === chip.value)?.count ?? 0)) }));
 
-  const act = (kind: ActionKind, amount?: number) =>
-    run({ type: 'act', v, kind, ...(amount !== undefined ? { amount } : {}), ...(actingFor ? { playerId: player.id } : {}) });
+  const act = (kind: ActionKind, amount?: number, chips?: ChipCount[]) =>
+    run({ type: 'act', v, kind, ...(amount !== undefined ? { amount } : {}), ...(chips ? { chips } : {}), ...(actingFor ? { playerId: player.id } : {}) });
 
   useEffect(() => {
     setRaising(false);
-    setStaged(0);
+    setStaged(emptyInventory());
+    setChanging(null);
   }, [v]);
 
   useEffect(() => {
@@ -214,31 +221,44 @@ function ActionPanel({ legal, player, actingFor, correcting, onCancel }: ActionP
         bb={game.settings.bb}
         label={openLabel}
         player={player}
+        inventory={inventory}
         currency={room.currency}
         busy={busy}
         onBack={() => setRaising(false)}
-        onConfirm={(amount) => act('raise', amount)}
+        onConfirm={(amount, chips) => act('raise', amount, chips)}
       />
     );
   }
 
-  const raiseTo = player.bet + staged;
-  const stagesCall = staged > 0 && staged === legal.callAmount;
-  const stagesRaise = staged > 0 && legal.canRaise && raiseTo > game.currentBet && (raiseTo >= legal.minRaiseTo || raiseTo === legal.maxRaiseTo);
+  const raiseTo = player.bet + stagedAmount;
+  const stagesCall = stagedAmount > 0 && stagedAmount === legal.callAmount;
+  const stagesRaise = stagedAmount > 0 && legal.canRaise && raiseTo > game.currentBet && raiseTo <= legal.maxRaiseTo;
   const stagedValid = stagesCall || stagesRaise;
-  const stagedAllIn = staged === player.stack;
+  const stagedAllIn = stagedAmount === player.stack;
   const stagedStatus = stagesCall
-    ? stagedAllIn ? `All in ${fmt(staged)}` : `Calling ${fmt(staged)}`
+    ? stagedAllIn ? `All in ${fmt(stagedAmount)}` : `Calling ${fmt(stagedAmount)}`
     : stagesRaise
       ? stagedAllIn ? `All in to ${fmt(raiseTo)}` : `${openLabel === 'Bet' ? 'Betting' : 'Raising'} to ${fmt(raiseTo)}`
       : raiseTo > game.currentBet
-        ? `Minimum ${fmt(legal.minRaiseTo)}`
-        : `${fmt(Math.max(0, legal.callAmount - staged))} more to call`;
+        ? `Raise to ${fmt(raiseTo)}`
+        : `${fmt(Math.max(0, legal.callAmount - stagedAmount))} more to call`;
 
-  const addChip = (value: number) => setStaged((amount) => Math.min(player.stack, amount + value));
+  const addChip = (value: ChipValue) => setStaged((current) => {
+    const used = current.find((chip) => chip.value === value)?.count ?? 0;
+    const owned = inventory.find((chip) => chip.value === value)?.count ?? 0;
+    if (used >= owned || inventoryTotal(current) + value > player.stack) return current;
+    return current.map((chip) => chip.value === value ? { ...chip, count: chip.count + 1 } : chip);
+  });
+  const returnOne = (value: ChipValue) => setStaged((current) => current.map((chip) => chip.value === value ? { ...chip, count: Math.max(0, chip.count - 1) } : chip));
+  const stageExact = (amount: number) => {
+    const result = takeExact(inventory, amount);
+    if (!result) return;
+    setStaged(result.taken);
+    if (result.broken.length > 0) toast(`Made change automatically for ${fmt(amount)}.`);
+  };
   const place = () => {
-    if (stagesCall) void act('call');
-    else if (stagesRaise) void act('raise', raiseTo);
+    if (stagesCall) void act('call', undefined, staged);
+    else if (stagesRaise) void act('raise', raiseTo, staged);
   };
 
   const callText = legal.callIsAllIn ? `All in ${fmt(legal.callAmount)}` : `Call ${fmt(legal.callAmount)}`;
@@ -265,19 +285,19 @@ function ActionPanel({ legal, player, actingFor, correcting, onCancel }: ActionP
           </button>
         )}
       </div>
-      {staged > 0 && <StagedChips amount={staged} currency={room.currency} />}
-      {staged > 0 ? (
+      {stagedAmount > 0 && <StagedChips chips={staged} currency={room.currency} onCommit={stagedValid ? place : undefined} onReturnOne={returnOne} />}
+      {stagedAmount > 0 ? (
         <div className="staged-actions">
-          <button className="staged-clear" onClick={() => setStaged(0)}>Clear</button>
+          <button className="staged-clear" onClick={() => setStaged(emptyInventory())}>Clear</button>
           <span className="staged-status"><i aria-hidden="true" />{stagedStatus}</span>
           <button className="btn btn-turn btn-turn-main staged-place" onClick={place} disabled={!stagedValid || busy}>
-            {stagedValid ? `Place ${fmt(staged)}` : 'Add chips'}
+            {stagedValid ? `Place ${fmt(stagedAmount)}` : 'Add chips'}
           </button>
         </div>
       ) : (
         <div className="turn-buttons" data-count={buttons.length}>
           {buttons.map((b) => (
-            <button key={b.key} className={`btn btn-turn ${b.cls}`} onClick={b.key === 'call' ? () => setStaged(legal.callAmount) : b.onClick} disabled={busy}>
+            <button key={b.key} className={`btn btn-turn ${b.cls}`} onClick={b.key === 'call' ? () => stageExact(legal.callAmount) : b.onClick} disabled={busy}>
               {b.label}
               <kbd className="kbd">{b.hint}</kbd>
             </button>
@@ -290,7 +310,27 @@ function ActionPanel({ legal, player, actingFor, correcting, onCancel }: ActionP
           <Num value={player.committed} />
         </div>
       )}
-      <ChipRack amount={player.stack - staged} currency={room.currency} onChip={addChip} />
+      {changing !== null && <ChangeChipPanel value={changing} available={available.filter((chip) => chip.value > 1 && chip.count > 0).map((chip) => chip.value)} currency={room.currency} busy={busy} onSelect={setChanging} onCancel={() => setChanging(null)} onConfirm={() => void run({ type: 'changeChip', v, value: changing, ...(actingFor ? { playerId: player.id } : {}) })} />}
+      <ChipRack inventory={available} currency={room.currency} onChip={addChip} onMakeChange={() => setChanging(available.filter((chip) => chip.value > 1 && chip.count > 0).at(-1)?.value ?? null)} />
+    </div>
+  );
+}
+
+function ChangeChipPanel({ value, available, currency, busy, onSelect, onCancel, onConfirm }: { value: ChipValue; available: ChipValue[]; currency: string; busy: boolean; onSelect: (value: ChipValue) => void; onCancel: () => void; onConfirm: () => void }) {
+  const parts: Record<number, string> = { 5: '5 × RM1', 10: '2 × RM5', 20: '2 × RM10', 50: '2 × RM20 + RM10' };
+  return (
+    <div className="change-chip-panel" role="group" aria-label="Make change preview">
+      <div>
+        <span className="label">Make change · balance stays the same</span>
+        <strong>{currency === 'MYR' ? 'RM' : ''}{value} → {parts[value]}</strong>
+        <div className="change-chip-choices" aria-label="Choose a chip to break">
+          {available.map((option) => <button key={option} type="button" data-on={option === value || undefined} onClick={() => onSelect(option)}>RM{option}</button>)}
+        </div>
+      </div>
+      <div className="change-chip-actions">
+        <button className="btn btn-quiet btn-sm" type="button" onClick={onCancel}>Cancel</button>
+        <button className="btn btn-primary btn-sm" type="button" disabled={busy} onClick={onConfirm}>Break chip</button>
+      </div>
     </div>
   );
 }
@@ -302,13 +342,14 @@ interface RaiseProps {
   bb: number;
   label: string;
   player: Player;
+  inventory: ChipCount[];
   currency: string;
   busy: boolean;
   onBack: () => void;
-  onConfirm: (amount: number) => void;
+  onConfirm: (amount: number, chips: ChipCount[]) => void;
 }
 
-function RaisePanel({ legal, pot, currentBet, bb, label, player, currency, busy, onBack, onConfirm }: RaiseProps) {
+function RaisePanel({ legal, pot, currentBet, bb, label, player, inventory, currency, busy, onBack, onConfirm }: RaiseProps) {
   const min = legal.minRaiseTo;
   const max = legal.maxRaiseTo;
   const [amount, setAmount] = useState<number | null>(null);
@@ -339,8 +380,11 @@ function RaisePanel({ legal, pot, currentBet, bb, label, player, currency, busy,
   const valid = amount !== null && Number.isSafeInteger(amount) && amount <= max && (amount >= min || amount === max);
   const final = amount ?? min;
   const allIn = amount === max;
+  const contribution = amount === null ? 0 : Math.max(0, amount - player.bet);
+  const stagedResult = takeExact(inventory, contribution);
+  const stagedChips = stagedResult?.taken ?? emptyInventory();
   const confirm = () => {
-    if (valid && !busy) onConfirm(final);
+    if (valid && !busy && stagedResult) onConfirm(final, stagedChips);
   };
 
   useEffect(() => {
@@ -368,7 +412,7 @@ function RaisePanel({ legal, pot, currentBet, bb, label, player, currency, busy,
         <span className="turn-title">{label === 'Bet' ? 'Bet' : 'Raise to'}</span>
         <span className="turn-sub">Any amount above {fmt(currentBet)}</span>
       </div>
-      {amount !== null && <StagedChips amount={Math.max(0, amount - player.bet)} currency={currency} />}
+      {amount !== null && <StagedChips chips={stagedChips} currency={currency} onCommit={valid ? confirm : undefined} />}
       <div className="raise-utility">
         <button className="staged-clear" onClick={amount === null ? onBack : () => { setAmount(null); setText(''); setCustom(false); }}>{amount === null ? 'Back' : 'Clear'}</button>
         <span>{amount === null ? 'Tap chips or choose a shortcut.' : `${label === 'Bet' ? 'Betting' : 'Raising'} to ${fmt(final)}`}</span>
@@ -398,7 +442,7 @@ function RaisePanel({ legal, pot, currentBet, bb, label, player, currency, busy,
         <Num value={player.committed} />
       </div>
       <ChipRack
-        amount={player.stack - (amount === null ? 0 : Math.max(0, amount - player.bet))}
+        inventory={stagedResult?.remaining ?? inventory}
         currency={currency}
         onChip={(value) => setAmount(Math.min(max, (amount ?? player.bet) + value))}
       />

@@ -48,11 +48,9 @@ Resolved with the approved physical clockwise table map, player neighbour confir
 
 The owner-approved seating comp was implemented and verified across two-device and 15-player browser workflows.
 
-### 3. Defining tactile chip/change interaction is incomplete
+### 3. Defining tactile chip/change interaction is incomplete — resolved
 
-The rack supports taps and labelled placement, but not persistent denomination inventory, press-and-hold repeat, dragging staged chips back, pushing chips across a betting line, or explicit Make Change / Break Chip confirmation.
-
-Required outcome: prepare and approve an interaction comp and state model before implementation.
+Resolved with the owner-approved five-denomination rack, private server-persistent denomination inventories, tap and hold-to-repeat staging, grouped upward drag placement, single-chip downward return, Clear and Place alternatives, explicit Make Change preview/confirmation, and automatic exact change. The existing live turn/call/Pot/Balance header and current-bet rail remain authoritative.
 
 ### 4. Host transfer does not require acceptance — resolved
 
