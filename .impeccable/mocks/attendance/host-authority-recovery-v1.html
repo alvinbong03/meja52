@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>MEJA52 Host Authority Recovery</title>
+  <style>
+    :root {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: #f3eee4;
+      background: #111a27;
+      font-synthesis: none;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #111a27; }
+    main { width: 1536px; margin: 0 auto; padding: 62px 72px 70px; }
+    .comp-head { display: flex; justify-content: space-between; align-items: end; padding: 0 4px 25px; border-bottom: 1px solid rgba(243,238,228,.18); }
+    .comp-head h1 { margin: 0; max-width: 720px; font-size: 38px; line-height: 1.08; letter-spacing: -.03em; font-weight: 650; }
+    .comp-head p { width: 480px; margin: 0; color: rgba(243,238,228,.72); font-size: 15px; line-height: 1.45; }
+    .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 52px; padding: 40px 4px 54px; }
+    .pair + .pair { border-top: 1px solid rgba(243,238,228,.18); padding-top: 54px; }
+    .frame-label { display: flex; justify-content: space-between; align-items: baseline; margin: 0 2px 13px; color: rgba(243,238,228,.72); font-size: 13px; }
+    .frame-label strong { color: #f3eee4; font-size: 16px; font-weight: 620; }
+    .phone { height: 740px; overflow: hidden; border: 1px solid rgba(243,238,228,.2); border-radius: 28px; background: #203554; box-shadow: 0 24px 52px rgba(0,0,0,.28); }
+    .statusbar { height: 25px; background: #182c48; }
+    .topbar { height: 68px; padding: 0 26px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; border-bottom: 1px solid rgba(243,238,228,.17); font-size: 14px; }
+    .topbar .brand { font-weight: 730; letter-spacing: .12em; }
+    .topbar .phase { color: rgba(243,238,228,.72); }
+    .topbar .role { justify-self: end; font-weight: 620; }
+    .table { min-height: 647px; padding: 28px 28px 24px; position: relative; display: flex; flex-direction: column; }
+    .table-summary { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+    .metric { border-top: 1px solid rgba(243,238,228,.28); padding-top: 10px; }
+    .metric span { display: block; color: rgba(243,238,228,.72); font-size: 12px; }
+    .metric strong { display: block; margin-top: 4px; font-size: 27px; font-weight: 610; font-variant-numeric: tabular-nums; }
+    .seat-list { margin: 38px 0 0; padding: 0; list-style: none; }
+    .seat-list li { display: grid; grid-template-columns: 1fr auto; padding: 17px 0; border-bottom: 1px solid rgba(243,238,228,.14); }
+    .seat-list strong { font-size: 16px; font-weight: 600; }
+    .seat-list span { color: rgba(243,238,228,.72); font-size: 14px; }
+    .dock { margin-top: auto; padding-top: 22px; border-top: 1px solid rgba(243,238,228,.2); }
+    .dock p { margin: 0; color: rgba(243,238,228,.72); font-size: 14px; }
+    .dock strong { display: block; margin-top: 4px; font-size: 18px; font-weight: 620; }
+    .sheet { position: absolute; left: 0; right: 0; bottom: 0; min-height: 500px; padding: 22px 28px 28px; background: #2c4564; border-top: 1px solid rgba(243,238,228,.34); box-shadow: 0 -16px 34px rgba(8,18,31,.26); }
+    .handle { width: 38px; height: 3px; margin: 0 auto 20px; border-radius: 3px; background: rgba(243,238,228,.48); }
+    .sheet-nav { min-height: 34px; display: flex; align-items: center; justify-content: space-between; color: rgba(243,238,228,.72); font-size: 14px; }
+    .sheet-nav button { min-width: 44px; min-height: 44px; padding: 0; border: 0; color: inherit; background: transparent; font: inherit; text-align: left; }
+    .sheet-nav .authority { color: #f3eee4; font-weight: 620; }
+    .sheet h2 { margin: 25px 0 0; max-width: 520px; font-size: 35px; line-height: 1.07; letter-spacing: -.03em; font-weight: 650; }
+    .lead { margin: 12px 0 0; max-width: 540px; color: rgba(243,238,228,.84); font-size: 16px; line-height: 1.45; }
+    .facts { margin: 30px 0 0; border-block: 1px solid rgba(243,238,228,.18); }
+    .fact { min-height: 55px; padding: 12px 0; display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 24px; border-bottom: 1px solid rgba(243,238,228,.14); }
+    .fact:last-child { border-bottom: 0; }
+    .fact span { color: rgba(243,238,228,.72); font-size: 13px; }
+    .fact strong { font-size: 14px; font-weight: 620; text-align: right; }
+    .actions { margin-top: 28px; display: grid; gap: 10px; }
+    .btn { min-height: 52px; border: 1px solid rgba(243,238,228,.34); border-radius: 13px; background: transparent; color: #f3eee4; font: inherit; font-size: 16px; font-weight: 620; }
+    .btn.primary { border-color: #f3eee4; background: #f3eee4; color: #203554; }
+    .btn.quiet { border-color: transparent; color: rgba(243,238,228,.84); }
+    .foot { margin: 20px 0 0; color: rgba(243,238,228,.72); font-size: 12px; line-height: 1.4; text-align: center; }
+    .recovery-band { margin-top: auto; margin-bottom: 18px; padding: 18px 20px 17px; border: 1px solid rgba(243,238,228,.26); border-radius: 14px; background: #2c4564; }
+    .band-line { display: flex; justify-content: space-between; align-items: baseline; gap: 20px; }
+    .band-line strong { font-size: 17px; font-weight: 640; }
+    .timer { font-variant-numeric: tabular-nums; color: #f3eee4; }
+    .recovery-band p { margin: 7px 0 0; color: rgba(243,238,228,.84); font-size: 14px; line-height: 1.42; }
+    .recovery-band small { display: block; margin-top: 14px; color: rgba(243,238,228,.72); font-size: 12px; }
+    .pulse { display: inline-block; width: 8px; height: 8px; margin-right: 8px; border-radius: 50%; background: #b33a46; }
+    .note { color: rgba(243,238,228,.72); font-size: 12px; }
+    footer { display: flex; justify-content: space-between; gap: 50px; padding: 26px 4px 0; border-top: 1px solid rgba(243,238,228,.18); color: rgba(243,238,228,.72); font-size: 13px; line-height: 1.5; }
+    footer p { max-width: 650px; margin: 0; }
+    footer strong { color: #f3eee4; font-weight: 620; }
+  </style>
+</head>
+<body>
+  <main>
+    <header class="comp-head">
+      <h1>Host authority without interrupting the table</h1>
+      <p>Two deliberate paths: named acceptance for a planned handover, and a 60-second recovery grace period for an unexpected disconnect.</p>
+    </header>
+
+    <section class="pair" aria-label="Planned host transfer">
+      <article>
+        <div class="frame-label"><strong>Current host</strong><span>Transfer pending</span></div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <header class="topbar"><span class="brand">MEJA52</span><span class="phase">Hand 8 · Turn</span><span class="role">Host · Alvin</span></header>
+          <div class="table">
+            <div class="table-summary"><div class="metric"><span>Pot</span><strong>RM86</strong></div><div class="metric"><span>Your balance</span><strong>RM412</strong></div></div>
+            <ul class="seat-list"><li><strong>Maya</strong><span>RM20</span></li><li><strong>Ben</strong><span>RM20</span></li><li><strong>Alvin</strong><span>RM20</span></li></ul>
+            <section class="sheet">
+              <div class="handle"></div>
+              <div class="sheet-nav"><button>Close</button><span class="authority">Host transfer</span><span class="note">Pending</span></div>
+              <h2>Waiting for Maya</h2>
+              <p class="lead">Hosting stays with you until Maya accepts. The hand and every balance remain unchanged.</p>
+              <div class="facts"><div class="fact"><span>Requested host</span><strong>Maya · Connected</strong></div><div class="fact"><span>Table Controller</span><strong>Ben · Unchanged</strong></div></div>
+              <div class="actions"><button class="btn">Cancel request</button><button class="btn quiet">Return to table</button></div>
+              <p class="foot">Maya has 30 seconds to respond.</p>
+            </section>
+          </div>
+        </div>
+      </article>
+
+      <article>
+        <div class="frame-label"><strong>Recipient</strong><span>Named request</span></div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <header class="topbar"><span class="brand">MEJA52</span><span class="phase">Hand 8 · Turn</span><span class="role">Maya</span></header>
+          <div class="table">
+            <div class="table-summary"><div class="metric"><span>Pot</span><strong>RM86</strong></div><div class="metric"><span>Your balance</span><strong>RM370</strong></div></div>
+            <ul class="seat-list"><li><strong>Alvin</strong><span>Host</span></li><li><strong>Ben</strong><span>Controller</span></li><li><strong>Maya</strong><span>You</span></li></ul>
+            <section class="sheet">
+              <div class="handle"></div>
+              <div class="sheet-nav"><button>Close</button><span class="authority">Host request</span><span class="note">From Alvin</span></div>
+              <h2>Become the host?</h2>
+              <p class="lead">Alvin asked you to manage room approvals, corrections and final settlement.</p>
+              <div class="facts"><div class="fact"><span>Table state</span><strong>Stays exactly as it is</strong></div><div class="fact"><span>Table Controller</span><strong>Ben · Unchanged</strong></div></div>
+              <div class="actions"><button class="btn primary">Accept hosting</button><button class="btn quiet">Decline</button></div>
+              <p class="foot">Nothing changes unless you accept.</p>
+            </section>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <section class="pair" aria-label="Host disconnect recovery">
+      <article>
+        <div class="frame-label"><strong>Everyone else</strong><span>60-second grace period</span></div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <header class="topbar"><span class="brand">MEJA52</span><span class="phase">Hand 8 · River</span><span class="role">Maya</span></header>
+          <div class="table">
+            <div class="table-summary"><div class="metric"><span>Pot</span><strong>RM186</strong></div><div class="metric"><span>Your balance</span><strong>RM294</strong></div></div>
+            <ul class="seat-list"><li><strong>Ben</strong><span>RM40</span></li><li><strong>Maya</strong><span>RM40</span></li><li><strong>Alvin</strong><span>Offline · RM0</span></li></ul>
+            <section class="recovery-band">
+              <div class="band-line"><strong><i class="pulse"></i>Host reconnecting</strong><span class="timer">42s</span></div>
+              <p>Alvin went offline. The current hand continues; host-only decisions will wait.</p>
+              <small>Next: Maya will be asked to host.</small>
+            </section>
+            <div class="dock"><p>Ben to act</p><strong>RM40 to call</strong></div>
+          </div>
+        </div>
+      </article>
+
+      <article>
+        <div class="frame-label"><strong>Nominated backup</strong><span>Host absent for 60 seconds</span></div>
+        <div class="phone">
+          <div class="statusbar"></div>
+          <header class="topbar"><span class="brand">MEJA52</span><span class="phase">Hand 8 · River</span><span class="role">Maya</span></header>
+          <div class="table">
+            <div class="table-summary"><div class="metric"><span>Pot</span><strong>RM186</strong></div><div class="metric"><span>Your balance</span><strong>RM294</strong></div></div>
+            <ul class="seat-list"><li><strong>Ben</strong><span>Controller</span></li><li><strong>Maya</strong><span>Backup host</span></li><li><strong>Alvin</strong><span>Offline · Host</span></li></ul>
+            <section class="sheet">
+              <div class="handle"></div>
+              <div class="sheet-nav"><button>Close</button><span class="authority">Host recovery</span><span class="note">Alvin offline</span></div>
+              <h2>Take over hosting?</h2>
+              <p class="lead">The table stays exactly where it is. You’ll manage room decisions until you transfer hosting again.</p>
+              <div class="facts"><div class="fact"><span>Current hand</span><strong>Continues unchanged</strong></div><div class="fact"><span>Table Controller</span><strong>Ben · Unchanged</strong></div></div>
+              <div class="actions"><button class="btn primary">Accept hosting</button><button class="btn quiet">Not now</button></div>
+              <p class="foot">If you decline, the next active player is asked.</p>
+            </section>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <footer><p><strong>Backup host</strong> is optional in Host Table Controls: “First asked if you disconnect.” Without one, MEJA52 asks the longest-connected active player.</p><p><strong>Public result</strong> after acceptance: “Maya is now host.” The event enters table history; short disconnects and declines do not.</p></footer>
+  </main>
+</body>
+</html>
