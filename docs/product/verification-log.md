@@ -373,3 +373,5 @@ landscape lobby tap/drag workflow         PASS
 Impeccable detector                       PASS (0 findings)
 git diff --check                          PASS
 ```
+
+Deployed to `https://meja52.meja52.workers.dev` as Worker version `18959d91-bed8-40c5-b50f-fb79a2096056`. The post-deploy two-device WebSocket smoke test passed with private balances and public pot state intact.
