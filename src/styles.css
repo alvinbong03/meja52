@@ -2114,6 +2114,10 @@ button.chip-stack:active:not(:disabled) .poker-chip {
   }
   .bet-rail-list li span { max-width: 100%; overflow: hidden; color: var(--ink-2); font-size: 0.72rem; text-overflow: ellipsis; white-space: nowrap; }
   .bet-rail-list li strong { font-size: 1rem; font-weight: 650; }
+  .bet-rail-value { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; }
+  .bet-rail-value em { color: var(--ink); font-size: 0.625rem; font-style: normal; font-weight: 650; letter-spacing: 0.02em; }
+  .bet-rail-list li[data-folded] > span,
+  .bet-rail-list li[data-folded] strong { opacity: 0.48; }
   .bet-rail-empty { padding: 0 14px; color: var(--ink-2); font-size: 0.78rem; }
   .dock-wrap,
   .dock-shake,

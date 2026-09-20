@@ -417,3 +417,20 @@ git diff --check                          PASS
 ```
 
 Deployed to `https://meja52.meja52.workers.dev` as Worker version `26c782fd-811e-4f41-966c-ea9d3b179583`. The post-deploy two-device WebSocket smoke test passed with private balances and public pot state intact.
+
+### Folded-player state in the current-bet rail — 20 September 2026
+
+- Added an explicit **Folded** label to a folded player’s compact landscape current-bet cell.
+- Dimmed the folded player’s name and current-street amount while keeping the numeric contribution visible and the status at normal emphasis.
+- Preserved the existing seat-list and shared-display behaviour, which already dims folded players and identifies their state.
+- Used text plus contrast rather than colour alone, and kept each 120 px player cell unchanged so 10–15-player scrolling behaviour is unaffected.
+
+Verification:
+
+```text
+npm run typecheck                         PASS
+three-player fold browser workflow        PASS
+npm run build                             PASS
+Impeccable layout detector                PASS (0 findings)
+git diff --check                          PASS
+```

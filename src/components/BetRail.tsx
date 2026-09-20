@@ -16,9 +16,12 @@ export function BetRail() {
         {seats.length > 0 ? (
           <ul className="bet-rail-list">
             {seats.map((player) => (
-              <li key={player.id} data-acting={game.toActId === player.id || undefined}>
+              <li key={player.id} data-acting={game.toActId === player.id || undefined} data-folded={player.folded || undefined}>
                 <span>{player.name}</span>
-                <strong className="num">{fmt(player.bet)}</strong>
+                <div className="bet-rail-value">
+                  <strong className="num">{fmt(player.bet)}</strong>
+                  {player.folded && <em>Folded</em>}
+                </div>
               </li>
             ))}
           </ul>

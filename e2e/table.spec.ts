@@ -187,6 +187,13 @@ test('three players play a hand from deal to payout', async ({ browser }) => {
   await expect(yourTurn(cat)).toBeVisible();
   await cat.getByRole('button', { name: 'Fold' }).click();
 
+  await ana.setViewportSize({ width: 844, height: 390 });
+  const foldedRailSeat = ana.getByRole('region', { name: 'Current street bets' }).getByRole('listitem').filter({ hasText: 'Cat' });
+  await expect(foldedRailSeat).toHaveAttribute('data-folded', 'true');
+  await expect(foldedRailSeat.getByText('Folded', { exact: true })).toBeVisible();
+  await expect(foldedRailSeat.getByText('0', { exact: true })).toBeVisible();
+  await ana.setViewportSize({ width: 390, height: 844 });
+
   await expect(ana.getByText('Deal the flop')).toBeVisible();
   await expect(ana.locator('.pot-amount')).toHaveText('130');
 
