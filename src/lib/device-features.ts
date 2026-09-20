@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { soundEnabled } from './device';
+import { hapticsEnabled, soundEnabled } from './device';
 
 /** Keeps the screen on while a table is open. Browsers drop the lock when the tab hides, so it is re-requested. */
 export function useWakeLock(active: boolean) {
@@ -40,7 +40,7 @@ export function unlockAudio() {
 
 /** Two soft rising tones, plus a vibration on devices that support it. */
 export function turnAlert() {
-  navigator.vibrate?.([40, 70, 40]);
+  if (hapticsEnabled()) navigator.vibrate?.([40, 70, 40]);
   if (!soundEnabled() || !audio || audio.state !== 'running') return;
   const now = audio.currentTime;
   [660, 880].forEach((freq, i) => {

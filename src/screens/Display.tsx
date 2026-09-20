@@ -1,4 +1,4 @@
-import { bySeat, findPlayer, potTotal } from '../../shared/engine';
+import { bySeat, findPlayer } from '../../shared/engine';
 import { Qr } from '../components/Qr';
 import { outcomeLine } from '../components/Stage';
 import { Num } from '../components/Num';
@@ -11,7 +11,7 @@ export function Display({ onExit }: { onExit: () => void }) {
   const { room, game, member, away, nameOf, conn } = useTable();
   useWakeLock(true);
   const actor = findPlayer(game, game.toActId);
-  const pot = game.phase === 'done' ? game.results.reduce((s, r) => s + r.amount, 0) : potTotal(game);
+  const pot = game.phase === 'done' ? game.results.reduce((s, r) => s + r.amount, 0) : room.potTotal;
   const freshStreet = game.phase === 'betting' && game.street > 0 && game.players.every((p) => !p.acted) && game.currentBet === 0;
 
   let headline = '';
@@ -65,8 +65,8 @@ export function Display({ onExit }: { onExit: () => void }) {
                 {hand && game.buttonId === p.id && <span className="tag">D</span>}
               </span>
               <span className="display-seat-value">
-                <small>{hand ? 'Current bet' : 'Balance'}</small>
-                {hand ? <span className="num">{fmt(p.bet)}</span> : <Num value={p.stack} />}
+                <small>Current bet</small>
+                <span className="num">{fmt(p.bet)}</span>
               </span>
               <span className="display-seat-foot">
                 <span />

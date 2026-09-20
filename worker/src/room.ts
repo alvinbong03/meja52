@@ -981,7 +981,7 @@ export class Room extends DurableObject<Env> {
         request.status = 'approved';
         s.v += 1;
         if (handInProgress(s.game)) {
-          this.log('table', `${host.name} approved ${nameOf(request.playerId)}'s rebuy of ${fmt(amount)} for after this hand`);
+          this.log('table', `${host.name} approved ${nameOf(request.playerId)}'s rebuy for after this hand`);
         } else {
           this.applyApprovedRebuys();
         }
@@ -1017,10 +1017,10 @@ export class Room extends DurableObject<Env> {
           game = setSittingOut(game, target.id, false);
           request.status = 'ready';
           request.mode = 'free';
-          this.log('table', `${host.name} approved ${target.name} for ${fmt(amount)} with no entry blind`);
+          this.log('table', `${host.name} approved ${target.name} with no entry blind`);
         } else {
           request.status = 'choosing';
-          this.log('table', `${host.name} approved ${target.name} for ${fmt(amount)} chips`);
+          this.log('table', `${host.name} approved ${target.name} to join`);
         }
         s.game = game;
         this.recordBuyIn(target.id, 'initial', amount);
@@ -1125,7 +1125,7 @@ export class Room extends DurableObject<Env> {
         const player = findPlayer(s.game, msg.playerId) ?? deny('INVALID', 'Unknown player');
         const delta = msg.stack - player.stack;
         this.mutate(
-          `${nameOf(msg.playerId)} set to ${fmt(msg.stack)}`,
+          `${nameOf(msg.playerId)}'s balance was corrected`,
           (g) => setStack(g, msg.playerId, msg.stack),
           'table',
           false,
@@ -1347,7 +1347,7 @@ export class Room extends DurableObject<Env> {
       if (!member || !player) continue;
       if (findPlayer(s.game, request.playerId)) s.game = removePlayer(s.game, request.playerId);
       this.detachMember(member, false);
-      this.log('table', `${member.name} left with ${fmt('stack' in player ? player.stack : player.cashOut)} chips`);
+      this.log('table', `${member.name} left the table`);
     }
     if (scheduled.length > 0) s.leaveRequests = [];
   }
@@ -1369,7 +1369,7 @@ export class Room extends DurableObject<Env> {
     for (const request of approved) {
       s.game = addBuyIn(s.game, request.playerId, request.amount);
       this.recordBuyIn(request.playerId, 'rebuy', request.amount);
-      this.log('table', `${this.playerName(request.playerId)} added ${fmt(request.amount)} chips`);
+      this.log('table', `${this.playerName(request.playerId)} added a rebuy`);
     }
     if (approved.length > 0) {
       const ids = new Set(approved.map((r) => r.id));
@@ -1752,7 +1752,12 @@ export class Room extends DurableObject<Env> {
       controllerId: s.controllerId ?? s.hostId,
       currency: s.currency ?? 'USD',
       members,
-      game: s.game,
+      game: {
+        ...s.game,
+        players: s.game.players.map((player) => ({ ...player, chipState: 'visible' as const, busted: player.stack === 0 })),
+        departed: s.game.departed.map((player) => ({ ...player, chipState: 'visible' as const })),
+      },
+      potTotal: potTotal(s.game),
       claims: s.claims.map(({ id, playerId, at }) => ({ id, playerId, at })),
       rebuyRequests: s.rebuyRequests ?? [],
       breaks: s.breaks ?? [],
@@ -1784,8 +1789,30 @@ export class Room extends DurableObject<Env> {
     const att = ws.deserializeAttachment() as Attachment;
     const id = att.memberId;
     const isHost = !!id && s.hostId === id;
+    const isController = !!id && (s.controllerId ?? s.hostId) === id;
+    const revealAll = !!s.endedAt;
+    const game = {
+      ...room.game,
+      players: room.game.players.map((player) => {
+        const member = s.members.find((candidate) => candidate.id === player.id);
+        const actingForUnattended = (isHost || isController)
+          && s.game.toActId === player.id
+          && !!member
+          && this.isAway(member);
+        const correcting = isHost && s.correctionForId === player.id;
+        const managingManualSeat = (isHost || isController) && !!member?.manual;
+        const visible = revealAll || player.id === id || actingForUnattended || correcting || managingManualSeat;
+        return visible
+          ? { ...player, chipState: 'visible' as const }
+          : { ...player, stack: 0, buyIn: 0, committed: 0, chipState: 'private' as const };
+      }),
+      departed: room.game.departed.map((player) => revealAll
+        ? { ...player, chipState: 'visible' as const }
+        : { ...player, buyIn: 0, cashOut: 0, chipState: 'private' as const }),
+    };
     const privateRoom: RoomView = {
       ...room,
+      game,
       rebuyRequests: room.rebuyRequests.filter((r) => isHost || r.playerId === id),
       breaks: room.breaks.filter((record) => isHost || record.playerId === id),
     };
@@ -1797,7 +1824,7 @@ export class Room extends DurableObject<Env> {
       you: {
         id,
         isHost,
-        isController: !!id && (s.controllerId ?? s.hostId) === id,
+        isController,
         claimId: s.claims.find((c) => c.connId === att.connId)?.id ?? null,
         legal: id && !s.paused && (!s.correctionForId || isHost) ? legalActions(s.game, id) : null,
       },

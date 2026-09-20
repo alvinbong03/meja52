@@ -1,6 +1,7 @@
 const TOKEN_KEY = 'pp.token';
 const NAME_KEY = 'pp.name';
 const SOUND_KEY = 'pp.sound';
+const HAPTICS_KEY = 'pp.haptics';
 
 function read(key: string) {
   try {
@@ -33,6 +34,8 @@ export const savedName = () => read(NAME_KEY) ?? '';
 export const saveName = (name: string) => write(NAME_KEY, name);
 export const soundEnabled = () => read(SOUND_KEY) !== 'off';
 export const setSoundEnabled = (on: boolean) => write(SOUND_KEY, on ? 'on' : 'off');
+export const hapticsEnabled = () => read(HAPTICS_KEY) !== 'off';
+export const setHapticsEnabled = (on: boolean) => write(HAPTICS_KEY, on ? 'on' : 'off');
 
 const recordKey = (code: string) => `meja52.record.${code}`;
 const memoryRecords = new Map<string, string>();

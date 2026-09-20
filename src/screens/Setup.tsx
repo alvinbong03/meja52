@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { CURRENCIES, type CurrencyCode } from '../../shared/protocol';
 import { createRoom } from '../lib/api';
 import { unlockAudio } from '../lib/device-features';
+import { hapticsEnabled, setHapticsEnabled, setSoundEnabled, soundEnabled } from '../lib/device';
 
 const money = (currency: CurrencyCode, value: number) =>
   new Intl.NumberFormat('en-MY', { style: 'currency', currency, maximumFractionDigits: 0 }).format(value);
@@ -12,8 +13,8 @@ export function Setup({ navigate }: { navigate: (to: string) => void }) {
   const [startingStack, setStartingStack] = useState(250);
   const [sb, setSb] = useState(1);
   const [bb, setBb] = useState(2);
-  const [sound, setSound] = useState(true);
-  const [haptics, setHaptics] = useState(true);
+  const [sound, setSound] = useState(soundEnabled);
+  const [haptics, setHaptics] = useState(hapticsEnabled);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -21,7 +22,7 @@ export function Setup({ navigate }: { navigate: (to: string) => void }) {
   const valid = Number.isInteger(startingStack) && startingStack >= bb && sb >= 0 && bb >= 1 && sb <= bb;
   const submit = async () => {
     if (!valid) return;
-    unlockAudio();
+    if (sound) unlockAudio();
     setBusy(true);
     setError(null);
     try {
@@ -92,8 +93,8 @@ export function Setup({ navigate }: { navigate: (to: string) => void }) {
               <div><dt>{money(currency, startingStack)} starting balance</dt><dd><button onClick={() => setStep(2)}>Change</button></dd></div>
               <div><dt>{money(currency, sb)} / {money(currency, bb)} blinds</dt><dd><button onClick={() => setStep(2)}>Change</button></dd></div>
               <div><dt>Table Controller · You (Host)</dt><dd>Change in lobby</dd></div>
-              <div><dt>Sound</dt><dd><button className="switch" role="switch" aria-label="Sound" aria-checked={sound} onClick={() => setSound(!sound)}><span /></button></dd></div>
-              <div><dt>Haptics</dt><dd><button className="switch" role="switch" aria-label="Haptics" aria-checked={haptics} onClick={() => setHaptics(!haptics)}><span /></button></dd></div>
+              <div><dt>Sound</dt><dd><button className="switch" role="switch" aria-label="Sound" aria-checked={sound} onClick={() => { const next = !sound; setSound(next); setSoundEnabled(next); }}><span /></button></dd></div>
+              <div><dt>Haptics</dt><dd><button className="switch" role="switch" aria-label="Haptics" aria-checked={haptics} onClick={() => { const next = !haptics; setHaptics(next); setHapticsEnabled(next); }}><span /></button></dd></div>
             </dl>
             <p className="setup-note">No real money is handled.</p>
             {error && <p className="form-error" role="alert">{error}</p>}

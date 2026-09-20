@@ -202,3 +202,25 @@ git diff --check                          PASS
 ```
 
 Wrangler authentication is not configured, so no live Cloudflare resource was created and no production smoke test was run.
+
+### Per-recipient chip privacy and device preferences — 20 September 2026
+
+- Replaced the shared authoritative WebSocket game payload with a per-recipient view. Other players' stack, buy-in and cumulative hand commitment are redacted before serialization; public current-street bets and a separately calculated pot total remain available to the table.
+- Kept temporary least-privilege visibility for the host or Table Controller only while operating an unattended/manual seat or performing an active host correction.
+- Redacted departed-player settlement values until the game ends and removed indirect private-value disclosure from public timeline wording.
+- Persisted the Sound and Haptics setup choices per device and made audio unlock and vibration respect those choices.
+- Preserved the approved layout; the Impeccable detector returned no findings. A live local-browser inspection confirmed the landing page still renders normally.
+
+Verification:
+
+```text
+npm run typecheck                         PASS
+npm test                                  PASS (66 unit, 53 Worker)
+npm run test:e2e                          PASS (20 workflows)
+npm run build                             PASS
+npm audit --omit=dev                      PASS (0 vulnerabilities)
+npx impeccable detect --target Seats.tsx PASS (0 findings)
+git diff --check                          PASS
+```
+
+Cloudflare authentication, migration and deployment were deliberately not attempted at the owner's request.

@@ -1,4 +1,4 @@
-import { MAX_PLAYERS, type ActionKind, type Game, type Legal, type Settings } from './engine';
+import { MAX_PLAYERS, type ActionKind, type Departed, type Game, type Legal, type Player, type Settings } from './engine';
 
 /** Bounded above the largest legal 15-player multi-pot award envelope. */
 export const MAX_MESSAGE_BYTES = 8192;
@@ -225,6 +225,22 @@ export interface SettlementRecordResponse {
   canDelete: boolean;
 }
 
+export interface PlayerView extends Player {
+  /** Private chip totals are replaced before this state is serialized. */
+  chipState: 'visible' | 'private';
+  /** Public zero-balance status without exposing the balance itself. */
+  busted: boolean;
+}
+
+export interface DepartedView extends Departed {
+  chipState: 'visible' | 'private';
+}
+
+export interface GameView extends Omit<Game, 'players' | 'departed'> {
+  players: PlayerView[];
+  departed: DepartedView[];
+}
+
 export interface RoomView {
   code: string;
   createdAt: number;
@@ -233,7 +249,8 @@ export interface RoomView {
   controllerId: string | null;
   currency: CurrencyCode;
   members: MemberView[];
-  game: Game;
+  game: GameView;
+  potTotal: number;
   claims: ClaimView[];
   rebuyRequests: RebuyRequestView[];
   breaks: BreakView[];

@@ -1,10 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   bySeat,
-  eligibleForHand,
   findPlayer,
   legalActions,
-  potTotal,
   shareOut,
   type ActionKind,
   type Legal,
@@ -108,7 +106,7 @@ function RunoutGate({ onRunout }: { onRunout: () => void }) {
 }
 
 function RunoutDealPanel() {
-  const { room, game, isController, nameOf, run, busy, v } = useTable();
+  const { room, isController, nameOf, run, busy, v } = useTable();
   const plan = room.runoutPlan!;
   const ordinal = ['First', 'Second', 'Third', 'Fourth'][plan.current] ?? `Runout ${plan.current + 1}`;
   const cards = plan.fromStreet === 0 ? 'flop, turn and river' : plan.fromStreet === 1 ? 'turn and river' : 'river';
@@ -119,7 +117,7 @@ function RunoutDealPanel() {
     <div className="dock dock-runout">
       <div className="turn-overview">
         <div><span className="turn-title">Runout {plan.current + 1} of {plan.count}</span><span className="turn-sub">Table Controller</span></div>
-        <span className="turn-metric"><small>Pot</small><Num value={potTotal(game)} /></span>
+        <span className="turn-metric"><small>Pot</small><Num value={room.potTotal} /></span>
       </div>
       <div className="runout-deal-copy">
         <strong>Deal the {ordinal.toLowerCase()} {cards}</strong>
@@ -181,7 +179,7 @@ function ActionPanel({ legal, player, actingFor, correcting, onCancel }: ActionP
   const { game, room, run, busy, v } = useTable();
   const [raising, setRaising] = useState(false);
   const [staged, setStaged] = useState(0);
-  const pot = potTotal(game);
+  const pot = room.potTotal;
   const openLabel = game.currentBet === 0 ? 'Bet' : 'Raise';
 
   const act = (kind: ActionKind, amount?: number) =>
@@ -613,7 +611,7 @@ function chopNote(cut: { id: string; amount: number }[], nameOf: (id: string) =>
 
 function ResultsPanel({ onRebuy }: { onRebuy: () => void }) {
   const { game, run, busy, v, room, me, isHost, isController, nameOf } = useTable();
-  const ready = game.players.filter(eligibleForHand).length >= 2;
+  const ready = game.players.filter((player) => !player.sittingOut && !player.leaving && !player.busted).length >= 2;
   const iAmOut = me && me.stack === 0;
 
   useEffect(() => {
@@ -658,7 +656,7 @@ function ResultsPanel({ onRebuy }: { onRebuy: () => void }) {
 
 function LobbyDock() {
   const { game, isHost, room, run, busy, v, nameOf, away, serverNow } = useTable();
-  const ready = game.players.filter(eligibleForHand).length >= 2;
+  const ready = game.players.filter((player) => !player.sittingOut && !player.leaving && !player.busted).length >= 2;
   if (!isHost) {
     const hostAway = (!!room.hostId && away(room.hostId)) || (!!room.hostTakeoverAt && serverNow >= room.hostTakeoverAt);
     return (

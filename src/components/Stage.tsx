@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { findPlayer, potTotal, type Game } from '../../shared/engine';
+import { findPlayer, type Game } from '../../shared/engine';
 import { fmt, NEXT_CARDS } from '../lib/format';
 import { useTable } from '../lib/table';
 import { Num } from './Num';
@@ -20,7 +20,7 @@ export function outcomeLine(game: Game, nameOf: (id: string) => string) {
 
 export function Stage() {
   const { game, you, nameOf, room } = useTable();
-  const pot = game.phase === 'done' ? game.results.reduce((s, r) => s + r.amount, 0) : potTotal(game);
+  const pot = game.phase === 'done' ? game.results.reduce((s, r) => s + r.amount, 0) : room.potTotal;
   const actor = findPlayer(game, game.toActId);
   const freshStreet =
     game.phase === 'betting' && game.street > 0 && game.players.every((p) => !p.acted) && game.currentBet === 0;

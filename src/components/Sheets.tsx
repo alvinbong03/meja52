@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { bySeat, handInProgress, LIMITS, physicalRunoutLimit, potTotal, shareOut } from '../../shared/engine';
+import { bySeat, handInProgress, LIMITS, physicalRunoutLimit, shareOut } from '../../shared/engine';
 import type { LateArrivalView } from '../../shared/protocol';
 import { setSoundEnabled, soundEnabled } from '../lib/device';
 import { fmt } from '../lib/format';
@@ -219,10 +219,10 @@ function UndoFlow({ onDone }: { onDone: () => void }) {
 }
 
 function VoidFlow({ onDone }: { onDone: () => void }) {
-  const { room, game, run, busy, v } = useTable();
+  const { room, run, busy, v } = useTable();
   const [reason, setReason] = useState('Misdeal');
   const [advanceButton, setAdvanceButton] = useState(false);
-  const returned = potTotal(game);
+  const returned = room.potTotal;
   return (
     <div className="void-flow">
       <p className="sheet-lead">This pauses the table and shows everyone a review before anything is restored.</p>
@@ -606,15 +606,14 @@ function RebuyReview({ requestId }: { requestId: string }) {
   const [amount, setAmount] = useState(String(request?.amount ?? ''));
   if (!request || !player) return null;
   const value = Number(amount);
-  const error = !Number.isSafeInteger(value) || value < 1 || value + player.stack > LIMITS.maxStack;
+  const error = !Number.isSafeInteger(value) || value < 1 || value > LIMITS.maxStack;
 
   return (
     <section className="rebuy-review" aria-label={`${nameOf(player.id)} rebuy request`}>
       <p className="sheet-lead"><strong>{nameOf(player.id)}</strong> requested {chipLabel(room.currency, request.amount)}.</p>
       <dl className="review-list">
-        <div><dt>Current balance</dt><dd className="num">{chipLabel(room.currency, player.stack)}</dd></div>
         <div><dt>Requested</dt><dd className="num">{chipLabel(room.currency, request.amount)}</dd></div>
-        <div><dt>Balance after approval</dt><dd className="num">{chipLabel(room.currency, player.stack + (error ? 0 : value))}</dd></div>
+        <div><dt>Player balance</dt><dd>Private</dd></div>
       </dl>
       <NumberField id={`rebuy-${request.id}`} label="Edit amount" value={amount} onChange={setAmount} />
       <button
@@ -755,7 +754,7 @@ function Players() {
                   {room.controllerId === p.id && <span className="tag">table controller</span>}
                   {m?.manual && <span className="tag">no phone</span>}
                 </span>
-                <span className="num">{fmt(p.stack)}</span>
+                <span className="num">{p.chipState === 'visible' ? fmt(p.stack) : 'Private'}</span>
               </div>
               {editing === p.id ? (
                 <form
@@ -790,7 +789,7 @@ function Players() {
                     title={locked ? 'After this hand' : undefined}
                     onClick={() => {
                       setEditing(p.id);
-                      setStack(String(p.stack));
+                      setStack(p.chipState === 'visible' ? String(p.stack) : '');
                     }}
                   >
                     Set stack

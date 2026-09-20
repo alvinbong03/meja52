@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
-import { findPlayer, type Game, type Player } from '../../shared/engine';
-import type { ClientMessage, MemberView, RoomView, YouView } from '../../shared/protocol';
+import { findPlayer } from '../../shared/engine';
+import type { ClientMessage, GameView, MemberView, PlayerView, RoomView, YouView } from '../../shared/protocol';
 import { toast } from '../components/Toast';
 import { isAway, useNow } from './presence';
 import type { RoomConnection, StateMsg } from './useRoom';
@@ -9,9 +9,9 @@ export interface TableModel {
   conn: RoomConnection;
   state: StateMsg;
   room: RoomView;
-  game: Game;
+  game: GameView;
   you: YouView;
-  me: Player | undefined;
+  me: PlayerView | undefined;
   isHost: boolean;
   isController: boolean;
   v: number;

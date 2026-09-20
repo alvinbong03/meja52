@@ -75,7 +75,10 @@ test('room setup preferences have accessible controls', async ({ page }) => {
   await expect(sound).toHaveAttribute('aria-checked', 'true');
   await expect(haptics).toHaveAttribute('aria-checked', 'true');
   await sound.click();
+  await haptics.click();
   await expect(sound).toHaveAttribute('aria-checked', 'false');
+  await expect(haptics).toHaveAttribute('aria-checked', 'false');
+  await expect.poll(() => page.evaluate(() => ({ sound: localStorage.getItem('pp.sound'), haptics: localStorage.getItem('pp.haptics') }))).toEqual({ sound: 'off', haptics: 'off' });
 });
 
 test('three players play a hand from deal to payout', async ({ browser }) => {
@@ -110,8 +113,8 @@ test('three players play a hand from deal to payout', async ({ browser }) => {
   await confirmAward(ana);
 
   await expect(ana.locator('.stage-line')).toHaveText('Ben takes it');
-  await expect(stackOf(ana, 'Ben')).toHaveText('1,070');
-  await expect(stackOf(ben, 'Ana')).toHaveText('940');
+  await expect(stackOf(ben, 'Ben')).toHaveText('1,070');
+  await expect(stackOf(ana, 'Ana')).toHaveText('940');
   await expect(stackOf(cat, 'Cat')).toHaveText('990');
 
   await ana.getByRole('button', { name: 'Menu' }).click();
@@ -155,7 +158,7 @@ test('a disputed award is publicly reviewed before a governed table override', a
   await cat.getByRole('button', { name: 'Approve table ruling' }).click();
   await expect(ana.getByRole('button', { name: 'Confirm override' })).toBeEnabled();
   await ana.getByRole('button', { name: 'Confirm override' }).click();
-  await expect(stackOf(ana, 'Cat')).toHaveText('1,120');
+  await expect(stackOf(cat, 'Cat')).toHaveText('1,120');
   for (const page of [ana, ben, cat]) expect((page as Page & { errors: string[] }).errors).toEqual([]);
 });
 
@@ -249,11 +252,11 @@ test('a player requests a rebuy and the host edits and approves it', async ({ br
   await ana.keyboard.press('Escape');
 
   await ana.getByRole('button', { name: 'Manage' }).click();
-  await expect(ana.locator('.player-row').filter({ hasText: 'Ben' })).toContainText('1,150');
+  await expect(ana.locator('.player-row').filter({ hasText: 'Ben' })).toContainText('Private');
   await ana.keyboard.press('Escape');
-
   await ben.getByRole('button', { name: 'Menu' }).click();
-  await expect(ben.getByRole('button', { name: 'Request rebuy' })).toBeVisible();
+  await ben.getByRole('button', { name: 'Request rebuy' }).click();
+  await expect(ben.getByText('New balance after approval')).toContainText('RM2,150');
 });
 
 test('a player takes a break and chooses how to return after missing blinds', async ({ browser }) => {
@@ -366,9 +369,8 @@ test('short stack all in creates a side pot that pays the right people', async (
   await benRow.getByRole('button', { name: 'Set stack' }).click();
   await ana.getByLabel('New stack for Ben').fill('100');
   await ana.getByRole('button', { name: 'Set', exact: true }).click();
-  await expect(benRow).toContainText('100');
+  await expect(benRow).toContainText('Private');
   await ana.keyboard.press('Escape');
-
   await ana.getByRole('button', { name: 'Deal the first hand' }).click();
   await expect(yourTurn(ana)).toBeVisible();
   await ana.getByRole('button', { name: 'Raise' }).click();
@@ -376,6 +378,7 @@ test('short stack all in creates a side pot that pays the right people', async (
   await ana.getByRole('button', { name: 'Place all in 1,000' }).click();
 
   await expect(yourTurn(ben)).toBeVisible();
+  await expect(ben.getByRole('button', { name: 'All in 95' })).toBeVisible();
   await stageAndPlace(ben, 'All in 95', 95);
   await expect(yourTurn(cat)).toBeVisible();
   await stageAndPlace(cat, 'All in 990', 990);
@@ -401,8 +404,8 @@ test('short stack all in creates a side pot that pays the right people', async (
     await confirmAward(ana);
   }
 
-  await expect(stackOf(ana, 'Ben')).toHaveText('300');
-  await expect(stackOf(ana, 'Cat')).toHaveText('1,800');
+  await expect(stackOf(ben, 'Ben')).toHaveText('300');
+  await expect(stackOf(cat, 'Cat')).toHaveText('1,800');
   await expect(stackOf(ana, 'Ana')).toHaveText('0');
   await ana.getByRole('button', { name: 'Request rebuy' }).click();
   await ana.getByLabel('Amount').fill('1000');
@@ -410,7 +413,7 @@ test('short stack all in creates a side pot that pays the right people', async (
   await ana.getByRole('button', { name: 'Menu' }).click();
   await ana.getByRole('button', { name: 'Rebuy requests' }).click();
   await ana.getByRole('button', { name: 'Approve RM1,000' }).click();
-  await expect(stackOf(ben, 'Ana')).toHaveText('1,000');
+  await expect(stackOf(ana, 'Ana')).toHaveText('1,000');
 });
 
 test('two players with the same hand chop the pot', async ({ browser }) => {
@@ -444,8 +447,8 @@ test('two players with the same hand chop the pot', async ({ browser }) => {
   await ana.getByRole('button', { name: 'Chop 30 two ways' }).click();
   await confirmAward(ana);
   await expect(ben.locator('.stage-line')).toHaveText(/chop it/);
-  await expect(stackOf(cat, 'Ana')).toHaveText('1,005');
-  await expect(stackOf(cat, 'Ben')).toHaveText('1,005');
+  await expect(stackOf(ana, 'Ana')).toHaveText('1,005');
+  await expect(stackOf(ben, 'Ben')).toHaveText('1,005');
   await expect(stackOf(cat, 'Cat')).toHaveText('990');
   for (const p of [ana, ben, cat]) expect((p as Page & { errors: string[] }).errors).toEqual([]);
 });

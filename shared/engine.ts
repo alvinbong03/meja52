@@ -155,12 +155,12 @@ export function createGame(settings: Settings): Game {
 
 // ---------- queries ----------
 
-export const findPlayer = (g: Game, id: string | null | undefined) =>
+export const findPlayer = <T extends Player>(g: { players: T[] }, id: string | null | undefined): T | undefined =>
   id ? g.players.find((p) => p.id === id) : undefined;
 
 const must = (g: Game, id: string): Player => findPlayer(g, id) ?? fail('INVALID', 'Unknown player');
 
-export const bySeat = (g: Game) => [...g.players].sort((a, b) => a.seat - b.seat);
+export const bySeat = <T extends Player>(g: { players: T[] }): T[] => [...g.players].sort((a, b) => a.seat - b.seat);
 export const canAct = (p: Player) => p.inHand && !p.folded && !p.allIn;
 export const livePlayers = (g: Game) => g.players.filter((p) => p.inHand && !p.folded);
 export const handInProgress = (g: Game) => g.phase === 'betting' || g.phase === 'showdown';

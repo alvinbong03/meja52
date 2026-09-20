@@ -162,6 +162,41 @@ describe('joining', () => {
     expect(JSON.stringify(info)).not.toContain('Ben');
   });
 
+  it('sends each device only its own private chip totals while preserving public bets and pot', async () => {
+    const { code, clients, idOf } = await table(['Ana', 'Ben']);
+    const [ana, ben] = clients;
+    await ana.ok({ type: 'start', v: ana.state.v });
+    await ben.settle();
+
+    const anaOwn = ana.state.room.game.players.find((player) => player.id === idOf(ana))!;
+    const benOnAna = ana.state.room.game.players.find((player) => player.id === idOf(ben))!;
+    const benOwn = ben.state.room.game.players.find((player) => player.id === idOf(ben))!;
+    const anaOnBen = ben.state.room.game.players.find((player) => player.id === idOf(ana))!;
+
+    expect(anaOwn).toMatchObject({ chipState: 'visible', buyIn: 1000, committed: 5, bet: 5 });
+    expect(benOwn).toMatchObject({ chipState: 'visible', buyIn: 1000, committed: 10, bet: 10 });
+    expect(benOnAna).toMatchObject({ chipState: 'private', stack: 0, buyIn: 0, committed: 0, bet: 10 });
+    expect(anaOnBen).toMatchObject({ chipState: 'private', stack: 0, buyIn: 0, committed: 0, bet: 5 });
+    expect(ana.state.room.potTotal).toBe(15);
+    expect(ben.state.room.potTotal).toBe(15);
+
+    const display = await Client.connect(code, tokenFor(98));
+    expect(display.state.you.id).toBeNull();
+    expect(display.state.room.game.players.every((player) => player.chipState === 'private')).toBe(true);
+    expect(display.state.room.game.players.map((player) => player.bet)).toEqual([5, 10]);
+    expect(display.state.room.potTotal).toBe(15);
+  });
+
+  it('reveals a manual seat only to the host and Table Controller who manage it', async () => {
+    const { clients } = await table(['Ana', 'Ben']);
+    const [ana, ben] = clients;
+    await ana.ok({ type: 'addSeat', name: 'Gran' });
+    await ben.settle();
+
+    expect(ana.state.room.game.players.find((player) => player.name === 'Gran')).toMatchObject({ chipState: 'visible', stack: 1000 });
+    expect(ben.state.room.game.players.find((player) => player.name === 'Gran')).toMatchObject({ chipState: 'private', stack: 0, buyIn: 0, committed: 0 });
+  });
+
   it('accepts fifteen players and rejects a sixteenth', async () => {
     const names = Array.from({ length: 15 }, (_, i) => `Player ${i + 1}`);
     const { code, clients } = await table(names);
@@ -311,19 +346,20 @@ describe('playing a hand', () => {
     });
     hostState = await ana.settle();
     expect(hostState.room.rebuyRequests[0]).toMatchObject({ playerId: idOf(ben), amount: 150, status: 'approved' });
-    expect(hostState.room.game.players.find((p) => p.id === idOf(ben))?.stack).toBe(995);
+    expect(hostState.room.game.players.find((p) => p.id === idOf(ben))).toMatchObject({ chipState: 'private', stack: 0 });
 
     await ana.ok({ type: 'act', v: ana.state.v, kind: 'fold' });
     await ben.ok({ type: 'act', v: ben.state.v, kind: 'fold' });
     playerState = await ben.settle();
     expect(playerState.room.rebuyRequests).toHaveLength(0);
     expect(playerState.room.game.players.find((p) => p.id === idOf(ben))).toMatchObject({ stack: 1145, buyIn: 1150 });
-    expect(playerState.room.log.some((l) => l.text.includes('Ben') && l.text.includes('150'))).toBe(true);
+    expect(playerState.room.log.some((l) => l.text === 'Ben added a rebuy')).toBe(true);
+    expect(playerState.room.log.some((l) => l.text.includes('150'))).toBe(false);
 
     await ana.ok({ type: 'undo', v: ana.state.v });
     hostState = await ana.settle();
     expect(hostState.room.rebuyRequests[0]).toMatchObject({ playerId: idOf(ben), amount: 150, status: 'approved' });
-    expect(hostState.room.game.players.find((p) => p.id === idOf(ben))).toMatchObject({ stack: 995, buyIn: 1000 });
+    expect(hostState.room.game.players.find((p) => p.id === idOf(ben))).toMatchObject({ chipState: 'private', stack: 0, buyIn: 0 });
     await ben.ok({ type: 'act', v: ben.state.v, kind: 'fold' });
     playerState = await ben.settle();
     expect(playerState.room.rebuyRequests).toHaveLength(0);
@@ -352,7 +388,7 @@ describe('playing a hand', () => {
     await ben.ok({ type: 'requestRebuy', amount: 100 });
     request = (await ana.settle()).room.rebuyRequests[0];
     await ana.ok({ type: 'resolveRebuy', v: ana.state.v, requestId: request.id, allow: true, amount: 175 });
-    const player = ana.state.room.game.players.find((p) => p.id === idOf(ben));
+    const player = (await ben.settle()).room.game.players.find((p) => p.id === idOf(ben));
     expect(player).toMatchObject({ stack: 1175, buyIn: 1175 });
     expect(ana.state.room.rebuyRequests).toHaveLength(0);
   });
@@ -580,7 +616,7 @@ describe('playing a hand', () => {
     expect(s.room.awardProposal).toMatchObject({ disputedBy: null });
     expect(s.room.game.phase).toBe('showdown');
     await ana.ok({ type: 'confirmAward', v: s.v });
-    s = await ana.settle();
+    s = await cat.settle();
     expect(s.room.game.phase).toBe('done');
     expect(s.room.game.players.find((p) => p.id === idOf(cat))?.stack).toBe(1080);
     expect(s.room.log.at(-1)?.text).toBe('Cat wins 120');
@@ -642,12 +678,12 @@ describe('playing a hand', () => {
   });
 
   it('previews a void publicly, freezes actions, and restores every pre-hand stack', async () => {
-    const { clients } = await table(['Ana', 'Ben', 'Cat']);
+    const { clients, idOf } = await table(['Ana', 'Ben', 'Cat']);
     const [ana, ben] = clients;
     await ana.ok({ type: 'start', v: ana.state.v });
     await ana.ok({ type: 'act', v: ana.state.v, kind: 'raise', amount: 60 });
     await ben.ok({ type: 'act', v: ben.state.v, kind: 'call' });
-    const contribution = ana.state.room.game.players.reduce((sum, player) => sum + player.committed, 0);
+    const contribution = ana.state.room.potTotal;
     await ana.ok({ type: 'previewVoid', v: ana.state.v, reason: 'Exposed card', advanceButton: false });
     let s = await ben.settle();
     expect(s.room.paused).toBe(true);
@@ -658,7 +694,11 @@ describe('playing a hand', () => {
     s = await ana.settle();
     expect(s.room.game.phase).toBe('lobby');
     expect(s.room.game.handNo).toBe(0);
-    expect(s.room.game.players.map((player) => player.stack)).toEqual([1000, 1000, 1000]);
+    await Promise.all(clients.map((client) => client.settle()));
+    for (const client of clients) {
+      const own = client.state.room.game.players.find((player) => player.id === idOf(client));
+      expect(own).toMatchObject({ chipState: 'visible', stack: 1000, committed: 0 });
+    }
     expect(s.room.game.players.every((player) => player.committed === 0)).toBe(true);
     expect(s.room.paused).toBe(false);
     expect(s.room.voidProposal).toBeNull();
@@ -701,7 +741,9 @@ describe('playing a hand', () => {
     s = await ben.settle();
     expect(s.room.game.phase).toBe('done');
     expect(s.room.runoutPlan).toBeNull();
-    expect(s.room.game.players.map((player) => player.stack)).toEqual([100, 100]);
+    await ana.settle();
+    expect(ana.state.room.game.players.find((player) => player.id === idOf(ana))).toMatchObject({ chipState: 'visible', stack: 100 });
+    expect(ben.state.room.game.players.find((player) => player.id === idOf(ben))).toMatchObject({ chipState: 'visible', stack: 100 });
     expect(s.room.log.map((entry) => entry.text)).toEqual(expect.arrayContaining([
       'Ana chose 2 runouts',
       'Ben completed runout 1 of 2',
@@ -961,9 +1003,9 @@ describe('seats and devices', () => {
     expect(s.room.members.map((member) => member.name)).toEqual(['Ana']);
     expect(s.room.leaveRequests).toHaveLength(0);
     expect(s.room.game.departed).toEqual([
-      expect.objectContaining({ id: idOf(ben), name: 'Ben', buyIn: 1000, cashOut: 1005 }),
+      expect.objectContaining({ id: idOf(ben), name: 'Ben', chipState: 'private', buyIn: 0, cashOut: 0 }),
     ]);
-    expect(s.room.log.some((entry) => entry.text === 'Ben left with 1,005 chips')).toBe(true);
+    expect(s.room.log.some((entry) => entry.text === 'Ben left the table')).toBe(true);
   });
 
   it('queues leave now until the player can legally fold', async () => {

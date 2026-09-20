@@ -1,20 +1,21 @@
 import { useLayoutEffect, useRef, useState } from 'react';
-import { bySeat, type Player } from '../../shared/engine';
+import { bySeat } from '../../shared/engine';
+import type { PlayerView } from '../../shared/protocol';
 import { fmt } from '../lib/format';
 import { useTable } from '../lib/table';
 import { Num } from './Num';
 
-export function seatStatus(p: Player, phase: string, away: boolean, manual: boolean, leaving?: 'afterHand' | 'now'): string | null {
+export function seatStatus(p: PlayerView, phase: string, away: boolean, manual: boolean, leaving?: 'afterHand' | 'now'): string | null {
   const inHand = (phase === 'betting' || phase === 'showdown') && p.inHand;
   if (leaving) return leaving === 'afterHand' ? 'leaving after hand' : 'leaving now';
   if (p.leaving) return 'left';
   if (inHand && p.folded) return 'folded';
   if (inHand && p.allIn) return 'all in';
   if (!inHand && (phase === 'betting' || phase === 'showdown')) {
-    if (p.stack === 0) return 'busted';
+    if (p.busted) return 'busted';
     return p.sittingOut ? 'on break' : 'next hand';
   }
-  if (p.stack === 0 && phase !== 'lobby') return 'busted';
+  if (p.busted && phase !== 'lobby') return 'busted';
   if (p.sittingOut) return 'on break';
   if (manual) return 'no phone';
   if (away) return 'away';
@@ -104,7 +105,7 @@ export function Seats() {
                 <span className="won">+{fmt(won)}</span>
               ) : null}
             </span>
-            {!hand && <Num value={p.stack} className="seat-stack" />}
+            {!hand && p.chipState === 'visible' && <Num value={p.stack} className="seat-stack" />}
           </li>
         );
       })}
