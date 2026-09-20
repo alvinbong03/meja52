@@ -351,4 +351,4 @@ manual landscape idle/staged/change       PASS
 git diff --check                          PASS
 ```
 
-Deployed to `https://meja52.meja52.workers.dev` as Worker version `ef8829e6-b7f1-4add-a2ec-ecda68516265`. The post-deploy two-device WebSocket smoke test passed with private balances, public pot state and the new private chip-inventory payload intact.
+Deployed to `https://meja52.meja52.workers.dev` as Worker version `4e8d31c4-453f-4e1b-896b-4483693a07d1`. The post-deploy two-device WebSocket smoke test passed with private balances, public pot state and the new private chip-inventory payload intact.
