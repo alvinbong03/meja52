@@ -545,3 +545,5 @@ git diff --check                          PASS
 ```
 
 The first complete-suite run timed out while creating the overflow test's setup room; its isolated rerun passed in 10.8 seconds. No assertion, rendering or gameplay failure occurred.
+
+Deployed to `https://meja52.meja52.workers.dev` as Worker version `4b4ff34e-5fa4-4d56-847d-015534fcccc9`. The post-deploy two-device WebSocket smoke test passed with private balances and public pot state intact.
