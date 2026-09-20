@@ -104,3 +104,11 @@ npm run test:e2e     PASS (18 browser workflows)
 ```
 
 Browser coverage included the full phone workflow, governed undo, pause/void confirmation, connection loss and recovery, phone landscape visibility, 320×568 through desktop overflow checks, and a 15-player phone lobby. No browser page errors were reported by the exercised workflows.
+
+### Current-round bet visibility refinement
+
+- Every player row now shows the current-street bet as a number throughout a live hand; zero is displayed as `0` instead of an ambiguous blank.
+- The compact phone-landscape rail always includes every active player and their current-street bet.
+- Private balances and total hand contributions remain hidden from other players.
+
+Type checking, all 55 unit tests, all 43 Worker integration tests, the production build, and the focused portrait/landscape Playwright workflow passed.

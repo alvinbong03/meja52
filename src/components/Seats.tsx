@@ -96,7 +96,7 @@ export function Seats() {
               )}
             </div>
             <span className="seat-bet num">
-              {hand && p.bet > 0 ? (
+              {hand ? (
                 <span className="bet-pop" key={p.bet}>
                   {fmt(p.bet)}
                 </span>

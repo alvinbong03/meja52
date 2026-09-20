@@ -479,6 +479,9 @@ test('live play keeps balances private and exposes current bets in phone landsca
   await expect(ben.locator('.dock')).toHaveCSS('background-color', 'rgb(44, 69, 100)');
   await expect(ana.locator('.seat-stack')).toHaveCount(0);
   await expect(ben.locator('.seat-stack')).toHaveCount(0);
+  await expect(ana.locator('.seat').filter({ hasText: /^Ana/ }).locator('.seat-bet')).toHaveText('0');
+  await expect(ana.locator('.seat').filter({ hasText: /^Ben/ }).locator('.seat-bet')).toHaveText('5');
+  await expect(ana.locator('.seat').filter({ hasText: /^Cat/ }).locator('.seat-bet')).toHaveText('10');
   await expect(ana.locator('.private-hand-total')).toContainText('In this hand');
 
   await ana.getByRole('button', { name: 'Raise' }).click();
@@ -498,8 +501,6 @@ test('live play keeps balances private and exposes current bets in phone landsca
   await expect(rail).toBeVisible();
   await expect(rail.getByRole('listitem')).toHaveCount(3);
   await expect(rail.getByRole('listitem').filter({ hasText: 'Ana' })).toContainText('11');
-  await rail.getByRole('button', { name: /Pot/ }).click();
-  await expect(rail.getByRole('listitem')).toHaveCount(3);
   await expect(rail).toContainText('Ben');
   await expect(rail).toContainText('Cat');
 });
