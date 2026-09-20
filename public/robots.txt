@@ -4,4 +4,4 @@ Disallow: /t/
 Disallow: /record/
 Disallow: /api/
 
-Sitemap: https://meja52.pages.dev/sitemap.xml
+Sitemap: https://meja52.meja52.workers.dev/sitemap.xml

@@ -15,9 +15,9 @@
     "test:unit": "vitest run --config vitest.config.ts",
     "test:worker": "vitest run --config worker/vitest.config.ts",
     "test:e2e": "playwright test",
-    "deploy:api": "wrangler deploy -c worker/wrangler.jsonc",
-    "deploy:web": "wrangler pages deploy dist --project-name meja52 --branch main",
-    "deploy": "npm run build && npm run deploy:api && npm run deploy:web",
+    "deploy": "npm run build && wrangler deploy -c worker/wrangler.jsonc",
+    "deploy:dry-run": "npm run build && wrangler deploy -c worker/wrangler.jsonc --dry-run",
+    "smoke:live": "node scripts/smoke-live.mjs",
     "shots": "node e2e/shots.mjs",
     "assets": "node scripts/assets.mjs"
   },

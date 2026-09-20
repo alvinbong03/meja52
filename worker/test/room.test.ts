@@ -73,11 +73,10 @@ describe('http api', () => {
     const res = await api(`/api/rooms/${code}/ws`, { headers: { Upgrade: 'websocket', Origin: 'https://evil.example' } });
     expect(res.status).toBe(403);
     expect((await api(`/api/rooms/${code}/ws`)).status).toBe(426);
-    expect(originAllowed('https://meja52.pages.dev', {} as never)).toBe(true);
-    expect(originAllowed('https://feat-x.meja52.pages.dev', {} as never)).toBe(true);
     expect(originAllowed('http://localhost:5173', {} as never)).toBe(true);
-    expect(originAllowed('https://meja52.pages.dev.evil.com', {} as never)).toBe(false);
-    expect(originAllowed('http://meja52.pages.dev', {} as never)).toBe(false);
+    expect(originAllowed('https://meja52.example.workers.dev', {} as never, 'https://meja52.example.workers.dev')).toBe(true);
+    expect(originAllowed('https://evil.example', {} as never, 'https://meja52.example.workers.dev')).toBe(false);
+    expect(originAllowed('https://preview.example.workers.dev', {} as never, 'https://meja52.example.workers.dev')).toBe(false);
   });
 
   it('rate limits table creation per address', async () => {

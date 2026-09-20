@@ -224,3 +224,39 @@ git diff --check                          PASS
 ```
 
 Cloudflare authentication, migration and deployment were deliberately not attempted at the owner's request.
+
+### Single-Worker migration and first live deployment — 20 September 2026
+
+- Replaced the inherited Pages + forwarding Function + API Worker split with one `meja52` Worker serving Vite static assets, SPA routes, `/api/*`, WebSocket upgrades and the SQLite-backed `Room` Durable Object.
+- Removed the obsolete Pages Function and service-binding configuration, enabled the `workers.dev` trigger, and updated canonical, Open Graph, sitemap and deployment documentation to the live origin.
+- Kept the static-asset security policy through `_headers`; the live homepage returns the expected CSP, HSTS, no-sniff, referrer, opener and permissions headers.
+- Added `npm run smoke:live` to create a disposable room, connect two independent devices over live WebSockets, start a hand and verify each device sees its own balance while the other balance remains private.
+
+Deployment:
+
+```text
+URL                                      https://meja52.meja52.workers.dev
+Cloudflare Worker                        meja52
+Version                                  ea997376-75ec-4976-8cf7-d53e23066876
+Static assets                            15
+Worker startup                           1 ms
+Bindings                                 Room Durable Object + 3 rate limiters
+```
+
+Verification:
+
+```text
+npm run typecheck                        PASS
+npm test                                 PASS (66 unit, 53 Worker)
+npm run test:e2e                         PASS (20 workflows)
+npm run deploy:dry-run                   PASS
+Live /api/health                         PASS
+Live homepage and /create SPA route      PASS (200)
+Live unknown-room behavior               PASS (404)
+Live foreign-origin rejection            PASS (403)
+Live security headers                    PASS
+Live two-device WebSocket smoke          PASS
+Live per-recipient balance privacy       PASS
+```
+
+The deployment is suitable for continued alpha testing. The approved host-transfer recovery, seating-lobby, tactile chip interaction, accessibility polish and long real-device soak gates remain outstanding before declaring public Release 1 complete.

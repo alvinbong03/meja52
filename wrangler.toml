@@ -1,7 +1,0 @@
-name = "meja52"
-pages_build_output_dir = "./dist"
-compatibility_date = "2026-08-20"
-
-[[services]]
-binding = "API"
-service = "meja52-api"

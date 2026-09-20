@@ -54,8 +54,9 @@ export function randomCode() {
   return out.join('');
 }
 
-export function originAllowed(origin: string | null, env: Env) {
+export function originAllowed(origin: string | null, env: Env, requestOrigin?: string) {
   if (!origin) return true;
+  if (requestOrigin && origin === requestOrigin) return true;
   let host: string;
   let protocol: string;
   try {
@@ -66,7 +67,6 @@ export function originAllowed(origin: string | null, env: Env) {
   const hostname = host.split(':')[0];
   if (protocol === 'http:' && (hostname === 'localhost' || hostname === '127.0.0.1')) return true;
   if (protocol !== 'https:') return false;
-  if (hostname === 'meja52.pages.dev' || hostname.endsWith('.meja52.pages.dev')) return true;
   return (env.ALLOWED_ORIGINS ?? '')
     .split(',')
     .map((o) => o.trim())
@@ -84,7 +84,7 @@ export default {
 
     if (parts[1] === 'health') return json({ ok: true });
 
-    if (!originAllowed(request.headers.get('Origin'), env)) return json({ error: 'Forbidden' }, 403);
+    if (!originAllowed(request.headers.get('Origin'), env, url.origin)) return json({ error: 'Forbidden' }, 403);
 
     if (parts[1] === 'rooms' && parts.length === 2 && request.method === 'POST') {
       const ip = request.headers.get('cf-connecting-ip') ?? 'local';

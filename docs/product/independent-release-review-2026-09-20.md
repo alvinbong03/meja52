@@ -107,7 +107,7 @@ Worker deployment dry-run         PASS
 Production dependency audit       PASS (0)
 Full dependency audit             RISK (4 high; development/test only)
 Impeccable detector               PASS (0 findings)
-Live Cloudflare deployment        NOT RUN (Wrangler is not authenticated)
+Live Cloudflare deployment        PASS (single Worker on workers.dev)
 ```
 
 ## Recommended implementation order

@@ -62,7 +62,7 @@ Fork and rebrand [Piss Poker](https://github.com/KarthikSubramanian07/Piss-Poker
 ### Reuse
 
 - React, TypeScript and Vite web application structure.
-- Cloudflare Pages, Workers and SQLite-backed Durable Objects architecture.
+- Cloudflare Workers static assets and SQLite-backed Durable Objects architecture.
 - Four-letter rooms, QR/link joining and account-free device identity.
 - Server-authoritative WebSocket room state and versioned actions.
 - No-limit Hold'em betting engine, blinds, turn order and wager validation.
@@ -699,12 +699,11 @@ Every action carries a room version and unique action identifier. Duplicate/stal
 Initial production stack:
 
 - Public GitHub repository for source, issues and free standard-runner CI.
-- Cloudflare Pages for static React assets.
-- Cloudflare Worker for the API.
+- One Cloudflare Worker for static React assets, SPA routes, the API and WebSockets.
 - One SQLite-backed Durable Object per room for strongly consistent state and hibernating WebSockets.
-- Free `pages.dev` subdomain initially; a custom domain is optional and is the only expected routine cash expense.
+- Free `workers.dev` subdomain initially; a custom domain is optional and is the only expected routine cash expense.
 
-As of 19 September 2026, the Cloudflare Workers Free plan documents 100,000 metered Durable Object requests/day, 13,000 GB-s/day, five million SQLite row reads/day, 100,000 row writes/day and 5 GB stored data. Incoming WebSocket messages use a 20:1 billing ratio; outgoing WebSocket messages and protocol pings are not charged, and hibernation avoids idle duration. Cloudflare Pages documents free static delivery and up to 500 builds/month.
+As of 19 September 2026, the Cloudflare Workers Free plan documents 100,000 requests/day, five million SQLite row reads/day, 100,000 row writes/day and 5 GB stored data. Hibernation avoids idle Durable Object duration. Current limits must be rechecked before relying on them operationally.
 
 Zero-cost hosting is an initial operating target, not a guarantee. Cloudflare and GitHub can change limits, and maintenance requires human time. Before launch, run a four-hour, ten-device soak and record Worker requests/CPU, Durable Object requests/duration/reads/writes/storage per room. Publish an estimated daily room capacity with a 50% safety margin.
 
@@ -850,5 +849,5 @@ The later rules modules in section 6 and a future zero-trust digital dealing pro
 - [Apple context-menu guidance](https://developer.apple.com/design/human-interface-guidelines/context-menus)
 - [WCAG 2.2 — Use of Color](https://www.w3.org/WAI/WCAG22/Understanding/use-of-color)
 - [Cloudflare Durable Objects pricing](https://developers.cloudflare.com/durable-objects/platform/pricing/)
-- [Cloudflare Pages limits](https://developers.cloudflare.com/pages/platform/limits/)
+- [Cloudflare Workers limits](https://developers.cloudflare.com/workers/platform/limits/)
 - [GitHub Actions billing](https://docs.github.com/en/actions/concepts/billing-and-usage)

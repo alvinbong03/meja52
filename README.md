@@ -4,11 +4,11 @@
 
 [![CI](https://github.com/alvinbong03/meja52/actions/workflows/ci.yml/badge.svg)](https://github.com/alvinbong03/meja52/actions/workflows/ci.yml)
 ![License: MIT](https://img.shields.io/badge/license-MIT-f5db2b)
-![Cloudflare Pages](https://img.shields.io/badge/Cloudflare-Pages%20%2B%20Durable%20Objects-f38020?logo=cloudflare&logoColor=white)
+![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers%20%2B%20Durable%20Objects-f38020?logo=cloudflare&logoColor=white)
 ![React 19](https://img.shields.io/badge/React-19-61dafb?logo=react&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6?logo=typescript&logoColor=white)
 
-`poker` `home-game` `chip-tracker` `texas-holdem` `realtime` `websockets` `durable-objects` `cloudflare-pages` `react` `pwa`
+`poker` `home-game` `chip-tracker` `texas-holdem` `realtime` `websockets` `durable-objects` `cloudflare-workers` `react` `pwa`
 
 Release 1 is under active development. The approved product specification, implementation plan and interface comps are included in this repository.
 
@@ -36,7 +36,7 @@ Before writing a line, we read the code of 22 open source chip trackers and put 
 - **Deal prompts for the dealer.** "Deal the flop", "Run out the board", "Who won?". The app tells the table what the cards should be doing.
 - **Built for real tables.** Anyone can undo, seats can be added for players without a phone, and anyone can act for someone who is away. A phone can hand its seat to a new device (with the table's approval), and dropped connections reconnect by themselves.
 - **Settle up.** Buy-ins, rebuys and net results, plus the fewest payments needed to square up in chips or cash.
-- **Table display mode.** Prop an iPad or laptop in the middle for a big-type view of the pot, whose turn it is and every stack, with a QR code to join.
+- **Table display mode.** Prop an iPad or laptop in the middle for a big-type view of the pot, whose turn it is and every current bet, with a QR code to join. Private balances stay on each player's device.
 - **Phone first, fine everywhere.** Thumb-zone controls on phones, a two-column layout with keyboard shortcuts (`F` fold, `C` check or call, `R` raise, arrows to size, `Enter` to confirm, `N` next hand) on iPad and desktop. Light and dark follow the device setting.
 
 ## Architecture
@@ -44,15 +44,11 @@ Before writing a line, we read the code of 22 open source chip trackers and put 
 ```
  phones, iPads, laptops                    Cloudflare
 ┌──────────────────────┐   HTTPS   ┌─────────────────────────────────────────────┐
-│ React 19 SPA (Vite)  │──────────▶│ Pages: static app + /api/* Pages Function    │
-│  shared/engine.ts    │           │                 │ service binding            │
-│  (legal moves, UI)   │   WSS     │                 ▼                            │
-│                      │◀─────────▶│ Worker "piss-poker-api"                      │
-└──────────────────────┘           │  POST /api/rooms         create a table      │
-                                   │  GET  /api/rooms/:code   peek at a table     │
-                                   │  GET  /api/rooms/:code/ws  WebSocket upgrade │
-                                   │                 │ idFromName(code)           │
-                                   │                 ▼                            │
+│ React 19 SPA (Vite)  │──────────▶│ Worker "meja52"                             │
+│  shared/engine.ts    │           │  static assets + SPA routes                  │
+│  (legal moves, UI)   │   WSS     │  /api/* + WebSocket upgrades                 │
+│                      │◀─────────▶│                 │ idFromName(code)           │
+└──────────────────────┘           │                 ▼                            │
                                    │ Durable Object "Room" (one per table)        │
                                    │  shared/engine.ts  (authoritative rules)     │
                                    │  hibernating WebSockets, SQLite storage      │
@@ -80,7 +76,6 @@ Before writing a line, we read the code of 22 open source chip trackers and put 
 | `shared/names.ts` | Name cleanup: Unicode normalization, invisible and bidi characters stripped, grapheme limits. |
 | `worker/src/room.ts` | The `Room` Durable Object: sockets, permissions, undo, presence, rate limits, expiry. |
 | `worker/src/index.ts` | API router, origin allowlist, room creation with per-address rate limiting. |
-| `functions/api/[[path]].ts` | Pages Function forwarding `/api/*` to the worker. |
 | `src/` | The React app: screens, the action dock, sheets, table display. |
 | `test/` | Engine scenarios, a seeded fuzzer, protocol and settlement tests. |
 | `worker/test/` | Durable Object integration tests running inside workerd. |
@@ -133,11 +128,19 @@ Other scripts: `npm run typecheck`, `npm run build`, `npm run shots` (screenshot
 
 ## Deployment
 
-The inherited Cloudflare configuration remains available for local verification, but MEJA52 production deployment is intentionally not connected yet. A new Cloudflare project, origin policy and deployment secrets will be configured only after the single-Worker migration and release gates in the product specification are satisfied.
+MEJA52 deploys as one Cloudflare Worker containing the static Vite build, `/api/*`, WebSockets and the SQLite-backed `Room` Durable Object:
+
+```bash
+npm run deploy:dry-run  # build and validate without publishing
+npm run deploy          # build and publish to workers.dev
+npm run smoke:live      # verify live API, two WebSockets and private balances
+```
+
+Wrangler must be authenticated first. GitHub deployment from `main` requires `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` repository secrets.
 
 ## Tech
 
-React 19, Vite 8, TypeScript 5.9, Cloudflare Pages, Workers, Durable Objects (SQLite-backed, WebSocket hibernation), Vitest 4 with `@cloudflare/vitest-pool-workers`, Playwright, Geist and Instrument Serif, `uqr` for QR codes.
+React 19, Vite 8, TypeScript 5.9, Cloudflare Workers static assets, Durable Objects (SQLite-backed, WebSocket hibernation), Vitest 4 with `@cloudflare/vitest-pool-workers`, Playwright, Geist and Instrument Serif, `uqr` for QR codes.
 
 ## Project records
 
